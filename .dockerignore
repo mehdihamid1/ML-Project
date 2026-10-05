@@ -1,0 +1,14 @@
+.venv/
+.git/
+.agents/
+.codex/
+.aws/
+.env
+.env.*
+!.env.example
+__pycache__/
+.pytest_cache/
+.ipynb_checkpoints/
+data/
+artifacts/
+*.pdf

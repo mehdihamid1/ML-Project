@@ -1,0 +1,15 @@
+services:
+  ml:
+    build: .
+    ports:
+      - "127.0.0.1:8888:8888"
+    volumes:
+      - .:/workspace
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    environment:
+      HOME: /tmp
+      JUPYTER_CONFIG_DIR: /tmp/jupyter/config
+      JUPYTER_DATA_DIR: /tmp/jupyter/data
+      JUPYTER_RUNTIME_DIR: /tmp/jupyter/runtime
+    init: true
+    shm_size: "1gb"
