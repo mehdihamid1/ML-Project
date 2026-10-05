@@ -1,0 +1,167 @@
+{
+  "smoke": false,
+  "folds": 10,
+  "random_state": 42,
+  "threshold": 0.5,
+  "data": {
+    "raw_rows": 50181,
+    "conflicting_hashes_removed": 18,
+    "clean_rows": 43393,
+    "removed_rows": 6788
+  },
+  "training_rows": 34714,
+  "holdout_rows": 8679,
+  "dataset_sha256": "d13e54cf1970ffedbf1043196c135da3187c90a82e397f681d843ed320249242",
+  "selection_rule": "CV AUC descending, then accuracy descending, then fit time ascending",
+  "search_scope": "Two fixed configurations per model on identical training-only CV folds; one reduced configuration in smoke mode",
+  "dependencies": {
+    "numpy": "1.26.4",
+    "pandas": "2.2.3",
+    "scikit-learn": "1.5.2",
+    "torch": "2.5.1+cpu",
+    "xgboost": "2.1.4",
+    "lightgbm": "4.6.0",
+    "catboost": "1.2.8"
+  },
+  "selected_model": "LightGBM",
+  "model_version": "d13e54cf1970-1791236375742615262",
+  "features": [
+    {
+      "name": "BaseOfCode",
+      "dtype": "int64",
+      "allow_missing": false
+    },
+    {
+      "name": "BaseOfData",
+      "dtype": "int64",
+      "allow_missing": false
+    },
+    {
+      "name": "Characteristics",
+      "dtype": "int64",
+      "allow_missing": false
+    },
+    {
+      "name": "DllCharacteristics",
+      "dtype": "int64",
+      "allow_missing": false
+    },
+    {
+      "name": "Entropy",
+      "dtype": "float64",
+      "allow_missing": false
+    },
+    {
+      "name": "FileAlignment",
+      "dtype": "int64",
+      "allow_missing": false
+    },
+    {
+      "name": "Identify",
+      "dtype": "object",
+      "allow_missing": true
+    },
+    {
+      "name": "ImageBase",
+      "dtype": "int64",
+      "allow_missing": false
+    },
+    {
+      "name": "ImportedDlls",
+      "dtype": "object",
+      "allow_missing": false
+    },
+    {
+      "name": "ImportedSymbols",
+      "dtype": "object",
+      "allow_missing": false
+    },
+    {
+      "name": "Machine",
+      "dtype": "int64",
+      "allow_missing": false
+    },
+    {
+      "name": "NumberOfRvaAndSizes",
+      "dtype": "int64",
+      "allow_missing": false
+    },
+    {
+      "name": "NumberOfSections",
+      "dtype": "int64",
+      "allow_missing": false
+    },
+    {
+      "name": "NumberOfSymbols",
+      "dtype": "int64",
+      "allow_missing": false
+    },
+    {
+      "name": "PointerToSymbolTable",
+      "dtype": "int64",
+      "allow_missing": false
+    },
+    {
+      "name": "Size",
+      "dtype": "int64",
+      "allow_missing": false
+    },
+    {
+      "name": "SizeOfCode",
+      "dtype": "int64",
+      "allow_missing": false
+    },
+    {
+      "name": "SizeOfHeaders",
+      "dtype": "int64",
+      "allow_missing": false
+    },
+    {
+      "name": "SizeOfImage",
+      "dtype": "int64",
+      "allow_missing": false
+    },
+    {
+      "name": "SizeOfInitializedData",
+      "dtype": "int64",
+      "allow_missing": false
+    },
+    {
+      "name": "SizeOfUninitializedData",
+      "dtype": "int64",
+      "allow_missing": false
+    },
+    {
+      "name": "TimeDateStamp",
+      "dtype": "int64",
+      "allow_missing": false
+    }
+  ],
+  "class_mapping": {
+    "0": "goodware",
+    "1": "malware"
+  },
+  "holdout_metrics": {
+    "sample_count": 8679,
+    "auc": 0.9978923823057685,
+    "accuracy": 0.9843299919345547,
+    "confusion_matrix": [
+      [
+        4159,
+        61
+      ],
+      [
+        75,
+        4384
+      ]
+    ],
+    "class_mapping": {
+      "0": "goodware",
+      "1": "malware"
+    },
+    "confusion_matrix_order": [
+      0,
+      1
+    ]
+  }
+}

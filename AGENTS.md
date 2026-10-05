@@ -68,7 +68,7 @@ done, compare it with the matching requirement here.
 
 - Models, each with 10-fold stratified CV AUC/accuracy as mean ± std:
   Logistic Regression, Decision Tree, Random Forest, PyTorch MLP, XGBoost,
-  LightGBM, and one more (e.g. CatBoost or HistGradientBoosting).
+  LightGBM, and CatBoost (the user's chosen seventh model).
 - `train.py` and `eval.py` that reproduce everything. Save the production
   artifact: pipeline, feature schema, label mapping, model version, threshold.
 - Agent tools: single-record prediction, batch prediction (row ids, counts,
