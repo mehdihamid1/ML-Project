@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: quantic-malware-agent
+    runtime: python
+    plan: free
+    repo: https://github.com/mehdihamid1/ML-Project
+    branch: main
+    autoDeployTrigger: 'off'
+    buildCommand: pip install --no-cache-dir -r requirements-runtime.txt && python scripts/verify_model.py
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 2 --timeout 180
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.16
+      - key: PYTHONUNBUFFERED
+        value: '1'
+      - key: OMP_NUM_THREADS
+        value: '1'
+      - key: OPENBLAS_NUM_THREADS
+        value: '1'
+      - key: MODEL_PATH
+        value: models/production.joblib
+      - key: OPENAI_MODEL
+        value: gpt-4.1-mini
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: FLASK_SECRET_KEY
+        generateValue: true
+      - key: SESSION_COOKIE_SECURE
+        value: 'true'
+      - key: TRUST_PROXY
+        value: 'true'

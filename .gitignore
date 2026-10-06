@@ -1,4 +1,6 @@
 .venv/
+.runtime-venv/
+instance/
 __pycache__/
 *.py[cod]
 .env

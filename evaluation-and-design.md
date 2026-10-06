@@ -62,5 +62,37 @@ Its scores are verification evidence, not reportable model performance.
 The complete run selected LightGBM. The generated [model report](docs/model-results.md)
 and [training metadata](docs/training-metadata.json) preserve the comparison,
 held-out metrics, feature schema, and provenance without committing the dataset
-or model binary. The chat agent, web deployment, and agent evaluation are
-separate follow-up work.
+in those reports. A byte-for-byte copy of the small trusted production model is
+bundled under `models/` for the app. The tools, OpenAI agent and Flask application
+are implemented. Live deployment and real-provider evaluation remain pending
+environment configuration.
+
+## Agent and runtime design
+
+The production artifact at `models/production.joblib` is verified against
+`models/manifest.json`; deployment does not retrain it. Heavy model-library
+imports are deferred until training or PyTorch inference, so loading the frozen
+LightGBM pipeline does not import PyTorch.
+
+The OpenAI Responses integration follows its
+[official function-calling guide](https://developers.openai.com/api/docs/guides/function-calling).
+The LLM receives only opaque file references, bounded tool summaries and stored
+session results. Structured final responses select result references and a
+display focus; Python renders model classifications and computed metrics. The
+LLM cannot supply unrestricted classification text or feature-level causes.
+
+CSV tools validate schema and individual rows. Batch downloads preserve invalid
+rows with error status; user-provided IDs are neutralized for spreadsheet formula
+interpretation. Evaluation reports missing/invalid labels and coverage, and
+returns unavailable AUC for a single-class file. The conditional orchestration
+calls evaluation first, validates a finite user threshold, and predicts only
+when returned accuracy meets it and all rows have valid labels and features.
+Incomplete coverage and tool failures fail closed. The activity record shows
+the underlying calls and skipped predictions.
+
+The app uses private server-side session records, opaque upload IDs, CSRF tokens,
+secure cookies on Render, request limits and bounded uploads/results. Its
+in-process state requires one Gunicorn worker and is ephemeral across restarts.
+Runtime dependencies are separate from the training environment. See
+[deployed.md](deployed.md) for operational setup and
+[agent-evaluation.md](agent-evaluation.md) for the pending real-LLM evidence.

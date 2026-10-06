@@ -1,4 +1,6 @@
 .venv/
+.runtime-venv/
+instance/
 .git/
 .agents/
 .codex/

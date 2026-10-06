@@ -1,92 +1,125 @@
-# AI/ML development environment
+# PE malware classification and chat agent
 
-CPU-based Python 3.10 environment for the supplied ML/AI agent project.
-Includes pandas, NumPy, scikit-learn, PyTorch, XGBoost, LightGBM, CatBoost,
-plotting libraries, JupyterLab, and pytest. Direct dependencies are pinned;
-transitive dependencies and the base image are not yet fully locked.
-The dataset is available locally at `data/raw/brazilian-malware.csv`.
-It contains 50,181 rows, 27 input columns, and `Label` (0 = goodware,
-1 = malware). Checksums and data-quality findings are recorded in
-[dataset-source.md](dataset-source.md). `train.py` and `eval.py` implement
-the seven-model comparison and frozen-pipeline evaluation. The application
-and agent have not yet been implemented.
+This project compares seven classifiers for Windows PE feature records and
+serves the frozen LightGBM pipeline through an OpenAI chat agent and Flask UI.
+The saved ML model produces every classification. The LLM selects tools and
+stored result references; Python validates arguments, computes metrics, and
+renders the actual output. Feature-level explanations are unavailable.
 
-## Project documentation
+The completed experiment and untouched hold-out results are recorded in the
+generated [model report](docs/model-results.md). The dataset and all training
+artifacts remain out of Git. The small trusted production pipeline is bundled
+under `models/` so a clean checkout can run the app without retraining.
 
-[AGENTS.md](AGENTS.md) is the shared source of project requirements and agent
-instructions; [CLAUDE.md](CLAUDE.md) imports it. Flask, Render deployment,
-GitHub Actions, and the agent-evaluation deliverables described there are planned
-work, not features of the current development container. Flask and an LLM
-provider SDK are not yet included in `requirements.txt`.
+## Run the application
 
-## Start with Docker
+Use Python 3.10. Install only the lean runtime dependencies:
 
-On Linux, match your user so notebooks and artifacts have the right owner:
+```bash
+python3 -m venv .runtime-venv
+source .runtime-venv/bin/activate
+pip install -r requirements-runtime.txt
+export FLASK_SECRET_KEY="$(python -c 'import secrets; print(secrets.token_hex(32))')"
+# Export OPENAI_API_KEY in this shell using your secret manager.
+python scripts/verify_model.py
+gunicorn app:app --bind 127.0.0.1:5000 --workers 1 --threads 2 --timeout 180
+```
+
+Open <http://127.0.0.1:5000>. Without `OPENAI_API_KEY`, health and upload
+validation work but chat reports that configuration is missing. The app reads
+secrets from environment variables, never from source code. `.env.example`
+lists setting names only; copying it does not configure working secrets.
+`OPENAI_MODEL` optionally selects the OpenAI model; the code defaults to
+`gpt-4.1-mini`. Raw CSV rows remain local and are not sent to OpenAI.
+
+Alternatively, with the same exported environment variables:
+
+```bash
+docker compose up --build web
+```
+
+Upload a CSV from [samples/](samples/README.md). The UI shows its opaque file
+ID; refer to that ID when asking to classify a row, classify every row, or
+evaluate labels. Batch results include source row IDs, probabilities, invalid
+row status and errors, and a download link. The conditional form lets you choose
+an evaluation file, a prediction file, a row and an accuracy threshold.
+Activity records show the actual evaluation, prediction, failure or skip.
+Follow-up questions use stored session results.
+
+## Tool and upload behavior
+
+- Single prediction validates the requested row and returns its model class,
+  malware probability, decision threshold and model version.
+- Batch prediction preserves every source row in its download. Invalid rows
+  receive an error status; they are counted and never silently discarded.
+- Evaluation computes probability AUC, accuracy, confusion matrix and label
+  counts over valid labeled rows, with explicit coverage and rejected-row counts.
+  Missing label columns or no valid labeled rows fail visibly. A single-class
+  file returns unavailable AUC with a reason.
+- Conditional prediction evaluates first and checks the user threshold in code.
+  It also requires complete valid labeled coverage; incomplete evaluation or a
+  failure skips prediction. Both underlying tool calls appear in the activity
+  record when performed.
+
+Only UTF-8 CSV data is accepted. Size, row, cell, schema, session, request and
+tool-call limits are enforced. Uploaded content is never executed. Files and
+downloads are accessible only in their originating session. Server-side
+sessions expire, and restarting the app clears their in-memory records. Use
+one Gunicorn worker: multiple workers require a shared session store first.
+Behind Render's proxy, the deployment enables secure cookies and trusted
+forwarded protocol/client-IP handling; keep `TRUST_PROXY` off locally.
+
+Routes are `/`, `/health`, `/api/session`, `/api/upload`, `/api/chat`,
+`/api/download/<id>` and `/api/reset`. Mutation requests require the CSRF token
+from `/api/session` in `X-CSRF-Token`. The UI handles that automatically.
+
+## Reproduce training and evaluation
+
+The CPU training environment includes PyTorch, XGBoost, LightGBM and CatBoost;
+the production runtime installs no PyTorch, XGBoost, CatBoost or Jupyter.
+Direct dependencies are pinned; transitive dependencies and base images are
+not fully locked. On Linux, match the container user to your file owner:
 
 ```bash
 export LOCAL_UID=$(id -u)
 export LOCAL_GID=$(id -g)
-docker compose up --build
-```
-
-Open the `http://127.0.0.1:8888/lab?token=...` URL printed in the logs.
-Jupyter's token authentication remains enabled. The port is bound to localhost.
-The project directory is mounted at `/workspace`, so files persist on the host.
-The first build downloads the Python/ML packages and may take several minutes.
-
-## Shell and verification
-
-```bash
-docker compose run --rm ml bash
-docker compose run --rm ml python -m pip check
-docker compose run --rm ml python -c "import pandas, sklearn, torch, xgboost, lightgbm; print('ML imports OK; PyTorch:', torch.__version__)"
-docker compose down
-```
-
-## Training and evaluation
-
-Fetch the pinned dataset (existing files are checksum-verified):
-
-```bash
 python3 scripts/fetch_dataset.py
+docker compose build ml
+docker compose run --rm ml pytest -q
+docker compose run --rm ml python train.py --smoke --output artifacts/new-smoke
+docker compose run --rm ml python train.py --output artifacts/reproduction
+docker compose run --rm ml python eval.py --model artifacts/reproduction/production.joblib --data artifacts/reproduction/holdout.csv
 ```
 
-Rebuild after dependency changes, then validate the workflow:
+Output directories must be empty. Smoke mode does not select a production model
+or evaluate the hold-out. Full training deduplicates SHA1, removes conflicting
+labels, reserves the stratified hold-out, fits preprocessing inside CV folds,
+and selects on CV AUC. The production model was frozen before final hold-out
+evaluation; do not retune or reselect using those results.
+
+`docker compose up ml` starts JupyterLab bound to localhost with token
+authentication. Copy its logged URL to your browser. `docker compose down`
+stops development services. The dataset is not included in the image.
+
+## Verification and deployment
+
+The test suite covers training, tool validation, the Flask routes and isolation,
+mocked OpenAI routing, conditional ordering and failures. Plain `pytest` works
+through the repository's `pytest.ini` setting. The runtime environment can run
+the tools/web/agent tests, while the full suite needs training dependencies:
 
 ```bash
-docker compose build
-docker compose run --rm ml python -m pytest -q
-docker compose run --rm ml python train.py --smoke --output artifacts/smoke
+pip install pytest==8.3.5
+pytest -q tests/test_tools.py tests/test_web.py tests/test_agent.py tests/test_deployment.py
 ```
 
-Run the complete seven-model, two-configuration, 10-fold comparison:
+GitHub Actions runs the full tests before its deploy job triggers a Render hook
+for the tested commit. Render auto-deploy is disabled. The job polls live
+`/health` and requires that exact commit to be healthy. See [deployed.md](deployed.md)
+for setup and the factual deployment status. Real OpenAI scenario execution is
+tracked separately in [agent-evaluation.md](agent-evaluation.md); mocked tests
+do not fulfill that requirement.
 
-```bash
-docker compose run --rm ml python train.py --output artifacts/training
-docker compose run --rm ml python eval.py --model artifacts/training/production.joblib --data artifacts/training/holdout.csv
-```
-
-Use a fresh output directory for every run. Full training is CPU intensive.
-The selected pipeline is saved as `production.joblib`; comparison scores go
-to `cv-results.csv`, and hold-out metrics and provenance to `metadata.json`.
-`report.md` presents the comparison and final confusion matrix.
-See [evaluation-and-design.md](evaluation-and-design.md) for the protocol.
-
-Place CSV datasets in `data/` and trained models in `artifacts/`; both are
-excluded from Git and image builds but available through the development mount.
-This setup uses CPU PyTorch; GPU support requires a separate CUDA setup.
-
-The existing host `.venv` is independent of Docker; no activation is required
-for Docker commands. Docker must be running and your user must have permission
-to access its daemon.
-
-PyTorch CPU installation follows the [official version instructions](https://docs.pytorch.org/get-started/previous-versions/).
-
-## Verification status
-
-The Docker image built successfully; `pip check`, ML-library imports, and
-Jupyter HTTP startup passed. Dataset checksums, dimensions, label counts,
-empty-cell counts, duplicate hashes, and constant columns were checked against
-the local files on 2026-10-05. Training tests now cover duplicate separation,
-unknown text/category handling, serialization of every model, probability AUC,
-and evaluation input errors. Smoke scores are not final model results.
+Other project records: [dataset source](dataset-source.md),
+[evaluation and design](evaluation-and-design.md), [AI tooling](ai-tooling.md),
+and shared [agent instructions](AGENTS.md).

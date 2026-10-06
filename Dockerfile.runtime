@@ -1,0 +1,18 @@
+FROM python:3.10-slim-bookworm
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
+RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --uid 1000 webuser
+WORKDIR /app
+COPY requirements-runtime.txt .
+RUN pip install -r requirements-runtime.txt && pip check
+COPY ml_project ./ml_project
+COPY models ./models
+COPY templates ./templates
+COPY static ./static
+COPY app.py .
+COPY scripts/verify_model.py ./scripts/verify_model.py
+RUN python scripts/verify_model.py
+USER webuser
+EXPOSE 5000
+CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "2", "--timeout", "180"]

@@ -1,13 +1,8 @@
-# Direct dependencies pinned; torch's CPU wheel is installed by Dockerfile.
-numpy==1.26.4
-scipy==1.14.1
-pandas==2.2.3
-scikit-learn==1.5.2
+# Training and development dependencies; production uses requirements-runtime.txt.
+-r requirements-runtime.txt
 torch==2.5.1
 xgboost==2.1.4
-lightgbm==4.6.0
 catboost==1.2.8
-joblib==1.4.2
 matplotlib==3.9.4
 seaborn==0.13.2
 jupyterlab==4.3.5

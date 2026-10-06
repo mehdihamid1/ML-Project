@@ -1,0 +1,7 @@
+{
+  "sha256": "e98b09552e0d77dd5abc070189e452e1084594a379e6849faba7b3385b94c677",
+  "model_version": "d13e54cf1970-1791236375742615262",
+  "selected_model": "LightGBM",
+  "dataset_sha256": "d13e54cf1970ffedbf1043196c135da3187c90a82e397f681d843ed320249242",
+  "threshold": 0.5
+}

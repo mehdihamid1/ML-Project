@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 \
     && python -m venv /opt/venv
 
 COPY requirements.txt /tmp/requirements.txt
+COPY requirements-runtime.txt /tmp/requirements-runtime.txt
 RUN pip install --upgrade pip==25.0.1 \
     && pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu \
     && pip install -r /tmp/requirements.txt \

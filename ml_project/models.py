@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-import torch
 from sklearn.base import BaseEstimator, ClassifierMixin, TransformerMixin
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.impute import SimpleImputer
@@ -9,9 +8,6 @@ from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
-from xgboost import XGBClassifier
-from lightgbm import LGBMClassifier
-from catboost import CatBoostClassifier
 
 RANDOM_STATE = 42
 TEXT = ['Identify', 'ImportedDlls', 'ImportedSymbols']
@@ -67,6 +63,7 @@ class TorchMLP(ClassifierMixin, BaseEstimator):
         self.random_state = random_state
 
     def fit(self, X, y):
+        import torch
         torch.manual_seed(self.random_state)
         torch.set_num_threads(2)
         torch.use_deterministic_algorithms(True)
@@ -88,6 +85,7 @@ class TorchMLP(ClassifierMixin, BaseEstimator):
         return self
 
     def predict_proba(self, X):
+        import torch
         self.network_.eval()
         with torch.no_grad():
             probabilities = torch.sigmoid(self.network_(torch.tensor(np.asarray(X), dtype=torch.float32))).numpy().ravel()
@@ -98,6 +96,9 @@ class TorchMLP(ClassifierMixin, BaseEstimator):
 
 
 def build_models(quick=False):
+    from xgboost import XGBClassifier
+    from lightgbm import LGBMClassifier
+    from catboost import CatBoostClassifier
     trees = 5 if quick else 100
     estimators = {
         'Logistic Regression': LogisticRegression(solver="liblinear", max_iter=2000, random_state=42),

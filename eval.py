@@ -24,7 +24,7 @@ def evaluate(artifact, csv_path):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model', default='artifacts/training/production.joblib')
-    parser.add_argument('--data', default='artifacts/training/holdout.csv')
+    parser.add_argument('--model', default='models/production.joblib')
+    parser.add_argument('--data', default='artifacts/training-final/holdout.csv')
     args = parser.parse_args()
     print(json.dumps(evaluate(args.model, args.data), indent=2))

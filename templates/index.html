@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quantic · PE file classifier</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</head>
+<body>
+  <div class="workspace">
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="Quantic classifier home"><span class="brand-mark">Q</span><span>Quantic<span class="brand-detail">Machine learning laboratory</span></span></a>
+      <div class="model-status" id="model-status"><span class="status-dot"></span>Checking model…</div>
+    </header>
+    <main>
+      <section class="intro">
+        <p class="eyebrow">WINDOWS PE · MALWARE CLASSIFICATION</p>
+        <h1>Ask about your files.<br><span>Let the model decide.</span></h1>
+        <p class="intro-copy">Upload a CSV of PE features, then ask for a prediction, a batch report, or an evaluation. Every classification and metric comes from the trained model.</p>
+      </section>
+      <div class="workbench">
+        <aside class="sidebar">
+          <section class="panel upload-panel">
+            <div class="section-heading"><h2>Your files</h2><span class="small-label" id="file-count">0 / 5</span></div>
+            <form id="upload-form">
+              <label class="upload-zone" for="file-input"><span class="upload-icon" aria-hidden="true">↑</span><strong>Add a feature CSV</strong><span>Up to 5 MiB · 10,000 rows</span></label>
+              <input type="file" id="file-input" accept=".csv,text/csv" required>
+              <div class="selected-file" id="selected-file"></div>
+              <button type="submit" class="secondary-button" id="upload-button">Upload CSV</button>
+            </form>
+            <p class="helper">Keep feature headers from the sample files. Include <code>Label</code> (0 or 1) to evaluate. Row numbers start at 0.</p>
+            <ul class="file-list" id="file-list"><li class="empty-state">Your uploaded files will appear here.</li></ul>
+          </section>
+          <section class="panel conditional-panel">
+            <div class="section-heading"><h2>Conditional prediction</h2></div>
+            <p class="helper">Evaluate first. Predict only when accuracy meets your minimum and every evaluation row is valid and labeled.</p>
+            <form id="conditional-form">
+              <label for="evaluation-file">Labeled evaluation file</label><select id="evaluation-file" required><option value="">Upload a CSV first</option></select>
+              <label for="prediction-file">Prediction file</label><select id="prediction-file" required><option value="">Upload a CSV first</option></select>
+              <div class="field-pair"><div><label for="threshold">Minimum accuracy</label><input type="number" id="threshold" min="0" max="1" step="0.01" value="0.95" required></div><div><label for="row-index">Row number</label><input type="number" id="row-index" min="0" step="1" value="0" required></div></div>
+              <button type="submit" class="secondary-button" id="conditional-button">Evaluate, then predict</button>
+            </form>
+          </section>
+          <button class="reset-button" id="reset-button">Reset session &amp; remove files</button>
+        </aside>
+        <section class="conversation panel" aria-labelledby="chat-heading">
+          <div class="chat-header"><div><h2 id="chat-heading">Analysis assistant</h2><p>OpenAI plans the tools · LightGBM classifies</p></div><span class="privacy-label">Private session</span></div>
+          <div class="messages" id="messages" role="log" aria-live="polite" aria-relevant="additions">
+            <div class="welcome-card"><span class="welcome-symbol">✳</span><h3>Start with a feature file</h3><p>Upload a CSV and choose what you want to know. You can also ask about earlier results in this session.</p><div class="example-prompts"><button type="button" data-prompt="Classify all rows in file {file_id}.">Classify a CSV</button><button type="button" data-prompt="Evaluate file {file_id} using its labels.">Evaluate accuracy</button><button type="button" data-prompt="Predict row 0 of file {file_id}.">Predict one row</button></div></div>
+          </div>
+          <div class="chat-footer">
+            <div class="notice" id="notice" role="status" aria-live="polite"></div>
+            <form id="chat-form"><label class="sr-only" for="message-input">Message</label><textarea id="message-input" placeholder="Ask to classify, evaluate, or explain a result…" maxlength="4000" rows="2" required></textarea><button type="submit" id="send-button" aria-label="Send message">Send <span aria-hidden="true">↗</span></button></form>
+            <p class="footer-note">This model analyzes CSV features. Uploads are never executed. Results do not explain which features caused a prediction.</p>
+          </div>
+        </section>
+      </div>
+      <section class="activity-section"><div class="section-heading"><h2>Tool activity</h2><span class="small-label">Visible, step by step</span></div><div id="activity-list" class="activity-list"><p class="empty-state">Tool calls will be recorded here.</p></div></section>
+    </main>
+    <footer class="site-footer">Quantic Machine Learning and AI Agent Project<span>Files and results expire after an hour of inactivity.</span></footer>
+  </div>
+</body>
+</html>
