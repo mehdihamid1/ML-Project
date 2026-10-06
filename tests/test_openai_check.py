@@ -41,6 +41,7 @@ def test_readiness_replays_encrypted_reasoning_and_checks_final_json():
         return httpx.Response(200, json=response_body(output))
     result = check(client_for(handler), model='configured-model')
     assert result['status'] == 'ok' and result['model'] == 'configured-model'
+    assert result['encrypted_reasoning'] is True
     assert len(requests) == 2
     assert all(r['store'] is False and r['include'] == ['reasoning.encrypted_content'] for r in requests)
     assert requests[0]['tool_choice']['name'] == 'readiness_probe'
@@ -81,3 +82,24 @@ def test_readiness_rejects_unexpected_final_result():
         return httpx.Response(200, json=response_body(output))
     with pytest.raises(ReadinessError, match='required structured readiness result'):
         check(client_for(handler))
+
+
+def test_readiness_falls_back_when_model_rejects_encrypted_reasoning():
+    requests = []
+    def handler(request):
+        body = json.loads(request.content)
+        requests.append(body)
+        if 'include' in body:
+            return httpx.Response(400, json={'error': {
+                'message': 'Encrypted content is not supported with this model.',
+                'type': 'invalid_request_error', 'param': 'include', 'code': None,
+            }})
+        output = ([{'id': 'call', 'type': 'function_call', 'name': 'readiness_probe',
+                    'call_id': 'call', 'arguments': '{}', 'status': 'completed'}]
+                  if body['input'][-1].get('type') != 'function_call_output' else
+                  [{'id': 'message', 'type': 'message', 'role': 'assistant', 'status': 'completed',
+                    'content': [{'type': 'output_text', 'text': '{"ready":true}', 'annotations': []}]}])
+        return httpx.Response(200, json=response_body(output))
+    result = check(client_for(handler), model='gpt-4.1-mini')
+    assert result['status'] == 'ok' and result['encrypted_reasoning'] is False
+    assert [('include' in request) for request in requests] == [True, False, False]

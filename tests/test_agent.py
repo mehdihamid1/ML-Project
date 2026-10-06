@@ -207,6 +207,11 @@ def test_classify_word_is_not_a_conditional_trigger(files):
     "Classify row 0 using the model's decision threshold",
     "Classify every row and include the minimum malware probability",
     "Classify row 0 and show the threshold and minimum row metadata",
+    "Classify row 0 of file-a and let me know if it's malware",
+    "Predict row 0; I want to know if it is malware",
+    "Classify row 0 and explain if the probability is high",
+    "Can you classify row 0? If so, show the probability",
+    "Classify row 0 if possible",
 ])
 def test_descriptive_conditions_and_decision_metadata_allow_classification(files, message):
     service = FakeService()
@@ -227,6 +232,21 @@ def test_independent_evaluation_and_batch_in_one_turn_are_allowed(files):
     assert [call[0] for call in service.calls] == ["evaluate", "predict_batch"]
     assert [entry["status"] for entry in output["activity"]] == ["success", "success"]
     assert "Accuracy: 0.900000" in output["reply"] and "Batch:" in output["reply"]
+
+
+@pytest.mark.parametrize("message", [
+    "If accuracy on file-a is greater than or equal to 0.95, predict row 0 of file-b",
+    "Predict row 0 of file-b provided the accuracy on file-a is no less than 0.95",
+    "Predict row 0 of file-b if the accuracy of file-a is over 95%",
+    "Only predict row 0 if the accuracy of file-a is 0.95 or higher",
+])
+def test_comparison_wordings_bind_the_stated_threshold(files, message):
+    service = FakeService(accuracy=0.9)
+    output = Agent(service, FakeClient(tool("evaluate_then_predict", evaluation_file_id="file-a",
+                   prediction_file_id="file-b", row_index=0, min_accuracy=0.95))).chat(message, {}, files)
+    assert "error" not in output
+    assert [call[0] for call in service.calls] == ["evaluate"]
+    assert "below the required 0.950000" in output["reply"]
 
 
 @pytest.mark.parametrize("message", [
@@ -267,6 +287,7 @@ def test_provider_cannot_lower_even_a_small_real_threshold_difference(files, thr
     "Evaluate file-a; if at least 95% are classified correctly, predict row 0 of file-b",
     "If evaluation >= 0.95 then predict row 0 of file-b",
     "Only when 95 percent correct predictions are obtained, classify row 0",
+    "Evaluate file-a, check if it reaches 95% accuracy, and if so predict row 0 of file-b",
 ])
 def test_conditional_paraphrases_cannot_bypass_evaluation(files, message):
     service = FakeService()

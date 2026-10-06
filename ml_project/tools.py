@@ -35,6 +35,31 @@ class _CsvData:
     rows: list[_CsvRow]
 
 
+@dataclass(frozen=True)
+class _FeatureRule:
+    name: str
+    allow_missing: bool
+    numeric: bool
+    integer: bool
+    boolean: bool
+    minimum: int | None
+    maximum: int | None
+
+    @classmethod
+    def from_schema(cls, feature: dict) -> _FeatureRule:
+        """Resolve the trusted, fixed schema once rather than for every row."""
+        dtype = feature.get("dtype", "object")
+        integer = is_integer_dtype(dtype)
+        minimum = maximum = None
+        if integer:
+            declared = pd.api.types.pandas_dtype(dtype)
+            bounds = np.iinfo(getattr(declared, "numpy_dtype", declared))
+            minimum, maximum = int(bounds.min), int(bounds.max)
+        boolean = is_bool_dtype(dtype)
+        return cls(feature["name"], feature.get("allow_missing", False),
+                   is_numeric_dtype(dtype) or boolean, integer, boolean, minimum, maximum)
+
+
 def _positive_limit(value: int, name: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value < 1:
         raise ValueError(f"{name} must be a positive integer")
@@ -61,6 +86,7 @@ class ToolService:
             raise ValueError("The production feature schema must contain unique feature names")
         if any(not isinstance(name, str) or not name for name in self.feature_names):
             raise ValueError("The production feature schema has an invalid name")
+        self._feature_rules = tuple(_FeatureRule.from_schema(feature) for feature in self.features)
         self.threshold = float(self.metadata["threshold"])
         if not math.isfinite(self.threshold) or not 0 <= self.threshold <= 1:
             raise ValueError("The production decision threshold must be between zero and one")
@@ -140,32 +166,29 @@ class ToolService:
             return {}, errors
         values = dict(zip(header, row.cells))
         features = {}
-        for feature in self.features:
-            name = feature["name"]
+        for rule in self._feature_rules:
+            name = rule.name
             value = values[name]
-            dtype = feature.get("dtype", "object")
             if not value.strip():
-                if feature.get("allow_missing", False):
+                if rule.allow_missing:
                     features[name] = np.nan
                 else:
                     errors.append(f"Missing required feature: {name}")
                 continue
-            if is_numeric_dtype(dtype) or is_bool_dtype(dtype):
+            if rule.numeric:
                 try:
                     exact = Decimal(value)
                     if not exact.is_finite():
                         raise ValueError
-                    if is_integer_dtype(dtype):
-                        declared = pd.api.types.pandas_dtype(dtype)
-                        bounds = np.iinfo(getattr(declared, "numpy_dtype", declared))
-                        if exact != exact.to_integral_value() or not bounds.min <= exact <= bounds.max:
+                    if rule.integer:
+                        if exact != exact.to_integral_value() or not rule.minimum <= exact <= rule.maximum:
                             raise ValueError
-                    if is_bool_dtype(dtype) and exact not in (0, 1):
+                    if rule.boolean and exact not in (0, 1):
                         raise ValueError
                     number = float(exact)
                     if not math.isfinite(number):
                         raise ValueError
-                    features[name] = int(exact) if is_integer_dtype(dtype) else number
+                    features[name] = int(exact) if rule.integer else number
                 except (InvalidOperation, ValueError, OverflowError):
                     errors.append(f"Invalid numeric feature: {name}")
             else:

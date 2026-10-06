@@ -1,0 +1,80 @@
+{
+  "container_port": 10000,
+  "container_user": "webuser",
+  "counts": {
+    "evaluated_rows": 4,
+    "invalid_batch": {
+      "invalid_count": 1,
+      "total_count": 4,
+      "valid_count": 3
+    },
+    "large_batch": {
+      "invalid_count": 0,
+      "total_count": 10000,
+      "valid_count": 10000
+    },
+    "missing_label_rows": 1
+  },
+  "cpu_limit": 0.1,
+  "health_commit": "container-compatibility-probe",
+  "http_statuses": {
+    "conditional_pass": 200,
+    "conditional_skip": 200,
+    "cross_session_download": 404,
+    "health": 200,
+    "health_after_large_batch": 200,
+    "invalid_batch_download": 200,
+    "invalid_batch_prediction": 200,
+    "labeled_evaluation": 200,
+    "large_batch_download": 200,
+    "large_batch_prediction": 200,
+    "missing_label_column": 200,
+    "missing_label_rows": 200,
+    "session_a": 200,
+    "session_b": 200,
+    "session_large": 200,
+    "single_class_evaluation": 200,
+    "single_prediction": 200,
+    "static_css": 200,
+    "static_js": 200,
+    "ui": 200,
+    "upload_conditional_fail": 201,
+    "upload_invalid-rows.csv": 201,
+    "upload_labeled.csv": 201,
+    "upload_large_batch": 201,
+    "upload_missing-labels.csv": 201,
+    "upload_session_b_single": 201,
+    "upload_single-class.csv": 201,
+    "upload_single.csv": 201
+  },
+  "image": "ml-project-web",
+  "image_id": "sha256:a995497e5daf9c78af58f75b84946cb78ebd09a9aba4a9b9878e8ffb341ff0d9",
+  "large_batch_upload_bytes": 2619213,
+  "memory_limit_bytes": 536870912,
+  "memory_observation": {
+    "MemPerc": "36.38%",
+    "MemUsage": "186.3MiB / 512MiB",
+    "PIDs": "6"
+  },
+  "memory_observation_note": "One post-request Docker sample; this is not a peak-memory measurement.",
+  "mock_provider": {
+    "provider": "mocked",
+    "request_count": 15,
+    "tool_calls": [
+      "predict_single",
+      "predict_batch",
+      "evaluate",
+      "evaluate",
+      "evaluate",
+      "evaluate",
+      "evaluate_then_predict",
+      "evaluate_then_predict",
+      "predict_batch"
+    ]
+  },
+  "model": "frozen production pipeline",
+  "model_version": "d13e54cf1970-1791236375742615262",
+  "provider": "mocked",
+  "status": "ok",
+  "swap_limit_bytes": 536870912
+}

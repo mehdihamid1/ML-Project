@@ -1,7 +1,10 @@
 import csv
 import json
+from pathlib import Path
 
+import joblib
 import numpy as np
+import pandas as pd
 import pytest
 
 from ml_project.tools import ToolService
@@ -149,6 +152,7 @@ def test_labels_are_exact_classes_without_float_rounding(service, tmp_path):
 
 def test_integer_schema_checks_exact_integrality_and_declared_range(service, tmp_path):
     service.features[0]["dtype"] = "int64"
+    service = ToolService(service.bundle)
     path = write_csv(tmp_path, [[0, "compiler", "h0", 0], [1, "compiler", "h1", 1],
                                ["1.00000000000000000001", "compiler", "h2", 0],
                                ["1e-999", "compiler", "h3", 0],
@@ -157,6 +161,53 @@ def test_integer_schema_checks_exact_integrality_and_declared_range(service, tmp
     assert result["valid_count"] == 2
     assert result["invalid_count"] == 3
     assert result["malware_count"] == result["goodware_count"] == 1
+
+
+@pytest.mark.parametrize('dtype,valid,invalid', [
+    ('int8', ['-128', '127', '1e1'], ['-129', '128', '0.00000000000000000001']),
+    ('uint8', ['0', '255', '1.0'], ['-1', '256', '1.00000000000000000001']),
+    ('Int64', ['-9223372036854775808', '9223372036854775807', '0'],
+     ['-9223372036854775809', '9223372036854775808', '1e-999']),
+    ('UInt64', ['0', '18446744073709551615', '1.0'],
+     ['-1', '18446744073709551616', '1.00000000000000000001']),
+    ('bool', ['0', '1', '1.0'], ['2', '-1', '0.99999999999999999999']),
+    ('boolean', ['0', '1', '0.0'], ['NaN', 'inf', '1e-999']),
+])
+def test_compiled_schema_preserves_exact_numeric_boundaries(tmp_path, dtype, valid, invalid):
+    service = ToolService({'pipeline': ProbabilityModel(), 'metadata': {
+        'features': [{'name': 'Size', 'dtype': dtype, 'allow_missing': False}],
+        'threshold': 0.5, 'model_version': 'numeric-boundaries',
+    }})
+    path = write_csv(tmp_path, [[value] for value in valid + invalid], header=('Size',))
+    data = service._read_csv(path)
+    for row, value in zip(data.rows[:len(valid)], valid):
+        features, errors = service._validate_features(row, data.header)
+        assert errors == []
+        assert 'Size' in features
+        if dtype not in {'bool', 'boolean'}:
+            assert isinstance(features['Size'], int)
+    for row in data.rows[len(valid):]:
+        features, errors = service._validate_features(row, data.header)
+        assert features == {}
+        assert errors == ['Invalid numeric feature: Size']
+
+
+def test_compiled_schema_matches_frozen_model_probabilities(tmp_path):
+    root = Path(__file__).resolve().parents[1]
+    bundle = joblib.load(root / 'models/production.joblib')
+    pipeline = bundle['pipeline']
+    before = pipeline.get_params(deep=True)
+    service = ToolService(bundle)
+    source = root / 'samples/labeled.csv'
+    expected = pipeline.predict_proba(pd.read_csv(source)[service.feature_names])[:, 1]
+
+    results = service.predict_batch(source, tmp_path / 'results.csv')
+    with (tmp_path / 'results.csv').open(newline='') as stream:
+        actual = np.array([float(row['malware_probability']) for row in csv.DictReader(stream)])
+
+    assert results['invalid_count'] == 0
+    np.testing.assert_array_equal(actual, expected)
+    assert pipeline.get_params(deep=True) == before
 
 
 @pytest.mark.parametrize("contents,message", [

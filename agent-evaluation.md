@@ -8,8 +8,19 @@ malformed tool arguments, unknown file IDs, provider failures, and tool failures
 Runner tests also use the pinned OpenAI SDK with mocked HTTP responses and the
 frozen production model. Flask integration tests cover upload, tool execution,
 conditional ordering, downloads and session isolation. These checks are included
-in the successful [CI test job](https://github.com/mehdihamid1/ML-Project/actions/runs/37392037715/job/112039137706).
+in the successful [full CI job](https://github.com/mehdihamid1/ML-Project/actions/runs/37396524639/job/112053720455)
+and [lean runtime job](https://github.com/mehdihamid1/ML-Project/actions/runs/37396524639/job/112053720662).
 They are not real-LLM evaluation evidence.
+
+Regression tests cover ordinary descriptive “if” requests, named confusion
+counts and rates in stored-result follow-ups, safe validation errors, independent
+evaluation plus classification, and decimal percentage thresholds. SDK
+transport tests replay encrypted reasoning and assistant phase through multiple
+tool calls with `store=False`. These remain mocked-provider evidence.
+They also verify the compatible retry when a model rejects the encrypted
+include option, while unrelated provider errors fail without retry.
+The production-container probe uses a local provider stub and real model tools;
+it also remains separate from the real-LLM scenario evidence.
 
 Real OpenAI scenarios have **not been run** because `OPENAI_API_KEY` is not
 configured in the development environment. This deliverable remains incomplete
@@ -25,8 +36,18 @@ observed real-LLM outcomes.
 With `OPENAI_API_KEY` exported in the environment:
 
 ```bash
+python scripts/check_openai.py
 python scripts/run_agent_evaluation.py --output artifacts/agent-evaluation
 ```
+
+Run the readiness probe first. It verifies that the configured model accepts
+function calling and structured Responses output, using a fixed harmless
+readiness message and no uploaded data. It is a compatibility check, not an
+agent evaluation. Without a key it exits before contacting OpenAI. Current
+official [model documentation](https://developers.openai.com/api/docs/models/gpt-4.1-mini)
+lists the default `gpt-4.1-mini` API model; account access and live availability
+still require this real call. Stateless replay follows the official
+[reasoning guide](https://developers.openai.com/api/docs/guides/reasoning).
 
 The runner uses the bundled frozen model and the sample CSVs. It calls the real
 OpenAI API, records the model ID and timestamp, saves prompts, replies, activity

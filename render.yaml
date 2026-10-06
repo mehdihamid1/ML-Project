@@ -6,7 +6,7 @@ services:
     repo: https://github.com/mehdihamid1/ML-Project
     branch: main
     autoDeployTrigger: 'off'
-    buildCommand: pip install --no-cache-dir -r requirements-runtime.txt && python scripts/verify_model.py
+    buildCommand: pip install --no-cache-dir -r requirements-runtime.txt && python -m pip check && python scripts/verify_model.py
     startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 2 --timeout 180
     healthCheckPath: /health
     envVars:
@@ -18,6 +18,8 @@ services:
         value: '1'
       - key: OPENBLAS_NUM_THREADS
         value: '1'
+      - key: GUNICORN_CMD_ARGS
+        value: '--access-logfile -'
       - key: MODEL_PATH
         value: models/production.joblib
       - key: OPENAI_MODEL

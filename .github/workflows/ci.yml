@@ -42,18 +42,51 @@ jobs:
           python-version: '3.10'
           cache: pip
           cache-dependency-path: requirements-runtime.txt
-      - name: Install Render runtime and test runner
+      - name: Run render.yaml's build command (installs runtime, verifies model)
         run: |
-          python -m pip install -r requirements-runtime.txt pytest==8.3.5
+          build="$(sed -n 's/^    buildCommand: //p' render.yaml)"
+          test -n "$build"
+          sh -c "$build"
+      - name: Install test runner
+        run: |
+          python -m pip install pytest==8.3.5
           python -m pip check
       - name: Confirm training dependencies are absent
         run: python -c "import importlib.util; assert all(importlib.util.find_spec(name) is None for name in ('torch', 'xgboost', 'catboost', 'jupyter'))"
-      - name: Load frozen model without training dependencies
-        run: python scripts/verify_model.py
       - name: Runtime unit, integration and mocked-agent tests
         run: pytest -q --ignore=tests/test_training.py
+      - name: Start with render.yaml's start command and check /health
+        env:
+          PORT: '10000'
+          FLASK_SECRET_KEY: ci-only-not-a-secret
+          GUNICORN_CMD_ARGS: '--access-logfile -'
+          RENDER_GIT_COMMIT: ${{ github.sha }}
+        run: |
+          start="$(sed -n 's/^    startCommand: //p' render.yaml)"
+          test -n "$start"
+          sh -c "$start" > gunicorn.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl -fs http://127.0.0.1:10000/health > health.json; then
+              python -c "import json, os; health = json.load(open('health.json')); assert health['status'] == 'ok' and health['commit'] == os.environ['RENDER_GIT_COMMIT'], health"
+              exit 0
+            fi
+            sleep 1
+          done
+          cat gunicorn.log
+          exit 1
+  container-test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.10'
+      - name: Build production Docker image
+        run: docker build --file Dockerfile.runtime --tag ml-project-runtime .
+      - name: Verify production HTTP and model tools under Free plan limits
+        run: python scripts/check_container.py --image ml-project-runtime --cpus 0.1 --output artifacts/container-check.json
   deploy:
-    needs: [test, runtime-test]
+    needs: [test, runtime-test, container-test]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     environment: production

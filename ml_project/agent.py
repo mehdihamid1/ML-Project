@@ -97,6 +97,19 @@ def _get(item, name, default=None):
     return item.get(name, default) if isinstance(item, dict) else getattr(item, name, default)
 
 
+def rejects_encrypted_reasoning(exc):
+    """True for a provider's 400 rejection of the encrypted-reasoning include.
+
+    Stateless reasoning models need that option between tool calls; models
+    without reasoning, such as GPT-4.1, can reject it.
+    """
+    if getattr(exc, "status_code", None) != 400:
+        return False
+    message = str(getattr(exc, "message", "") or "").lower()
+    return (getattr(exc, "param", None) == "include" or "encrypted content" in message
+            or "reasoning.encrypted_content" in message)
+
+
 def _conditional_requested(message):
     lower = message.lower()
     if not re.search(r"\b(?:predict\w*|classif\w*)\b", lower):
@@ -105,9 +118,14 @@ def _conditional_requested(message):
     # condition whether the model may run. A decision threshold or minimum row
     # count likewise differs from a required evaluation accuracy.
     execution = re.sub(
-        r"\b(?:tell(?:\s+me)?|show(?:\s+me)?|report|check|determine|see|say|find out)\s+if\b",
+        r"\b(?:tell(?:\s+me)?|show(?:\s+me)?|know|report|check|determine|see|say|find out|figure out"
+        r"|explain|confirm|verify|indicate|state|ask|wonder)\s+if\b",
         " whether", lower,
     )
+    # Courtesy idioms ("if so", "if possible") do not condition the model run,
+    # unless the request also concerns evaluation or accuracy.
+    if not re.search(r"\b(?:accura\w*|evaluat\w*|correct\w*)\b", execution):
+        execution = re.sub(r"\bif\s+(?:so|possible|you\s+can|any|available|needed|necessary)\b", " ", execution)
     explicit_condition = re.search(r"\b(?:if|only when|provided(?: that)?|unless)\b", execution)
     accuracy_gate = (
         re.search(r"\b(?:accuracy|correct\w*)\b|\bclassified correctly\b", execution)
@@ -126,14 +144,19 @@ def _requested_threshold(message):
         return None
     number = r"([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?)"
     unit = r"\s*(%|percent\b)?"
+    comparator = (r"(?:>=|≥|>|\bat least\b|\bat or above\b|\babove\b|\bover\b|\bexceeds?\b|\breaches\b"
+                  r"|\b(?:greater|higher|more) than(?: or equal to)?\b|\bequal to or (?:greater|higher|more) than\b"
+                  r"|\bno (?:less|lower) than\b|\bnot (?:less than|below)\b|\bminimum(?: of)?\b"
+                  r"|\bthreshold\b(?:\s+(?:is|of))?)")
     # Numeric values must touch accuracy or a comparator, rather than any
     # intervening upload identifier which happens to contain digits.
     patterns = (
         r"\baccuracy\s*(?:is\s+|of\s+)?" + number + unit,
-        r"\baccuracy\b.{0,500}?(?:>=|≥|>|\bat least\b|\babove\b|\bexceeds?\b|\breaches\b|\bthreshold\b(?:\s+(?:is|of))?)\s*" + number + unit,
+        r"\baccuracy\b.{0,500}?" + comparator + r"\s*" + number + unit,
         number + unit + r"\s+accuracy\b",
-        r"(?:>=|≥|>|\bat least\b|\babove\b|\bexceeds?\b|\breaches\b|\bthreshold\b(?:\s+(?:is|of))?)\s*" + number + unit,
+        comparator + r"\s*" + number + unit,
         number + unit + r"\s+(?:of\s+\w+\s+)?(?:are\s+)?(?:classified correctly|correct predictions|correctly classified)\b",
+        r"\baccuracy\b.{0,500}?" + number + unit + r"\s*or\s+(?:higher|more|above|better|greater)\b",
     )
     for pattern in patterns:
         match = re.search(pattern, message, re.I)
@@ -187,6 +210,8 @@ class Agent:
         self.client = client
         self.model = model or os.environ.get("OPENAI_MODEL") or "gpt-4.1-mini"
         self.max_tool_calls = max_tool_calls
+        # Unknown until the provider first accepts or rejects encrypted reasoning.
+        self.encrypted_reasoning = None
 
     def _client(self):
         if self.client is None:
@@ -199,6 +224,20 @@ class Agent:
             except Exception:
                 raise AgentError("The OpenAI client could not be initialized. Check the server configuration.") from None
         return self.client
+
+    def _create(self, client, **options):
+        """Request encrypted reasoning unless this model rejected it, retrying once without it."""
+        if self.encrypted_reasoning is not False:
+            try:
+                response = client.responses.create(**options, include=["reasoning.encrypted_content"])
+            except Exception as exc:
+                if not rejects_encrypted_reasoning(exc):
+                    raise
+                self.encrypted_reasoning = False
+            else:
+                self.encrypted_reasoning = True
+                return response
+        return client.responses.create(**options)
 
     @staticmethod
     def _path(file_id, files):
@@ -493,10 +532,9 @@ class Agent:
         inputs.append({"role": "user", "content": message})
         for _ in range(self.max_tool_calls + 2):
             try:
-                response = client.responses.create(
-                    model=self.model, instructions=SYSTEM_INSTRUCTIONS, input=inputs,
+                response = self._create(
+                    client, model=self.model, instructions=SYSTEM_INSTRUCTIONS, input=inputs,
                     tools=chosen_tools, parallel_tool_calls=False, store=False,
-                    include=["reasoning.encrypted_content"],
                     max_output_tokens=1200, text={"format": RESPONSE_FORMAT},
                     tool_choice={"type": "function", "name": "evaluate_then_predict"} if conditional and not results else "auto",
                 )

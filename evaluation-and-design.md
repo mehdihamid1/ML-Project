@@ -52,6 +52,96 @@ are frozen before computing hold-out AUC, accuracy, and the labeled confusion
 matrix. Do not use the hold-out results to retune or choose another model.
 Output directories must be empty to avoid accidentally overwriting prior runs.
 
+## Recorded results and model choice
+
+The generated [comparison table](docs/model-results.md) reports every model's
+CV AUC and accuracy as mean ± standard deviation. LightGBM had the highest
+mean CV AUC, 0.998219 ± 0.000558, followed by XGBoost at
+0.997909 ± 0.000608. Their mean AUC difference, 0.000310, is smaller than
+either model's fold standard deviation. This describes a small lead relative
+to fold variability; it does not establish statistical significance or prove
+equivalence. LightGBM was selected by the previously specified ranking rule,
+before the hold-out was evaluated.
+
+The selected LightGBM configuration also had the shortest recorded mean fit
+time among the selected candidates, 7.681 seconds per fold. Its frozen bundle
+is 399,377 bytes, approximately 400 kB. The small artifact and lean runtime
+support deployment within the project's Render memory budget; file size alone
+does not measure process memory. Timings describe this machine and these
+configurations, rather than a general speed ranking of the algorithms.
+These comparisons and the artifact size are recorded in the
+[experiment audit](docs/experiment-audit.json).
+
+## Hold-out errors
+
+The frozen model achieved AUC 0.997892 and accuracy 0.984330 on the
+8,679 held-out records. Its recorded confusion matrix is:
+
+| Actual class | Predicted goodware | Predicted malware |
+| --- | ---: | ---: |
+| Goodware | 4,159 true negatives | 61 false positives |
+| Malware | 75 false negatives | 4,384 true positives |
+
+Of 4,459 malware records, 75 were missed: a false-negative rate of 1.6820%.
+Of 4,220 goodware records, 61 were flagged: a false-positive rate of 1.4455%.
+Missed malware and false alarms have different practical costs; accuracy alone
+does not describe them. AUC measures ranking from malware probabilities and
+does not guarantee safe decisions at a particular threshold.
+
+The decision threshold is the fixed default of 0.5, not a value tuned on the
+hold-out. No feature-level causes are inferred from these errors. Counts,
+rates and matrix order are checked against the original saved metadata by the
+[read-only audit](scripts/audit_experiment.py).
+
+## Limitations
+
+- The stratified random hold-out tests performance within this collection.
+  It does not test future collection periods, emerging malware or deployment
+  drift. SHA1 deduplication prevents the same file crossing partitions, but
+  does not guarantee separation of related malware families.
+- Imported DLL and symbol vocabularies are each capped at 64 terms; the
+  nonnative Identify encoder is capped at 32 categories. These memory bounds
+  can discard useful distinctions. Missingness and collection-specific text
+  patterns may also limit transfer to another source.
+- Only two fixed settings per model were compared, for 14 configurations in
+  total. The comparison supports the selected configurations, rather than
+  claiming each algorithm was fully optimized. CatBoost used 100 iterations,
+  below its [documented default iteration budget](https://catboost.ai/docs/en/references/training-parameters/common#iterations).
+  Its result may therefore reflect the chosen training budget.
+- The same training-only CV results guide selection and report the winning
+  configuration, so they can be optimistic. The held-out result is a separate
+  final check. Fold standard deviations are not confidence intervals.
+- The app classifies validated PE feature records. It does not extract features
+  from executable uploads or replace a complete malware analysis workflow.
+
+The hold-out has already been inspected. These limitations are documented
+without changing the frozen settings or model. Any subsequent tuning needs a
+new untouched final test set.
+
+## Reproduce the partition audit
+
+Run this against the original dataset and saved experiment outputs:
+
+```bash
+python scripts/audit_experiment.py --data data/raw/brazilian-malware.csv --artifacts artifacts/training-final --output docs/experiment-audit.json
+```
+
+The audit reconstructs training membership from saved IDs, rather than making a
+new split. The saved partitions contain no overlapping SHA1 values. None of
+the 8,679 hold-out rows shares an exact raw model-input vector with training;
+the comparison excludes labels, IDs, collection dates and excluded constants,
+and applies the original CSV's dtypes with exact numeric comparisons. The
+separate comparison of nonleak records including labels also finds no overlap.
+All saved hold-out source cells match the cleaned original records. These
+checks concern exact raw records; they do not establish independence after
+lossy encoding or between related files.
+
+The audit reads the recorded CV scores, checks their summaries and verifies the
+bundled artifact against its manifest and original frozen copy. It never fits
+a model, makes predictions, reselects a winner or reevaluates the hold-out.
+Its aggregate report is committed under `docs/`; the dataset and original
+experiment files remain ignored.
+
 ## Outputs and current limits
 
 `cv-results.csv` contains the comparison table; `metadata.json` contains final
@@ -71,7 +161,8 @@ trusted production model is
 bundled under `models/` for the app. The tools, OpenAI agent and Flask application
 are implemented. Live deployment and real-provider evaluation remain pending
 environment configuration. The
-[CI test job](https://github.com/mehdihamid1/ML-Project/actions/runs/37392037715/job/112039137706)
+[full CI job](https://github.com/mehdihamid1/ML-Project/actions/runs/37396524639/job/112053720455)
+and [lean runtime job](https://github.com/mehdihamid1/ML-Project/actions/runs/37396524639/job/112053720662)
 passed tests and model verification; the subsequent deploy job failed on missing
 Render settings. This is not a completed deployment.
 
@@ -104,10 +195,32 @@ by calling the evaluation and single-prediction tools in order. Thresholds are
 bound to explicit user input; an ambiguous condition requests clarification
 instead of guessing. Follow-ups select stored result references. Pasted CSVs
 are directed to the upload route before a provider call.
+Descriptive requests such as “tell me if it is malware” are ordinary prediction
+requests. Independent evaluation and classification can run in the same turn.
+Confusion-matrix follow-ups name true/false positives and negatives, with
+rates computed from stored counts. Known tool validation errors explain the
+problem; unexpected exceptions remain sanitized.
+
+Stateless Responses calls request encrypted reasoning for compatibility with
+the pinned SDK. If the provider explicitly rejects that include option, the
+agent retries once without it and caches that compatibility choice, keeping
+the same strict tools, output schema and `store=False` controls. Other provider
+errors are not retried by this fallback. It replays complete output items between tool calls, including
+assistant phase. This follows the official
+[reasoning guidance](https://developers.openai.com/api/docs/guides/reasoning).
+Replayed provider text does not supply classifications or metrics to the UI.
 
 The app uses private server-side session records, opaque upload IDs, CSRF tokens,
 secure cookies on Render, request limits and bounded uploads/results. Its
-in-process state requires one Gunicorn worker and is ephemeral across restarts.
+shared CSV inspector applies the same schema and file limits to uploads and
+tool execution. Oversized individual cells remain invalid rows so their errors
+can be reported. The fixed feature schema's type flags and integer ranges are
+resolved once per service, preserving exact Decimal validation while avoiding
+repeated schema parsing for every row on a constrained CPU.
+Sessions are created through `/api/session`; at capacity the
+oldest empty inactive record can be reclaimed, while active requests and
+records containing user data remain protected until expiration. Its in-process
+state requires one Gunicorn worker and is ephemeral across restarts.
 Runtime dependencies are separate from the training environment. See
 [deployed.md](deployed.md) for operational setup and
 [agent-evaluation.md](agent-evaluation.md) for the pending real-LLM evidence.

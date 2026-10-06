@@ -15,4 +15,4 @@ COPY scripts/verify_model.py ./scripts/verify_model.py
 RUN python scripts/verify_model.py
 USER webuser
 EXPOSE 5000
-CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "2", "--timeout", "180"]
+CMD ["sh", "-c", "exec gunicorn app:app --bind \"0.0.0.0:${PORT:-5000}\" --workers 1 --threads 2 --timeout 180"]
