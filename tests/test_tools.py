@@ -164,6 +164,7 @@ def test_integer_schema_checks_exact_integrality_and_declared_range(service, tmp
     ("Size,Identify,unknown\n0.1,x,value\n", "unexpected"),
     ("Identify\nx\n", "Missing features"),
     ("Size,\n0.1,x\n", "header"),
+    ("Size,Identify \n0.1,x\n", "exact column names"),
     ("Size,Identify\n", "no data"),
     ('Size,Identify\n0.1,"unterminated\n', "malformed"),
     ("", "header"),
@@ -206,6 +207,7 @@ def test_invalid_numeric_features_are_reported_without_values(service, tmp_path,
 def test_cell_limit_and_blank_line_are_invalid_rows(service, tmp_path):
     service.max_cell_length = 8
     path = write_csv(tmp_path, [[0.1, "long-text-value", "h1", 0], []])
+    assert service.inspect_csv(path)["total_count"] == 2
     result = service.predict_batch(path, tmp_path / "results.csv")
     assert result["invalid_count"] == result["total_count"] == 2
     text = json.dumps(result)

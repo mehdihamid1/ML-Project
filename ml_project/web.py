@@ -9,8 +9,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from threading import Lock, RLock
 from urllib.parse import urlsplit
-import csv
-import io
 import os
 import secrets
 import shutil
@@ -18,7 +16,7 @@ import tempfile
 import time
 import uuid
 
-from flask import Flask, jsonify, render_template, request, send_file, session
+from flask import Flask, g, jsonify, render_template, request, send_file, session
 from werkzeug.exceptions import HTTPException
 from werkzeug.utils import secure_filename
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -40,6 +38,7 @@ class UserSession:
     })
     touched: float = field(default_factory=time.monotonic)
     lock: RLock = field(default_factory=RLock)
+    active_requests: int = 0
 
 
 class SessionStore:
@@ -51,26 +50,51 @@ class SessionStore:
         self.records = {}
         self.lock = Lock()
 
-    def get(self, identifier):
+    def _remove(self, identifier, record, *, empty_only=False):
+        """The registry lock is held; never remove a leased or locked session."""
+        if record.active_requests or not record.lock.acquire(blocking=False):
+            return False
+        try:
+            if empty_only and (record.files or any(record.state.values()) or any(record.directory.iterdir())):
+                return False
+            shutil.rmtree(record.directory, ignore_errors=True)
+            del self.records[identifier]
+            return True
+        finally:
+            record.lock.release()
+
+    def get(self, identifier, *, create=False, csrf_token=None):
+        """Lease an existing session, or explicitly create one for the session endpoint."""
         now = time.monotonic()
         with self.lock:
             for key, record in list(self.records.items()):
-                if now - record.touched > self.ttl and record.lock.acquire(blocking=False):
-                    try:
-                        shutil.rmtree(record.directory, ignore_errors=True)
-                        del self.records[key]
-                    finally:
-                        record.lock.release()
+                if now - record.touched > self.ttl:
+                    self._remove(key, record)
             if identifier not in self.records:
+                if not create:
+                    return None, None
                 if len(self.records) >= self.maximum:
-                    raise RequestError("All session slots are busy. Try again later.", 503)
+                    for key, record in sorted(self.records.items(), key=lambda item: item[1].touched):
+                        if self._remove(key, record, empty_only=True):
+                            break
+                    else:
+                        raise RequestError("All session slots are busy. Try again later.", 503)
                 identifier = uuid.uuid4().hex
                 directory = self.root / identifier
                 directory.mkdir(mode=0o700)
                 self.records[identifier] = UserSession(directory)
             record = self.records[identifier]
+            if csrf_token is not None and not secrets.compare_digest(
+                    csrf_token.encode("utf-8"), record.csrf.encode("utf-8")):
+                raise RequestError("Session token is missing or expired. Refresh the page.", 403)
             record.touched = now
+            record.active_requests += 1
             return identifier, record
+
+    def release(self, record):
+        with self.lock:
+            record.active_requests -= 1
+            record.touched = time.monotonic()
 
 
 class RequestLimiter:
@@ -100,35 +124,11 @@ def _metadata(service):
     return getattr(service, "metadata", getattr(service, "bundle", {}).get("metadata", {}))
 
 
-def _inspect_csv(path, service, config):
-    """Reject file-level problems; defer invalid row values to the tools."""
+def _inspect_csv(path, service):
+    """Use the tool service's shared schema and limits; preserve invalid rows."""
     try:
-        text = path.read_bytes().decode("utf-8-sig")
-        reader = csv.reader(io.StringIO(text, newline=""), strict=True)
-        columns = next(reader, [])
-        if not columns or any(not column or column != column.strip() for column in columns):
-            raise RequestError("CSV needs a nonempty header with exact column names.")
-        if len(columns) != len(set(columns)):
-            raise RequestError("CSV contains duplicate column names.")
-        required = {feature["name"] for feature in _metadata(service).get("features", [])}
-        missing = sorted(required - set(columns))
-        if missing:
-            raise RequestError("CSV is missing required features: " + ", ".join(missing))
-        count = 0
-        for row in reader:
-            count += 1
-            if count > config["MAX_CSV_ROWS"]:
-                raise RequestError(f"CSV may contain at most {config['MAX_CSV_ROWS']} rows.")
-            if any(len(cell) > config["MAX_CELL_LENGTH"] for cell in row):
-                raise RequestError(f"CSV cells may contain at most {config['MAX_CELL_LENGTH']} characters.")
-        if not count:
-            raise RequestError("CSV contains no data rows.")
-        if hasattr(service, "inspect_csv"):
-            inspected = service.inspect_csv(path)
-            count = inspected.get("total_count", count)
-        return {"rows": count, "columns": columns}
-    except (UnicodeDecodeError, csv.Error) as exc:
-        raise RequestError("Upload a valid UTF-8 CSV file.") from exc
+        inspected = service.inspect_csv(path)
+        return {"rows": inspected["total_count"], "columns": inspected["columns"]}
     except ValueError as exc:
         raise RequestError(str(exc)) from exc
 
@@ -178,6 +178,10 @@ def create_app(config=None, *, service=None, agent=None):
             service = ToolService(joblib.load(app.config["MODEL_PATH"]))
         except (OSError, ValueError, ImportError, KeyError, TypeError):
             app.logger.exception("Production model could not be loaded")
+    if service is not None and hasattr(service, "configure_limits"):
+        service.configure_limits(max_bytes=app.config["MAX_UPLOAD_BYTES"],
+                                 max_rows=app.config["MAX_CSV_ROWS"],
+                                 max_cell_length=app.config["MAX_CELL_LENGTH"])
     if agent is None and service is not None:
         from .agent import Agent
         agent = Agent(service, max_tool_calls=app.config["MAX_TOOL_CALLS"])
@@ -188,10 +192,23 @@ def create_app(config=None, *, service=None, agent=None):
     app.extensions["chat_agent"] = agent
     app.extensions["session_store"] = store
 
-    def current_session():
-        identifier, record = store.get(session.get("sid"))
+    def current_session(*, create=False, csrf_token=None, missing_status=403):
+        if "leased_session" in g:
+            return g.leased_session
+        identifier, record = store.get(session.get("sid"), create=create, csrf_token=csrf_token)
+        if record is None:
+            message = ("This result is unavailable in your session." if missing_status == 404 else
+                       "Session token is missing or expired. Refresh the page.")
+            raise RequestError(message, missing_status)
         session["sid"] = identifier
+        g.leased_session = identifier, record
         return identifier, record
+
+    @app.teardown_request
+    def release_session(_error):
+        leased = g.pop("leased_session", None)
+        if leased is not None:
+            store.release(leased[1])
 
     @app.before_request
     def guard_request():
@@ -206,10 +223,8 @@ def create_app(config=None, *, service=None, agent=None):
                     expected = urlsplit(request.host_url)
                     if (origin.scheme, origin.netloc) != (expected.scheme, expected.netloc):
                         raise RequestError("This request must come from the same website.", 403)
-            _, record = current_session()
             token = request.headers.get("X-CSRF-Token", "")
-            if not secrets.compare_digest(token.encode("utf-8"), record.csrf.encode("utf-8")):
-                raise RequestError("Session token is missing or expired. Refresh the page.", 403)
+            current_session(csrf_token=token)
 
     @app.after_request
     def secure_response(response):
@@ -247,7 +262,7 @@ def create_app(config=None, *, service=None, agent=None):
 
     @app.get("/api/session")
     def session_details():
-        _, record = current_session()
+        _, record = current_session(create=True)
         with record.lock:
             files = [{"id": key, "name": value["name"], "rows": value["rows"], "columns": value["columns"]}
                      for key, value in record.files.items()]
@@ -279,7 +294,7 @@ def create_app(config=None, *, service=None, agent=None):
             path = record.directory / f"{identifier}.csv"
             path.write_bytes(content)
             try:
-                details = _inspect_csv(path, service, app.config)
+                details = _inspect_csv(path, service)
             except Exception:
                 path.unlink(missing_ok=True)
                 raise
@@ -335,7 +350,7 @@ def create_app(config=None, *, service=None, agent=None):
 
     @app.get("/api/download/<identifier>")
     def download(identifier):
-        _, record = current_session()
+        _, record = current_session(missing_status=404)
         with record.lock:
             path = record.state.get("downloads", {}).get(identifier)
             if path is None:

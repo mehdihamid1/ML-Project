@@ -20,7 +20,15 @@ provider from supplying invented labels, metrics or feature explanations.
 Codex used parallel implementation agents for the CSV tools, OpenAI routing,
 and Flask UI, and reviewed their contracts together. Official OpenAI
 function-calling and Render Blueprint/deploy-hook documentation informed the
-integration. Automated checks use a mocked provider; real OpenAI scenario runs
-and live Render deployment have not been completed because the required
-environment configuration is missing. The project author must review,
-understand, and explain the resulting code and experiment design.
+integration. Development checks include the pinned OpenAI SDK with mocked HTTP,
+real frozen-model tool execution, Flask integration, production-image building
+and local browser/HTTP verification. The
+[GitHub CI test job](https://github.com/mehdihamid1/ML-Project/actions/runs/37392037715/job/112039137706)
+passed tests and verified the frozen model. The deploy job failed because Render
+settings were missing; the workflow did not complete a deployment.
+
+Real OpenAI scenario runs and live Render verification remain pending. Mocked
+SDK tests and local health checks do not fulfill those deliverables. Their
+status is recorded in [agent-evaluation.md](agent-evaluation.md) and
+[deployed.md](deployed.md). The project author must review, understand, and
+explain the resulting code and experiment design.

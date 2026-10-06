@@ -5,12 +5,20 @@
 Automated agent tests use a mocked OpenAI Responses client. They test routing,
 conditional ordering and threshold enforcement, follow-ups, fabricated output,
 malformed tool arguments, unknown file IDs, provider failures, and tool failures.
-These checks are not real-LLM evaluation evidence.
+Runner tests also use the pinned OpenAI SDK with mocked HTTP responses and the
+frozen production model. Flask integration tests cover upload, tool execution,
+conditional ordering, downloads and session isolation. These checks are included
+in the successful [CI test job](https://github.com/mehdihamid1/ML-Project/actions/runs/37392037715/job/112039137706).
+They are not real-LLM evaluation evidence.
 
 Real OpenAI scenarios have **not been run** because `OPENAI_API_KEY` is not
 configured in the development environment. This deliverable remains incomplete
 until the runner produces observed transcripts. No real-LLM success rate is
 claimed.
+
+No real-provider `artifacts/agent-evaluation/results.json` or generated report
+currently exists. The scenario table below describes expected behavior, not
+observed real-LLM outcomes.
 
 ## Reproducible real-provider run
 
@@ -25,6 +33,10 @@ OpenAI API, records the model ID and timestamp, saves prompts, replies, activity
 and computed results in `results.json`, and generates `report.md`. Review every
 failure, retain the original run, and use a new directory for a later run.
 Copy the generated report into `docs/agent-evaluation-results.md` once run.
+Use the runtime environment with `requirements-runtime.txt` installed and run
+the command from the repository root. `OPENAI_MODEL` optionally overrides the
+default configured model. The runner exits unsuccessfully when a scenario
+fails; a generated report alone does not mean every scenario passed.
 
 | Scenario | Expected behavior |
 | --- | --- |

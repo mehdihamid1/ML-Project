@@ -12,6 +12,7 @@ import math
 import os
 import re
 import uuid
+from decimal import Decimal, DecimalException
 from pathlib import Path
 
 
@@ -26,7 +27,11 @@ checks accuracy and full labeled coverage before predicting. You cannot explain
 feature-level causes: no explanation tool exists. For follow-ups choose existing
 result_ids from session results instead of rerunning tools. Finish using the
 required JSON response shape. Choose focus to select the requested existing
-metric; use kind explanation_unavailable for feature explanations, help for how
+metric, including false_negatives, false_positives, true_positives, and
+true_negatives for confusion-matrix follow-ups. Evaluation and classification
+can be independent tasks in one request; only an explicit accuracy condition
+requires evaluate_then_predict. Use kind explanation_unavailable for feature
+explanations, help for how
 to use the app, and need_upload when no registered file can fulfill the request.
 Never make up a result_id. Use only identifiers in stored or newly returned
 results. Return at most three result references. No extra prose fields.
@@ -64,7 +69,7 @@ RESPONSE_FORMAT = {
         "properties": {
             "kind": {"type": "string", "enum": ["results", "help", "need_upload", "explanation_unavailable"]},
             "result_ids": {"type": "array", "items": {"type": "string"}, "maxItems": 3},
-            "focus": {"type": "string", "enum": ["summary", "accuracy", "auc", "confusion_matrix", "counts", "prediction"]},
+            "focus": {"type": "string", "enum": ["summary", "accuracy", "auc", "confusion_matrix", "counts", "prediction", "false_negatives", "false_positives", "true_positives", "true_negatives"]},
         },
         "required": ["kind", "result_ids", "focus"],
     },
@@ -80,6 +85,8 @@ _PUBLIC_FIELDS = {
 }
 _MODEL_FIELDS = _PUBLIC_FIELDS - {"row_id", "invalid_rows", "auc_reason"}
 _HELP = "Upload a CSV, then ask to classify a row, classify every row, or evaluate labeled rows. For a conditional prediction, specify an accuracy threshold between 0 and 1. Row indexes start at 0."
+_CONFUSION_FOCUS = {"false_negatives", "false_positives", "true_positives", "true_negatives"}
+_RESPONSE_FOCUS = set(RESPONSE_FORMAT["schema"]["properties"]["focus"]["enum"])
 
 
 class AgentError(Exception):
@@ -92,13 +99,21 @@ def _get(item, name, default=None):
 
 def _conditional_requested(message):
     lower = message.lower()
-    return bool(
-        re.search(r"\b(?:predict\w*|classif\w*)\b", lower)
-        and (
-            re.search(r"\b(?:if|threshold|minimum|only when)\b|>=|≥", lower)
-            or (re.search(r"\baccuracy\b", lower) and re.search(r"\b(?:at least|only|above|exceeds?|reaches)\b", lower))
-        )
+    if not re.search(r"\b(?:predict\w*|classif\w*)\b", lower):
+        return False
+    # Describing a requested result ("tell me if it is malware") does not
+    # condition whether the model may run. A decision threshold or minimum row
+    # count likewise differs from a required evaluation accuracy.
+    execution = re.sub(
+        r"\b(?:tell(?:\s+me)?|show(?:\s+me)?|report|check|determine|see|say|find out)\s+if\b",
+        " whether", lower,
     )
+    explicit_condition = re.search(r"\b(?:if|only when|provided(?: that)?|unless)\b", execution)
+    accuracy_gate = (
+        re.search(r"\b(?:accuracy|correct\w*)\b|\bclassified correctly\b", execution)
+        and re.search(r"\b(?:threshold|minimum|at least|only|above|exceeds?|reaches)\b|>=|≥", execution)
+    )
+    return bool(explicit_condition or accuracy_gate)
 
 
 def _requested_threshold(message):
@@ -123,8 +138,11 @@ def _requested_threshold(message):
     for pattern in patterns:
         match = re.search(pattern, message, re.I)
         if match:
-            value = float(match.group(1))
-            return value / 100 if match.group(2) else value
+            try:
+                value = Decimal(match.group(1))
+                return float(value / Decimal(100) if match.group(2) else value)
+            except (DecimalException, OverflowError):
+                return float("nan")
     return None
 
 
@@ -217,6 +235,51 @@ class Agent:
         # rows or disk paths in a future version. Identifiers stay in the UI.
         return {k: v for k, v in result.items() if k in _MODEL_FIELDS | {"result_id", "tool", "file_id", "download_id"}}
 
+    def _validation_error(self, exc):
+        """Expose only ToolService's known validation messages, never row values.
+
+        A ValueError can also originate in a dependency or a future service, so
+        its type alone is insufficient to make arbitrary exception text public.
+        Feature names must come from the saved production schema.
+        """
+        message = str(exc)
+        fixed = {
+            "Input must be a CSV file", "The CSV file could not be read",
+            "CSV must use UTF-8 encoding", "CSV contains a NUL character",
+            "CSV requires a nonempty header with exact column names",
+            "CSV has duplicate column names", "CSV syntax is malformed",
+            "CSV has no data rows",
+            "row_index must identify an existing row (starting at zero)",
+            "Evaluation requires a Label column containing 0 or 1",
+            "Evaluation has no valid labeled rows",
+        }
+        if message in fixed:
+            return message
+        if re.fullmatch(r"CSV (?:exceeds the [1-9]\d{0,12}-(?:byte upload|row) limit|has [1-9]\d{0,12} unexpected column\(s\))", message):
+            return message
+        names = {
+            name for name in getattr(self.service, "feature_names", [])
+            if isinstance(name, str) and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,127}", name)
+        }
+        if message.startswith("Missing features: "):
+            missing = message[len("Missing features: "):].split(", ")
+            if missing and all(name in names for name in missing):
+                return message
+        match = re.fullmatch(r"Invalid row \d{1,12}: (.{1,1500})", message)
+        if match:
+            errors = match.group(1).split("; ")
+            def safe(error):
+                if error == "Row has a different number of fields from the header":
+                    return True
+                if re.fullmatch(r"A field exceeds the [1-9]\d{0,12}-character limit", error):
+                    return True
+                return any(error == prefix + name for prefix in (
+                    "Missing required feature: ", "Invalid numeric feature: ",
+                ) for name in names)
+            if all(safe(error) for error in errors):
+                return message
+        return None
+
     @staticmethod
     def _finish(reply, state, message, activity, results, error=None):
         state["activity"] = (state.get("activity", []) + activity)[-100:]
@@ -250,10 +313,11 @@ class Agent:
                 value = self.service.evaluate(path)
             if not isinstance(value, dict):
                 raise RuntimeError("Invalid tool response")
-        except Exception:
+        except Exception as exc:
             if output_path is not None:
                 output_path.unlink(missing_ok=True)
-            entry.update(status="error", error="The classification tool failed. Check the CSV schema and rows, then try again.")
+            safe_error = self._validation_error(exc) if isinstance(exc, ValueError) else None
+            entry.update(status="error", error=safe_error or "The classification tool failed. Check the CSV schema and rows, then try again.")
             raise AgentError(entry["error"]) from None
         result = {k: v for k, v in value.items() if k in _PUBLIC_FIELDS}
         result.update(result_id=uuid.uuid4().hex, tool=name, file_id=args["file_id"])
@@ -273,8 +337,6 @@ class Agent:
 
     def _dispatch(self, name, args, state, files, activity, results, budget):
         if name != "evaluate_then_predict":
-            if name in {"predict_single", "predict_batch"} and any(r["tool"] == "evaluate" for r in results):
-                raise AgentError("Use evaluate_then_predict for predictions that depend on an evaluation result.")
             return self._invoke(name, args, state, files, activity, results, budget), None
         # Reserve both underlying calls up front, before evaluating a condition
         # which cannot be completed within this request's configured budget.
@@ -301,6 +363,48 @@ class Agent:
         return {"evaluation_result_id": evaluation["result_id"], "prediction_performed": False}, reason
 
     @staticmethod
+    def _confusion_counts(result):
+        matrix = result.get("confusion_matrix")
+        order = result.get("confusion_matrix_order")
+        if (order != [0, 1] or not all(type(label) is int for label in order)
+                or not isinstance(matrix, list) or len(matrix) != 2
+                or not all(isinstance(row, list) and len(row) == 2 for row in matrix)
+                or not all(type(count) is int and count >= 0 for row in matrix for count in row)):
+            return None
+        tn, fp = matrix[0]
+        fn, tp = matrix[1]
+        return {"false_negatives": fn, "false_positives": fp,
+                "true_positives": tp, "true_negatives": tn}
+
+    @staticmethod
+    def _render_confusion(result, focus):
+        counts = Agent._confusion_counts(result)
+        if counts is None:
+            return "Confusion-matrix counts unavailable: a valid matrix with class order [0, 1] is required."
+        if focus not in _CONFUSION_FOCUS:
+            return (f"True negatives: {counts['true_negatives']} goodware files predicted as goodware; "
+                    f"false positives: {counts['false_positives']} goodware files predicted as malware; "
+                    f"false negatives: {counts['false_negatives']} malware files predicted as goodware; "
+                    f"true positives: {counts['true_positives']} malware files predicted as malware.")
+        descriptions = {
+            "false_negatives": ("False negatives", "malware", "goodware", "false negative"),
+            "false_positives": ("False positives", "goodware", "malware", "false positive"),
+            "true_positives": ("True positives", "malware", "malware", "true positive"),
+            "true_negatives": ("True negatives", "goodware", "goodware", "true negative"),
+        }
+        title, actual, predicted, rate_name = descriptions[focus]
+        count = counts[focus]
+        denominator = (counts["false_negatives"] + counts["true_positives"] if actual == "malware"
+                       else counts["false_positives"] + counts["true_negatives"])
+        text = f"{title}: {count} {actual} files predicted as {predicted}."
+        if denominator:
+            text += (f" The {rate_name} rate is {_number(count / denominator)} "
+                     f"({count} / {denominator} evaluated {actual} files).")
+        else:
+            text += f" The {rate_name} rate is unavailable: no {actual} files were evaluated."
+        return text
+
+    @staticmethod
     def _render(result, focus="summary"):
         tool = result["tool"]
         if tool == "predict_single":
@@ -319,9 +423,12 @@ class Agent:
             auc = result.get("auc")
             sections.append(f"AUC: {_number(auc)}." if _finite(auc) else "AUC: unavailable (evaluation requires both classes for AUC).")
         if focus in {"summary", "confusion_matrix"}:
-            matrix = result.get("confusion_matrix")
-            if isinstance(matrix, list) and len(matrix) == 2 and all(isinstance(row, list) and len(row) == 2 for row in matrix):
+            if Agent._confusion_counts(result) is not None:
+                matrix = result["confusion_matrix"]
                 sections.append(f"Confusion matrix (true rows / predicted columns, goodware then malware): {matrix}.")
+            sections.append(Agent._render_confusion(result, focus))
+        elif focus in _CONFUSION_FOCUS:
+            sections.append(Agent._render_confusion(result, focus))
         sections.append(f"Evaluated {result.get('evaluated_count', 0)} of {result.get('total_count', 0)} rows; "
                         f"invalid rows {result.get('invalid_count', 0)}, missing labels {result.get('missing_label_count', 0)}, "
                         f"invalid labels {result.get('invalid_label_count', 0)}.")
@@ -347,7 +454,7 @@ class Agent:
             return "Upload the CSV in this session and identify the file you want to use."
         ids = value["result_ids"]
         focus = value["focus"]
-        if kind != "results" or not isinstance(ids, list) or len(ids) > 3 or not all(isinstance(i, str) for i in ids) or focus not in {"summary", "accuracy", "auc", "confusion_matrix", "counts", "prediction"}:
+        if kind != "results" or not isinstance(ids, list) or len(ids) > 3 or not all(isinstance(i, str) for i in ids) or not isinstance(focus, str) or focus not in _RESPONSE_FOCUS:
             return "No verified model result is available for that response."
         index = {r["result_id"]: r for r in state["results"]}
         selected = [index[i] for i in ids if i in index]
@@ -389,6 +496,7 @@ class Agent:
                 response = client.responses.create(
                     model=self.model, instructions=SYSTEM_INSTRUCTIONS, input=inputs,
                     tools=chosen_tools, parallel_tool_calls=False, store=False,
+                    include=["reasoning.encrypted_content"],
                     max_output_tokens=1200, text={"format": RESPONSE_FORMAT},
                     tool_choice={"type": "function", "name": "evaluate_then_predict"} if conditional and not results else "auto",
                 )
@@ -415,8 +523,13 @@ class Agent:
                 self._validate(name, args, files)
                 if conditional and name != "evaluate_then_predict":
                     raise AgentError("A conditional request must use evaluate_then_predict.")
-                if requested_threshold is not None and args["min_accuracy"] != requested_threshold:
-                    raise AgentError("The requested tool threshold does not match your stated accuracy threshold.")
+                if requested_threshold is not None:
+                    if not math.isclose(args["min_accuracy"], requested_threshold,
+                                        rel_tol=0, abs_tol=math.ulp(requested_threshold)):
+                        raise AgentError("The requested tool threshold does not match your stated accuracy threshold.")
+                    # The independently parsed user value owns the gate, even
+                    # when the provider supplied a neighboring float.
+                    args["min_accuracy"] = requested_threshold
                 result, skipped = self._dispatch(name, args, state, files, activity, results, budget)
             except (ValueError, TypeError):
                 reason = "The model supplied malformed tool arguments. Retry the request."
@@ -436,10 +549,11 @@ class Agent:
                 # change its threshold or append an unguarded classification.
                 reply = "The accuracy condition was met with complete labeled coverage.\n\n" + "\n\n".join(self._render(r) for r in results)
                 return self._finish(reply, state, message, activity, results)
-            # Keep only function/reasoning items; never feed arbitrary provider
-            # prose back as authoritative evidence.
+            # Stateless reasoning models need the complete preceding output,
+            # including encrypted reasoning and assistant phase. Replaying
+            # provider messages preserves protocol state; only stored tool
+            # results and code-rendered text supply user-visible evidence.
             for item in _get(response, "output", []):
-                if _get(item, "type") in {"function_call", "reasoning"}:
-                    inputs.append(item.model_dump(exclude_none=True) if hasattr(item, "model_dump") else item)
+                inputs.append(item.model_dump(exclude_none=True) if hasattr(item, "model_dump") else item)
             inputs.append({"type": "function_call_output", "call_id": _get(call, "call_id"), "output": json.dumps(self._summary(result), allow_nan=False)})
         return self._finish("The tool-call limit was reached. " + "\n\n".join(self._render(r) for r in results), state, message, activity, results, "tool")

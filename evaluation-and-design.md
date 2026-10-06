@@ -4,7 +4,11 @@
 
 Source and verified checksums are in [dataset-source.md](dataset-source.md).
 `train.py` drops every row belonging to a SHA1 with conflicting labels, then
-retains the first row per remaining SHA1. It reserves a stratified 20% hold-out
+retains the first row per remaining SHA1. The recorded run removed the 18
+conflicting hashes and duplicate rows, leaving 43,393 records: 34,714 development
+rows and 8,679 hold-out rows. These counts come from
+[training metadata](docs/training-metadata.json).
+It reserves a stratified 20% hold-out
 before fitting any preprocessing. SHA1, FirstSeenDate, and the three previously
 verified constant columns are excluded from model inputs. SHA1 remains in
 saved partition files to audit separation. Label is always excluded from inputs.
@@ -12,9 +16,9 @@ saved partition files to audit separation. Label is always excluded from inputs.
 ## Seven models and preprocessing
 
 Logistic Regression, Decision Tree, Random Forest, a PyTorch MLP, XGBoost,
-LightGBM, and CatBoost are compared. Numeric median imputation, a fixed signed log1p transform for heavy-tailed PE
-values, and scaling,
-DLL/symbol TF-IDF vocabularies, and Identify category encoding are fitted
+LightGBM, and CatBoost are compared. Numeric median imputation, a fixed signed
+log1p transform for heavy-tailed PE values, scaling, DLL/symbol TF-IDF
+vocabularies, and Identify category encoding are fitted
 inside each training fold. DLL and symbol vocabularies are capped at 64 terms
 per column; Identify one-hot encoding is capped at 32 categories. These fixed
 bounds control memory without selecting features using hold-out data.
@@ -61,11 +65,15 @@ Its scores are verification evidence, not reportable model performance.
 
 The complete run selected LightGBM. The generated [model report](docs/model-results.md)
 and [training metadata](docs/training-metadata.json) preserve the comparison,
-held-out metrics, feature schema, and provenance without committing the dataset
-in those reports. A byte-for-byte copy of the small trusted production model is
+held-out metrics, feature schema, and provenance. The dataset and original
+training outputs are excluded from Git. A byte-for-byte copy of the small
+trusted production model is
 bundled under `models/` for the app. The tools, OpenAI agent and Flask application
 are implemented. Live deployment and real-provider evaluation remain pending
-environment configuration.
+environment configuration. The
+[CI test job](https://github.com/mehdihamid1/ML-Project/actions/runs/37392037715/job/112039137706)
+passed tests and model verification; the subsequent deploy job failed on missing
+Render settings. This is not a completed deployment.
 
 ## Agent and runtime design
 
@@ -89,6 +97,13 @@ calls evaluation first, validates a finite user threshold, and predicts only
 when returned accuracy meets it and all rows have valid labels and features.
 Incomplete coverage and tool failures fail closed. The activity record shows
 the underlying calls and skipped predictions.
+
+The three model tools are `predict_single`, `predict_batch` and `evaluate`.
+The agent's `evaluate_then_predict` function orchestrates the conditional task
+by calling the evaluation and single-prediction tools in order. Thresholds are
+bound to explicit user input; an ambiguous condition requests clarification
+instead of guessing. Follow-ups select stored result references. Pasted CSVs
+are directed to the upload route before a provider call.
 
 The app uses private server-side session records, opaque upload IDs, CSRF tokens,
 secure cookies on Render, request limits and bounded uploads/results. Its

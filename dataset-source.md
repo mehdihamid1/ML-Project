@@ -27,11 +27,17 @@ The earlier inspection of the separate goodware and daily malware CSVs did
 not describe the CSV packaged in the ZIP. The packaged CSV matches the
 assignment's stated dimensions and already contains labels.
 
-Before training, resolve conflicting labels and deduplicate or group by
-`SHA1` before splitting. Exclude `SHA1` and `FirstSeenDate` from model inputs
-to avoid identifier and collection-time leakage. Preserve source row identity
-for batch results; fit text encoders and other learned preprocessing only
-inside training folds. See [AGENTS.md](AGENTS.md) for the shared project rules.
+The completed training run dropped all rows belonging to the 18 hashes with
+conflicting labels, then retained the first row per remaining `SHA1`. This left
+43,393 rows and removed 6,788 source rows, as recorded in
+[training metadata](docs/training-metadata.json). Deduplication happened before
+the stratified hold-out split.
+
+`SHA1` and `FirstSeenDate` are excluded from model inputs, along with the
+verified constant columns. SHA1 remains available as the batch row identifier.
+Text encoders and other learned preprocessing are fitted inside training folds.
+See [evaluation-and-design.md](evaluation-and-design.md) for the implemented
+protocol and [AGENTS.md](AGENTS.md) for the shared project rules.
 
 Dataset paper: F. Ceschin et al., "The Need for Speed: An Analysis of Brazilian
 Malware Classifiers," IEEE Security & Privacy, 16(6), 31–41, 2018.

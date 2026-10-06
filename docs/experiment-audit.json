@@ -1,0 +1,378 @@
+{
+  "audit_version": 1,
+  "operations": "Read-only audit of frozen membership, source cells, recorded CV scores/settings, model bytes and recorded hold-out confusion matrix; no training, reselection, tuning, predictions or new hold-out evaluation.",
+  "dataset_sha256": "d13e54cf1970ffedbf1043196c135da3187c90a82e397f681d843ed320249242",
+  "partitions": {
+    "definitions": {
+      "same_file": "An identical SHA1 occurs in the saved training IDs and saved hold-out IDs.",
+      "model_input_vector": "All raw model-input cells match after original-CSV dtype normalization; SHA1, FirstSeenDate, Label and the three excluded constants are omitted. This is before fitted encoding.",
+      "nonleak_record_with_label": "All original cells except SHA1 and FirstSeenDate match, including Label and the constant columns.",
+      "missing_values": "Missing cells match one another; a literal text token remains distinct from a missing cell. Text is compared verbatim and numeric values without rounding or tolerance.",
+      "training_recovery": "Only the SHA1 membership and order saved in training-ids.csv; no new split is made."
+    },
+    "raw_rows": 50181,
+    "raw_unique_sha1": 43411,
+    "repeated_sha1_groups": 3542,
+    "conflicting_sha1_removed": 18,
+    "clean_rows": 43393,
+    "removed_rows": 6788,
+    "training_rows": 34714,
+    "holdout_rows": 8679,
+    "training_class_counts": {
+      "0": 16878,
+      "1": 17836
+    },
+    "holdout_class_counts": {
+      "0": 4220,
+      "1": 4459
+    },
+    "same_sha1_overlap": 0,
+    "partition_union_equals_cleaned_data": true,
+    "holdout_label_mismatches": 0,
+    "holdout_source_mismatch_rows": 0,
+    "holdout_source_mismatch_cells": 0,
+    "model_input_overlap": {
+      "columns": [
+        "BaseOfCode",
+        "BaseOfData",
+        "Characteristics",
+        "DllCharacteristics",
+        "Entropy",
+        "FileAlignment",
+        "Identify",
+        "ImageBase",
+        "ImportedDlls",
+        "ImportedSymbols",
+        "Machine",
+        "NumberOfRvaAndSizes",
+        "NumberOfSections",
+        "NumberOfSymbols",
+        "PointerToSymbolTable",
+        "Size",
+        "SizeOfCode",
+        "SizeOfHeaders",
+        "SizeOfImage",
+        "SizeOfInitializedData",
+        "SizeOfUninitializedData",
+        "TimeDateStamp"
+      ],
+      "shared_distinct_vectors": 0,
+      "training_rows_with_match": 0,
+      "holdout_rows_with_match": 0,
+      "matching_row_pairs": 0
+    },
+    "nonleak_record_with_label_overlap": {
+      "columns": [
+        "BaseOfCode",
+        "BaseOfData",
+        "Characteristics",
+        "DllCharacteristics",
+        "Entropy",
+        "FileAlignment",
+        "Identify",
+        "ImageBase",
+        "ImportedDlls",
+        "ImportedSymbols",
+        "Label",
+        "Machine",
+        "Magic",
+        "NumberOfRvaAndSizes",
+        "NumberOfSections",
+        "NumberOfSymbols",
+        "PE_TYPE",
+        "PointerToSymbolTable",
+        "Size",
+        "SizeOfCode",
+        "SizeOfHeaders",
+        "SizeOfImage",
+        "SizeOfInitializedData",
+        "SizeOfOptionalHeader",
+        "SizeOfUninitializedData",
+        "TimeDateStamp"
+      ],
+      "shared_distinct_vectors": 0,
+      "training_rows_with_match": 0,
+      "holdout_rows_with_match": 0,
+      "matching_row_pairs": 0
+    },
+    "partition_integrity_passed": true
+  },
+  "cross_validation": {
+    "folds": 10,
+    "random_state": 42,
+    "selection_rule": "CV AUC descending, then accuracy descending, then fit time ascending",
+    "search_scope": "Two fixed configurations per model on identical training-only CV folds; one reduced configuration in smoke mode",
+    "models_compared": 7,
+    "candidate_configurations": 14,
+    "configurations_by_model": {
+      "Logistic Regression": [
+        0,
+        1
+      ],
+      "Decision Tree": [
+        0,
+        1
+      ],
+      "Random Forest": [
+        0,
+        1
+      ],
+      "PyTorch MLP": [
+        0,
+        1
+      ],
+      "XGBoost": [
+        0,
+        1
+      ],
+      "LightGBM": [
+        0,
+        1
+      ],
+      "CatBoost": [
+        0,
+        1
+      ]
+    },
+    "fold_summary_checks_passed": true,
+    "configuration_summaries": [
+      {
+        "model": "Logistic Regression",
+        "configuration": 0,
+        "auc_mean": 0.9885858312675648,
+        "accuracy_mean": 0.9576826987800168,
+        "recorded_parameters": {
+          "C": 1.0,
+          "random_state": 42
+        }
+      },
+      {
+        "model": "Logistic Regression",
+        "configuration": 1,
+        "auc_mean": 0.9866316651178147,
+        "accuracy_mean": 0.9524974210276855,
+        "recorded_parameters": {
+          "C": 0.1,
+          "random_state": 42
+        }
+      },
+      {
+        "model": "Decision Tree",
+        "configuration": 0,
+        "auc_mean": 0.9801941305226578,
+        "accuracy_mean": 0.9756583349597122,
+        "recorded_parameters": {
+          "max_depth": 12,
+          "min_samples_leaf": 2,
+          "random_state": 42
+        }
+      },
+      {
+        "model": "Decision Tree",
+        "configuration": 1,
+        "auc_mean": 0.9767376117523601,
+        "accuracy_mean": 0.9785677941123755,
+        "recorded_parameters": {
+          "max_depth": 20,
+          "min_samples_leaf": 2,
+          "random_state": 42
+        }
+      },
+      {
+        "model": "Random Forest",
+        "configuration": 0,
+        "auc_mean": 0.9974823901582933,
+        "accuracy_mean": 0.982715832101932,
+        "recorded_parameters": {
+          "max_depth": null,
+          "min_samples_leaf": 2,
+          "n_estimators": 100,
+          "random_state": 42
+        }
+      },
+      {
+        "model": "Random Forest",
+        "configuration": 1,
+        "auc_mean": 0.9975202366966371,
+        "accuracy_mean": 0.9823701518971545,
+        "recorded_parameters": {
+          "max_depth": 20,
+          "min_samples_leaf": 2,
+          "n_estimators": 100,
+          "random_state": 42
+        }
+      },
+      {
+        "model": "PyTorch MLP",
+        "configuration": 0,
+        "auc_mean": 0.9944232308778538,
+        "accuracy_mean": 0.9708185963486796,
+        "recorded_parameters": {
+          "hidden": 32,
+          "epochs": 15,
+          "batch_size": 256,
+          "learning_rate": 0.001,
+          "random_state": 42
+        }
+      },
+      {
+        "model": "PyTorch MLP",
+        "configuration": 1,
+        "auc_mean": 0.9950439269971636,
+        "accuracy_mean": 0.9725182121249538,
+        "recorded_parameters": {
+          "hidden": 64,
+          "epochs": 15,
+          "batch_size": 256,
+          "learning_rate": 0.001,
+          "random_state": 42
+        }
+      },
+      {
+        "model": "XGBoost",
+        "configuration": 0,
+        "auc_mean": 0.9979087978685914,
+        "accuracy_mean": 0.9839257916482455,
+        "recorded_parameters": {
+          "max_depth": 6,
+          "n_estimators": 100,
+          "learning_rate": 0.1,
+          "random_state": 42
+        }
+      },
+      {
+        "model": "XGBoost",
+        "configuration": 1,
+        "auc_mean": 0.996770332382001,
+        "accuracy_mean": 0.9783660650392256,
+        "recorded_parameters": {
+          "max_depth": 4,
+          "n_estimators": 100,
+          "learning_rate": 0.1,
+          "random_state": 42
+        }
+      },
+      {
+        "model": "LightGBM",
+        "configuration": 0,
+        "auc_mean": 0.9982191428654114,
+        "accuracy_mean": 0.9857405650106811,
+        "recorded_parameters": {
+          "max_depth": -1,
+          "n_estimators": 100,
+          "learning_rate": 0.1,
+          "num_leaves": 31,
+          "random_state": 42
+        }
+      },
+      {
+        "model": "LightGBM",
+        "configuration": 1,
+        "auc_mean": 0.9975274649560459,
+        "accuracy_mean": 0.9823701767907096,
+        "recorded_parameters": {
+          "max_depth": -1,
+          "n_estimators": 100,
+          "learning_rate": 0.1,
+          "num_leaves": 15,
+          "random_state": 42
+        }
+      },
+      {
+        "model": "CatBoost",
+        "configuration": 0,
+        "auc_mean": 0.9966436064124894,
+        "accuracy_mean": 0.9811314485924851,
+        "recorded_parameters": {
+          "learning_rate": 0.1,
+          "iterations": 100,
+          "depth": 6,
+          "random_seed": 42,
+          "cat_features": [
+            "Identify"
+          ]
+        }
+      },
+      {
+        "model": "CatBoost",
+        "configuration": 1,
+        "auc_mean": 0.9954827007505085,
+        "accuracy_mean": 0.9753701339737948,
+        "recorded_parameters": {
+          "learning_rate": 0.1,
+          "iterations": 100,
+          "depth": 4,
+          "random_seed": 42,
+          "cat_features": [
+            "Identify"
+          ]
+        }
+      }
+    ],
+    "selected_model": "LightGBM",
+    "selected_configuration": 0,
+    "selected_recorded_parameters": {
+      "boosting_type": "gbdt",
+      "class_weight": null,
+      "colsample_bytree": 1.0,
+      "importance_type": "split",
+      "learning_rate": 0.1,
+      "max_depth": -1,
+      "min_child_samples": 20,
+      "min_child_weight": 0.001,
+      "min_split_gain": 0.0,
+      "n_estimators": 100,
+      "n_jobs": 2,
+      "num_leaves": 31,
+      "objective": null,
+      "random_state": 42,
+      "reg_alpha": 0.0,
+      "reg_lambda": 0.0,
+      "subsample": 1.0,
+      "subsample_for_bin": 200000,
+      "subsample_freq": 0,
+      "verbosity": -1
+    },
+    "best_auc_mean": 0.9982191428654114,
+    "best_auc_std": 0.0005580313953924574,
+    "runner_up_model": "XGBoost",
+    "runner_up_auc_mean": 0.9979087978685914,
+    "runner_up_auc_std": 0.0006083739578649497,
+    "top_two_auc_mean_gap": 0.00031034499681992234,
+    "gap_smaller_than_each_fold_std": true,
+    "selected_fit_seconds_mean": 7.681408762931824,
+    "fastest_selected_candidate_model": "LightGBM",
+    "interpretation_limit": "Fold standard deviations describe variability; this comparison does not establish a statistically significant difference or equivalence."
+  },
+  "production": {
+    "model_version": "d13e54cf1970-1791236375742615262",
+    "threshold": 0.5,
+    "model_bytes": 399377,
+    "model_sha256": "e98b09552e0d77dd5abc070189e452e1084594a379e6849faba7b3385b94c677",
+    "matches_manifest_sha256": true,
+    "matches_frozen_training_artifact": true,
+    "raw_model_input_columns": 22,
+    "text_vocabulary_limit_per_import_list": 64,
+    "fitted_import_list_vocabulary_sizes": {
+      "ImportedDlls": 64,
+      "ImportedSymbols": 64
+    },
+    "identify_category_limit_for_non_native_encoding": 32
+  },
+  "recorded_holdout": {
+    "auc": 0.9978923823057685,
+    "accuracy": 0.9843299919345547,
+    "threshold": 0.5,
+    "sample_count": 8679,
+    "true_negatives": 4159,
+    "false_positives": 61,
+    "false_negatives": 75,
+    "true_positives": 4384,
+    "goodware_count": 4220,
+    "malware_count": 4459,
+    "false_positive_rate": 0.014454976303317536,
+    "false_negative_rate": 0.016819914779098454,
+    "metrics_source": "metadata.json from the original frozen training run; not reevaluated by this audit."
+  },
+  "checks_passed": true
+}

@@ -7,9 +7,24 @@ stored result references; Python validates arguments, computes metrics, and
 renders the actual output. Feature-level explanations are unavailable.
 
 The completed experiment and untouched hold-out results are recorded in the
-generated [model report](docs/model-results.md). The dataset and all training
-artifacts remain out of Git. The small trusted production pipeline is bundled
-under `models/` so a clean checkout can run the app without retraining.
+generated [model report](docs/model-results.md). The dataset and original
+training output directories are ignored by Git. The frozen production pipeline
+is bundled under `models/`, and its generated report and metadata are recorded
+under `docs/`, so a clean checkout can run the app without retraining.
+
+## Current status
+
+The ML milestone (`7a8279c`) and application milestone (`8ca98b8`) are committed
+and pushed to `main`. The tools, OpenAI agent, Flask app, sample CSVs and
+deployment workflow are implemented. Plain `pytest` passes all 147 tests locally;
+the [CI test job](https://github.com/mehdihamid1/ML-Project/actions/runs/37392037715/job/112039137706)
+also passed the tests and frozen-model verification.
+
+The full workflow finished with a failure because its deploy job had no
+`RENDER_DEPLOY_HOOK` secret or `RENDER_HEALTH_URL` variable. Live deployment and
+its live health check remain pending. The real-LLM scenarios also remain pending
+because `OPENAI_API_KEY` is not configured. See [deployed.md](deployed.md) and
+[agent-evaluation.md](agent-evaluation.md) for the evidence and remaining setup.
 
 ## Run the application
 
@@ -110,7 +125,7 @@ the tools/web/agent tests, while the full suite needs training dependencies:
 
 ```bash
 pip install pytest==8.3.5
-pytest -q tests/test_tools.py tests/test_web.py tests/test_agent.py tests/test_deployment.py
+pytest -q --ignore=tests/test_training.py
 ```
 
 GitHub Actions runs the full tests before its deploy job triggers a Render hook

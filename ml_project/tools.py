@@ -54,9 +54,7 @@ class ToolService:
         self.bundle = bundle
         self.metadata = bundle["metadata"]
         self.pipeline = bundle["pipeline"]
-        self.max_bytes = _positive_limit(max_bytes, "max_bytes")
-        self.max_rows = _positive_limit(max_rows, "max_rows")
-        self.max_cell_length = _positive_limit(max_cell_length, "max_cell_length")
+        self.configure_limits(max_bytes=max_bytes, max_rows=max_rows, max_cell_length=max_cell_length)
         self.features = self.metadata["features"]
         self.feature_names = [feature["name"] for feature in self.features]
         if not self.feature_names or len(set(self.feature_names)) != len(self.feature_names):
@@ -68,6 +66,12 @@ class ToolService:
             raise ValueError("The production decision threshold must be between zero and one")
         self.model_version = self.metadata["model_version"]
         self.class_mapping = self.metadata.get("class_mapping", {"0": "goodware", "1": "malware"})
+
+    def configure_limits(self, *, max_bytes: int, max_rows: int, max_cell_length: int):
+        """Keep upload inspection and every model tool on the same configured limits."""
+        limits = (_positive_limit(max_bytes, "max_bytes"), _positive_limit(max_rows, "max_rows"),
+                  _positive_limit(max_cell_length, "max_cell_length"))
+        self.max_bytes, self.max_rows, self.max_cell_length = limits
 
     def _read_csv(self, csv_path: Path) -> _CsvData:
         path = Path(csv_path)
@@ -89,8 +93,8 @@ class ToolService:
         reader = csv.reader(io.StringIO(contents, newline=""), strict=True)
         try:
             header = next(reader, None)
-            if not header or any(not name.strip() or "\x00" in name for name in header):
-                raise ValueError("CSV requires a nonempty header with named columns")
+            if not header or any(not name or name != name.strip() for name in header):
+                raise ValueError("CSV requires a nonempty header with exact column names")
             if len(set(header)) != len(header):
                 raise ValueError("CSV has duplicate column names")
             missing = set(self.feature_names) - set(header)

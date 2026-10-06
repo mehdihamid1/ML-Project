@@ -2,19 +2,31 @@
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from pathlib import Path
-from threading import Lock
+from threading import Event, Lock
 import time
 
+import numpy as np
 import pytest
 
+from ml_project.tools import ToolService
 from ml_project.web import create_app
 
 
-class FakeService:
+class FakeModel:
+    classes_ = np.array([0, 1])
+
+    def predict_proba(self, frame):
+        return np.tile([0.1, 0.9], (len(frame), 1))
+
+
+class FakeService(ToolService):
     metadata = {
         "model_version": "test-model", "selected_model": "LightGBM",
         "features": [{"name": "Size", "dtype": "int64", "allow_missing": False}],
     }
+
+    def __init__(self):
+        super().__init__({"metadata": {**self.metadata, "threshold": 0.5}, "pipeline": FakeModel()})
 
 
 class FakeAgent:
@@ -101,6 +113,9 @@ def test_csv_upload_keeps_private_path_server_side(app, client):
     (b"Size\n", "features.csv"),
     (b"Size\n\xff\n", "features.csv"),
     (b'Size\n"unterminated\n', "features.csv"),
+    (b"Size,Unexpected\n1,value\n", "features.csv"),
+    (b" Size\n1\n", "features.csv"),
+    (b"Size\n1\x00\n", "features.csv"),
 ])
 def test_malformed_uploads_are_rejected(client, content, name):
     response = upload(client, content, name)
@@ -115,17 +130,60 @@ def test_row_validation_is_deferred_to_tools(client):
     assert response.get_json()["file"]["rows"] == 2
 
 
-def test_upload_size_row_cell_and_file_limits(app, client):
-    app.config["MAX_UPLOAD_BYTES"] = 12
+def test_upload_size_and_file_limits(tmp_path):
+    app = create_app({"TESTING": True, "SESSION_ROOT": str(tmp_path),
+                      "MAX_UPLOAD_BYTES": 12, "MAX_FILES_PER_SESSION": 1},
+                     service=FakeService(), agent=FakeAgent())
+    client = app.test_client()
     assert upload(client, b"Size\n123456789\n").status_code == 413
-    app.config["MAX_UPLOAD_BYTES"] = 1024
-    app.config["MAX_CSV_ROWS"] = 1
-    assert upload(client, b"Size\n1\n2\n").status_code == 400
-    app.config["MAX_CELL_LENGTH"] = 3
-    assert upload(client, b"Size\n1234\n").status_code == 400
-    app.config["MAX_FILES_PER_SESSION"] = 1
     assert upload(client, b"Size\n1\n").status_code == 201
     assert upload(client, b"Size\n2\n").status_code == 413
+
+
+def test_upload_uses_shared_inspector_and_configured_limits(tmp_path):
+    class InspectingService(FakeService):
+        def __init__(self):
+            super().__init__()
+            self.inspections = 0
+
+        def inspect_csv(self, path):
+            self.inspections += 1
+            return super().inspect_csv(path)
+
+    service = InspectingService()
+    app = create_app({"TESTING": True, "SESSION_ROOT": str(tmp_path / "sessions"),
+                      "MAX_UPLOAD_BYTES": 100, "MAX_CSV_ROWS": 1, "MAX_CELL_LENGTH": 3},
+                     service=service, agent=FakeAgent())
+    client = app.test_client()
+    assert (service.max_bytes, service.max_rows, service.max_cell_length) == (100, 1, 3)
+    assert upload(client, b"Size\n1\n2\n").status_code == 400
+    assert service.inspections == 1
+    path = tmp_path / "same-input.csv"
+    path.write_bytes(b"Size\n1\n2\n")
+    with pytest.raises(ValueError, match="row limit"):
+        service.predict_batch(path, tmp_path / "output.csv")
+    path.write_bytes(b"Size\n" + b"1" * 100)
+    with pytest.raises(ValueError, match="byte"):
+        service.inspect_csv(path)
+
+
+def test_oversized_cell_is_uploaded_then_reported_as_invalid_row(tmp_path):
+    service = FakeService()
+    app = create_app({"TESTING": True, "SESSION_ROOT": str(tmp_path / "sessions"), "MAX_CELL_LENGTH": 3},
+                     service=service, agent=FakeAgent())
+    client = app.test_client()
+    response = upload(client, b"Size,Label\n1234,1\n1,1\n")
+    assert response.status_code == 201
+    assert response.json["file"]["rows"] == 2
+    with client.session_transaction() as cookie:
+        record = app.extensions["session_store"].records[cookie["sid"]]
+    path = next(iter(record.files.values()))["path"]
+    output = service.predict_batch(path, record.directory / "result.csv")
+    assert (output["total_count"], output["valid_count"], output["invalid_count"]) == (2, 1, 1)
+    assert output["invalid_rows"][0]["row_index"] == 0
+    assert service.evaluate(path)["invalid_count"] == 1
+    with pytest.raises(ValueError, match="character limit"):
+        service.predict_single(path, 0)
 
 
 def test_csrf_and_same_origin_are_required(client):
@@ -220,6 +278,153 @@ def test_session_capacity_and_expired_session_cleanup(app, client):
     store.records[identifier].touched -= store.ttl + 1
     assert other.get("/api/session").status_code == 200
     assert not old_directory.exists()
+
+
+def test_invalid_requests_and_public_pages_do_not_allocate_sessions(app, client):
+    store = app.extensions["session_store"]
+    assert client.get("/").status_code == 200
+    assert client.get("/health").status_code == 200
+    assert client.get("/static/app.js").status_code == 200
+    assert client.get("/api/download/unknown").status_code == 404
+    assert client.post("/api/reset").status_code == 403
+    assert client.post("/api/upload", data={"file": (BytesIO(b"Size\n1\n"), "file.csv")}).status_code == 403
+    assert store.records == {}
+    assert not list(store.root.iterdir())
+
+    csrf(client)
+    with client.session_transaction() as cookie:
+        record = store.records[cookie["sid"]]
+    before = record.touched
+    assert client.post("/api/reset", headers={"X-CSRF-Token": "wrong"}).status_code == 403
+    assert record.touched == before
+    assert record.active_requests == 0
+    assert len(store.records) == 1
+
+
+def test_capacity_reclaims_oldest_empty_session_with_new_private_identifiers(app, client):
+    store = app.extensions["session_store"]
+    store.maximum = 2
+    old_token = csrf(client)
+    with client.session_transaction() as cookie:
+        first_id = cookie["sid"]
+    first = store.records[first_id]
+    second_client = app.test_client()
+    csrf(second_client)
+    with second_client.session_transaction() as cookie:
+        second_id = cookie["sid"]
+    first.touched = time.monotonic() - 2
+    store.records[second_id].touched = time.monotonic() - 1
+
+    newcomer = app.test_client()
+    new_token = csrf(newcomer)
+    with newcomer.session_transaction() as cookie:
+        new_id = cookie["sid"]
+    assert first_id not in store.records
+    assert not first.directory.exists()
+    assert second_id in store.records
+    assert new_id not in {first_id, second_id}
+    assert new_token != old_token
+    assert len(store.records) == 2
+    assert client.post("/api/reset", headers=old_token).status_code == 403
+    assert len(store.records) == 2
+
+
+@pytest.mark.parametrize("protected", ["history", "results", "activity", "downloads", "disk_file"])
+def test_capacity_keeps_sessions_with_conversation_or_results(app, client, protected):
+    csrf(client)
+    with client.session_transaction() as cookie:
+        identifier = cookie["sid"]
+    store = app.extensions["session_store"]
+    store.maximum = 1
+    record = store.records[identifier]
+    if protected in {"downloads", "disk_file"}:
+        path = record.directory / "result.csv"
+        path.write_text("row_id,prediction\nold,0\n")
+        if protected == "downloads":
+            record.state["downloads"]["saved"] = path
+    else:
+        record.state[protected].append({"saved": True})
+    assert app.test_client().get("/api/session").status_code == 503
+    assert store.records[identifier] is record
+    assert record.directory.exists()
+    if protected == "downloads":
+        assert b"old,0" in client.get("/api/download/saved").data
+
+
+def test_capacity_and_expiry_keep_a_leased_session_before_its_endpoint_lock(app, client):
+    csrf(client)
+    with client.session_transaction() as cookie:
+        identifier = cookie["sid"]
+    store = app.extensions["session_store"]
+    store.maximum = 1
+    _, record = store.get(identifier)
+    try:
+        # This is the interval between retrieving the record and taking its lock.
+        record.touched -= store.ttl + 1
+        assert app.test_client().get("/api/session").status_code == 503
+        assert store.records[identifier] is record
+        assert record.directory.exists()
+    finally:
+        store.release(record)
+    assert record.active_requests == 0
+    assert app.test_client().get("/api/session").status_code == 200
+    assert identifier not in store.records
+
+
+def test_capacity_and_expiry_do_not_remove_a_locked_session(app, client):
+    csrf(client)
+    with client.session_transaction() as cookie:
+        identifier = cookie["sid"]
+    store = app.extensions["session_store"]
+    store.maximum = 1
+    record = store.records[identifier]
+    locked, release = Event(), Event()
+
+    def hold_lock():
+        with record.lock:
+            locked.set()
+            assert release.wait(3)
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        worker = pool.submit(hold_lock)
+        assert locked.wait(3)
+        try:
+            record.touched -= store.ttl + 1
+            assert app.test_client().get("/api/session").status_code == 503
+            assert store.records[identifier] is record
+            assert record.directory.exists()
+        finally:
+            release.set()
+        worker.result()
+    assert app.test_client().get("/api/session").status_code == 200
+    assert identifier not in store.records
+
+
+def test_request_leases_are_released_after_success_and_failure(app, client):
+    token = csrf(client)
+    with client.session_transaction() as cookie:
+        record = app.extensions["session_store"].records[cookie["sid"]]
+    assert client.post("/api/chat", json={"message": "hello"}, headers=token).status_code == 200
+    assert record.active_requests == 0
+    assert client.post("/api/chat", json={"message": "fail"}, headers=token).status_code == 502
+    assert record.active_requests == 0
+    assert client.post("/api/chat", json={}, headers=token).status_code == 400
+    assert record.active_requests == 0
+
+
+def test_expired_session_cannot_create_replacement_on_an_old_csrf_write(app, client):
+    upload(client)
+    token = csrf(client)
+    with client.session_transaction() as cookie:
+        identifier = cookie["sid"]
+    store = app.extensions["session_store"]
+    old = store.records[identifier]
+    old.touched -= store.ttl + 1
+    assert client.post("/api/reset", headers=token).status_code == 403
+    assert not old.directory.exists()
+    assert store.records == {}
+    assert csrf(client) != token
+    assert len(store.records) == 1
 
 
 def test_per_session_storage_cap_prevents_upload(app, client):

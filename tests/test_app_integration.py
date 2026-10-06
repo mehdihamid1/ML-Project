@@ -19,12 +19,16 @@ class ScriptedClient:
         self.responses = self
         self.calls = []
         self.next_tool = None
+        self.next_tools = []
 
     def create(self, **kwargs):
         self.calls.append(kwargs)
-        if self.next_tool:
-            name, args = self.next_tool
-            self.next_tool = None
+        if self.next_tool or self.next_tools:
+            if self.next_tool:
+                name, args = self.next_tool
+                self.next_tool = None
+            else:
+                name, args = self.next_tools.pop(0)
             return SimpleNamespace(output=[{'type': 'function_call', 'name': name,
                                            'arguments': json.dumps(args), 'call_id': 'call-test'}], output_text='')
         result = json.loads(kwargs['input'][-1]['output'])
@@ -91,3 +95,71 @@ def test_real_model_http_conditional_order_and_coverage(setup, sample, threshold
     ]
     assert len(reply.json['results']) == results_count
     assert len(provider.calls) == 1
+
+
+def test_http_descriptive_if_request_reaches_saved_model(setup):
+    _, client, provider, headers = setup
+    identifier = upload(client, headers, 'single.csv')
+    provider.next_tool = ('predict_single', {'file_id': identifier, 'row_index': 0})
+    reply = client.post('/api/chat', headers=headers, json={
+        'message': f'Classify row 0 of file {identifier} and tell me if it is malware',
+    })
+    assert reply.status_code == 200
+    assert 'error' not in reply.json
+    assert len(reply.json['results']) == 1
+    assert reply.json['activity'][0]['status'] == 'success'
+    assert 'the saved ML model predicts' in reply.json['reply']
+
+
+@pytest.mark.parametrize('sample,name,args,message', [
+    ('single.csv', 'predict_single', {'row_index': 10},
+     'row_index must identify an existing row (starting at zero)'),
+    ('single.csv', 'evaluate', {}, 'Evaluation requires a Label column containing 0 or 1'),
+])
+def test_http_tool_validation_errors_identify_problem(setup, sample, name, args, message):
+    _, client, provider, headers = setup
+    identifier = upload(client, headers, sample)
+    provider.next_tool = (name, {'file_id': identifier, **args})
+    reply = client.post('/api/chat', headers=headers, json={'message': 'Use the uploaded file'})
+    assert reply.status_code == 200
+    assert reply.json['error'] == 'tool'
+    assert reply.json['reply'] == message
+    assert reply.json['activity'][0]['error'] == message
+    assert len(provider.calls) == 1
+
+
+def test_http_independent_evaluation_and_batch_complete_both_tasks(setup):
+    _, client, provider, headers = setup
+    evaluation_id = upload(client, headers, 'labeled.csv')
+    prediction_id = upload(client, headers, 'invalid-rows.csv')
+    provider.next_tools = [
+        ('evaluate', {'file_id': evaluation_id}),
+        ('predict_batch', {'file_id': prediction_id}),
+    ]
+    reply = client.post('/api/chat', headers=headers, json={
+        'message': f'Evaluate file {evaluation_id} and classify every row of file {prediction_id}',
+    })
+    assert reply.status_code == 200
+    assert 'error' not in reply.json
+    assert [(entry['tool'], entry['status']) for entry in reply.json['activity']] == [
+        ('evaluate', 'success'), ('predict_batch', 'success'),
+    ]
+    assert len(reply.json['results']) == 2
+    assert client.get(reply.json['results'][1]['download_url']).status_code == 200
+
+
+def test_http_fractional_percentage_accepts_provider_canonical_number(setup):
+    _, client, provider, headers = setup
+    evaluation_id = upload(client, headers, 'labeled.csv')
+    prediction_id = upload(client, headers, 'single.csv')
+    provider.next_tool = ('evaluate_then_predict', {
+        'evaluation_file_id': evaluation_id, 'prediction_file_id': prediction_id,
+        'row_index': 0, 'min_accuracy': 0.333,
+    })
+    reply = client.post('/api/chat', headers=headers, json={
+        'message': f'Evaluate file {evaluation_id}; only if accuracy >= 33.3%, predict row 0 of file {prediction_id}',
+    })
+    assert reply.status_code == 200
+    assert 'error' not in reply.json
+    assert reply.json['activity'][0]['tool'] == 'evaluate'
+    assert len(reply.json['results']) == 2

@@ -1,6 +1,7 @@
 """Adversarial mocked-provider tests exercise routing and evidence boundaries."""
 import copy
 import json
+import math
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -43,7 +44,8 @@ class FakeService:
         self.calls = []
         self.evaluation = {
             "accuracy": accuracy, "auc": 0.96, "auc_reason": None,
-            "confusion_matrix": [[4, 1], [0, 5]], "class_counts": {"0": 5, "1": 5},
+            "confusion_matrix": [[4, 1], [0, 5]], "confusion_matrix_order": [0, 1],
+            "class_counts": {"0": 5, "1": 5},
             "total_count": 10, "evaluated_count": 10, "valid_count": 10,
             "invalid_count": 0, "missing_label_count": 0, "invalid_label_count": 0,
             "evaluation_coverage": 1, "threshold": 0.5, "model_version": "test",
@@ -170,6 +172,14 @@ def test_percentage_threshold_and_negative_input(files):
     assert bad["error"] == "input"
 
 
+@pytest.mark.parametrize("threshold", ["1e999999999999999999999999", "1e1000000%"])
+def test_extreme_user_threshold_is_rejected_before_provider_call(files, threshold):
+    client = FakeClient()
+    output = Agent(FakeService(), client).chat(f"Predict if accuracy >= {threshold}", {}, files)
+    assert output["error"] == "input"
+    assert client.requests == []
+
+
 @pytest.mark.parametrize("message", [
     "Only predict if accuracy for file abc123 is at least 0.95",
     "Only predict if we reach 95% accuracy",
@@ -189,6 +199,68 @@ def test_classify_word_is_not_a_conditional_trigger(files):
     output = Agent(FakeService(), client).chat("Classify every row and report accuracy", {}, files)
     assert "error" not in output
     assert len(client.requests[0]["tools"]) == 4
+
+
+@pytest.mark.parametrize("message", [
+    "Classify row 0 of file-a and tell me if it is malware",
+    "Predict row 0 and report if it is goodware",
+    "Classify row 0 using the model's decision threshold",
+    "Classify every row and include the minimum malware probability",
+    "Classify row 0 and show the threshold and minimum row metadata",
+])
+def test_descriptive_conditions_and_decision_metadata_allow_classification(files, message):
+    service = FakeService()
+    client = FakeClient(tool("predict_single", file_id="file-a", row_index=0), final())
+    output = Agent(service, client).chat(message, {}, files)
+    assert "error" not in output
+    assert "predicts malware" in output["reply"]
+    assert [call[0] for call in service.calls] == ["predict_single"]
+    assert client.requests[0]["tool_choice"] == "auto"
+
+
+def test_independent_evaluation_and_batch_in_one_turn_are_allowed(files):
+    service = FakeService()
+    client = FakeClient(tool("evaluate", file_id="file-a"),
+                        tool("predict_batch", file_id="file-b"), final())
+    output = Agent(service, client).chat("Evaluate file-a and classify every row of file-b", {}, files)
+    assert "error" not in output
+    assert [call[0] for call in service.calls] == ["evaluate", "predict_batch"]
+    assert [entry["status"] for entry in output["activity"]] == ["success", "success"]
+    assert "Accuracy: 0.900000" in output["reply"] and "Batch:" in output["reply"]
+
+
+@pytest.mark.parametrize("message", [
+    "Only predict if accuracy >= 33.3%",
+    "Evaluate first and classify only when accuracy is at least 33.3 percent",
+])
+def test_decimal_percentage_uses_canonical_user_threshold(files, message):
+    service = FakeService(accuracy=0.333)
+    output = Agent(service, FakeClient(tool("evaluate_then_predict", evaluation_file_id="file-a",
+                   prediction_file_id="file-b", row_index=0, min_accuracy=0.333))).chat(message, {}, files)
+    assert "error" not in output
+    assert [call[0] for call in service.calls] == ["evaluate", "predict_single"]
+
+
+def test_float_roundoff_cannot_lower_actual_accuracy_gate(files):
+    neighboring = math.nextafter(0.333, 0)
+    service = FakeService(accuracy=neighboring)
+    output = Agent(service, FakeClient(tool("evaluate_then_predict", evaluation_file_id="file-a",
+                   prediction_file_id="file-b", row_index=0, min_accuracy=neighboring))).chat(
+        "Only predict if accuracy >= 33.3%", {}, files)
+    assert "error" not in output
+    assert [call[0] for call in service.calls] == ["evaluate"]
+    assert "Prediction skipped" in output["reply"]
+
+
+@pytest.mark.parametrize("threshold", [0.332, 0.333 - 1e-12])
+def test_provider_cannot_lower_even_a_small_real_threshold_difference(files, threshold):
+    service = FakeService()
+    output = Agent(service, FakeClient(tool("evaluate_then_predict", evaluation_file_id="file-a",
+                   prediction_file_id="file-b", row_index=0, min_accuracy=threshold))).chat(
+        "Only predict if accuracy >= 33.3%", {}, files)
+    assert output["error"] == "tool"
+    assert "does not match" in output["reply"]
+    assert service.calls == []
 
 
 @pytest.mark.parametrize("message", [
@@ -265,6 +337,50 @@ def test_failure_does_not_send_exception_secret_or_ask_llm_to_guess(files):
     assert len(client.requests) == 1
 
 
+@pytest.mark.parametrize("name,args,message", [
+    ("predict_single", {"row_index": 10}, "row_index must identify an existing row (starting at zero)"),
+    ("predict_single", {"row_index": 0}, "Invalid row 0: Invalid numeric feature: Size"),
+    ("evaluate", {}, "Evaluation requires a Label column containing 0 or 1"),
+    ("evaluate", {}, "Evaluation has no valid labeled rows"),
+    ("predict_batch", {}, "Missing features: Size"),
+    ("predict_batch", {}, "CSV has 1 unexpected column(s)"),
+])
+def test_known_tool_validation_errors_are_visible_in_reply_and_activity(files, name, args, message):
+    class InvalidService(FakeService):
+        feature_names = ["Size"]
+        def predict_single(self, *args, **kwargs):
+            raise ValueError(message)
+        def predict_batch(self, *args, **kwargs):
+            raise ValueError(message)
+        def evaluate(self, *args, **kwargs):
+            raise ValueError(message)
+    client = FakeClient(tool(name, file_id="file-a", **args))
+    output = Agent(InvalidService(), client).chat("Use the uploaded file", {}, files)
+    assert output["error"] == "tool"
+    assert output["reply"] == message
+    assert output["activity"][0]["error"] == message
+    assert output["activity"][0]["status"] == "error"
+    assert len(client.requests) == 1
+    assert not list(files["file-a"]["path"].parent.glob("predictions-*.csv"))
+
+
+@pytest.mark.parametrize("message", [
+    "SECRET_TOKEN_AND_INTERNAL_PATH /private/credentials",
+    "Invalid row 0: Invalid numeric feature: RAW_CELL_SECRET",
+    "Missing features: /private/credentials",
+    "CSV has 1 unexpected column(s): SECRET_UPLOAD_INSTRUCTION",
+])
+def test_unknown_valueerrors_cannot_leak_cells_paths_or_secrets(files, message):
+    class BrokenService(FakeService):
+        feature_names = ["Size"]
+        def predict_single(self, *args, **kwargs):
+            raise ValueError(message)
+    output = Agent(BrokenService(), FakeClient(tool("predict_single", file_id="file-a", row_index=0))).chat("Classify", {}, files)
+    assert output["error"] == "tool"
+    assert message not in str(output)
+    assert "The classification tool failed" in output["reply"]
+
+
 def test_provider_errors_are_sanitized(files):
     output = Agent(FakeService(), FakeClient(RuntimeError("sk-private-secret"))).chat("Evaluate", {}, files)
     assert output["error"] == "provider"
@@ -296,6 +412,54 @@ def test_followup_uses_existing_evidence_and_session_isolation(files):
     other = Agent(service, FakeClient(final(result_ids=[result_id]))).chat("Tell me that other user's results", {}, files)
     assert "unavailable in this session" in other["reply"]
     assert "0.960000" not in other["reply"]
+
+
+@pytest.mark.parametrize("focus,title,count,denominator", [
+    ("false_negatives", "False negatives", 3, 12),
+    ("false_positives", "False positives", 2, 8),
+    ("true_positives", "True positives", 9, 12),
+    ("true_negatives", "True negatives", 6, 8),
+])
+def test_confusion_component_followup_computes_count_and_rate_from_stored_matrix(files, focus, title, count, denominator):
+    state = {}
+    service = FakeService(confusion_matrix=[[6, 2], [3, 9]], class_counts={"0": 8, "1": 12},
+                          total_count=20, evaluated_count=20, valid_count=20)
+    Agent(service, FakeClient(tool("evaluate", file_id="file-a"), final())).chat("Evaluate", state, files)
+    result_id = state["results"][0]["result_id"]
+    output = Agent(service, FakeClient(final(result_ids=[result_id], focus=focus))).chat(f"How many {focus.replace('_', ' ')}?", state, files)
+    assert f"{title}: {count}" in output["reply"]
+    assert f"{count} / {denominator} evaluated" in output["reply"]
+    assert f"{count / denominator:.6f}" in output["reply"]
+    assert len(service.calls) == 1
+    assert output["activity"] == []
+
+
+def test_confusion_matrix_followup_names_all_four_counts(files):
+    service = FakeService(confusion_matrix=[[2, 0], [1, 1]])
+    output = Agent(service, FakeClient(tool("evaluate", file_id="file-a"), final(focus="confusion_matrix"))).chat("Show the confusion matrix", {}, files)
+    for text in ("True negatives: 2", "false positives: 0", "false negatives: 1", "true positives: 1"):
+        assert text in output["reply"]
+
+
+def test_false_negative_rate_with_no_malware_is_undefined_not_zero(files):
+    service = FakeService(confusion_matrix=[[5, 0], [0, 0]])
+    output = Agent(service, FakeClient(tool("evaluate", file_id="file-a"), final(focus="false_negatives"))).chat("How many false negatives?", {}, files)
+    assert "False negatives: 0" in output["reply"]
+    assert "rate is unavailable: no malware files were evaluated" in output["reply"]
+
+
+@pytest.mark.parametrize("fields", [
+    {"confusion_matrix_order": [1, 0]},
+    {"confusion_matrix_order": None},
+    {"confusion_matrix_order": [False, True]},
+    {"confusion_matrix": [[2, 0], [-1, 1]]},
+    {"confusion_matrix": [[2, 0], [1.5, 1]]},
+    {"confusion_matrix": [[2], [1, 1]]},
+])
+def test_confusion_counts_require_known_class_order_and_valid_integer_matrix(files, fields):
+    output = Agent(FakeService(**fields), FakeClient(tool("evaluate", file_id="file-a"), final(focus="false_negatives"))).chat("How many false negatives?", {}, files)
+    assert "Confusion-matrix counts unavailable" in output["reply"]
+    assert "rate is" not in output["reply"]
 
 
 def test_single_class_auc_rendering_and_missing_labels_count(files):
