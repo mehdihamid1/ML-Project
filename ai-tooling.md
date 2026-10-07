@@ -43,7 +43,7 @@ documentation and its Blueprint schema. It rebuilt both Docker images, verified
 authenticated Jupyter access, and added a reproducible production HTTP probe
 using an actual memory-limited Gunicorn container. The probe's provider is a
 local stub, while model predictions, metrics and downloads use production code.
-The latest local full and lean suites pass 246 and 235 tests respectively.
+The latest local full and lean suites pass 285 and 274 tests respectively.
 
 Claude Code (Anthropic) performed that review and checked its findings with
 read-only experiments: phrasing checks against the conditional detector and an
@@ -60,3 +60,18 @@ SDK tests and local health checks do not fulfill those deliverables. Their
 status is recorded in [agent-evaluation.md](agent-evaluation.md) and
 [deployed.md](deployed.md). The project author must review, understand, and
 explain the resulting code and experiment design.
+
+Codex added the model dashboard with parallel data, interface and review
+agents. The dashboard uses an exported summary of the original recorded
+experiment, without retraining or changing the production artifact. Its loader
+checks metric consistency and model version; local SVG charts add no external
+assets or runtime packages. Hold-out results are displayed separately from
+cross-validation scores.
+
+Claude Code then revised the dashboard's charts against its data-visualization
+guidance. Mean AUC and accuracy moved from bars on a 0–1 axis, where every model
+looked identical, to dots with fold standard deviations on a fitted axis. A
+line joining unordered folds became a paired fold-by-fold comparison with a
+value table. Chart colors were checked with a color-vision validator, and the
+charts gained keyboard-accessible tooltips and larger caption text. It checked
+the result in headless-browser screenshots at desktop and phone widths.

@@ -208,6 +208,7 @@ def run_probe(image, cpus=None):
               "memory_limit_bytes": MEMORY_BYTES, "swap_limit_bytes": MEMORY_BYTES,
               "cpu_limit": cpus, "container_port": 10000, "http_statuses": statuses}
     manifest = json.loads((ROOT / "models/manifest.json").read_text())
+    expected_comparison = json.loads((ROOT / "models/comparison.json").read_text())
     name = "ml-runtime-probe-" + uuid.uuid4().hex
     environment = os.environ.copy()
     environment["FLASK_SECRET_KEY"] = secrets.token_hex(32)
@@ -271,6 +272,17 @@ def run_probe(image, cpus=None):
             require(b"/static/app.js" in browser.request("GET", "/", label="ui"), "Chat UI did not render")
             browser.request("GET", "/static/app.js", label="static_js")
             browser.request("GET", "/static/style.css", label="static_css")
+            dashboard = browser.request("GET", "/analytics", label="model_dashboard")
+            require(b"/static/dashboard.js" in dashboard, "Model dashboard did not render")
+            browser.request("GET", "/static/dashboard.js", label="dashboard_js")
+            browser.request("GET", "/static/dashboard.css", label="dashboard_css")
+            comparison = json.loads(browser.request("GET", "/api/model-comparison", label="model_comparison"))
+            require(comparison == expected_comparison, "Container dashboard differs from recorded experiment results")
+            require(comparison["model_version"] == health["model_version"], "Dashboard and production model versions differ")
+            report["dashboard"] = {"model_count": len(comparison["models"]),
+                                   "folds": comparison["folds"],
+                                   "selected_model": comparison["selected_model"],
+                                   "source": "models/comparison.json"}
             browser.session("session_a")
             files = {sample: browser.upload(ROOT / "samples" / sample, "upload_" + sample) for sample in
                      ["single.csv", "invalid-rows.csv", "labeled.csv", "single-class.csv", "missing-labels.csv"]}

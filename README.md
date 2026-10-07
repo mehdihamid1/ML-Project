@@ -17,7 +17,7 @@ under `docs/`, so a clean checkout can run the app without retraining.
 The ML milestone (`7a8279c`), application milestone (`8ca98b8`) and review fixes
 (`1c5f4bb`) are committed and pushed to `main`. The tools, OpenAI agent, Flask
 app, sample CSVs and deployment workflow are implemented. Plain `pytest` passes
-all 246 tests locally; the lean environment passes 235 tests. The previously observed
+all 285 tests locally; the lean environment passes 274 tests. The previously observed
 [full CI job](https://github.com/mehdihamid1/ML-Project/actions/runs/37396524639/job/112053720455)
 passed 222 tests, and the separate
 [runtime CI job](https://github.com/mehdihamid1/ML-Project/actions/runs/37396524639/job/112053720662)
@@ -44,7 +44,7 @@ gunicorn app:app --bind 127.0.0.1:5000 --workers 1 --threads 2 --timeout 180
 ```
 
 Open <http://127.0.0.1:5000>. Without `OPENAI_API_KEY`, health and upload
-validation work but chat reports that configuration is missing. The app reads
+validation and the model dashboard work but chat reports that configuration is missing. The app reads
 secrets from environment variables, never from source code. `.env.example`
 lists setting names only; copying it does not configure working secrets.
 `OPENAI_MODEL` optionally selects the OpenAI model; the code defaults to
@@ -101,7 +101,30 @@ one Gunicorn worker: multiple workers require a shared session store first.
 Behind Render's proxy, the deployment enables secure cookies and trusted
 forwarded protocol/client-IP handling; keep `TRUST_PROXY` off locally.
 
-Routes are `/`, `/health`, `/api/session`, `/api/upload`, `/api/chat`,
+Open **Model dashboard** in the header, or visit `/analytics`, to compare the
+recorded models. The dashboard shows cross-validation AUC, accuracy, fold
+standard deviation and mean fit time, with sortable results and interactive
+charts. Mean AUC and accuracy appear as dots with ±1 fold standard deviation on
+an axis fitted to the results, so close models stay distinguishable. Because
+every model used the same folds, a fold-by-fold panel compares LightGBM with
+any other model; it describes those folds and is not a significance test.
+LightGBM's final hold-out metrics and confusion matrix appear separately.
+The comparison uses saved experiment output and requires no OpenAI key or
+retraining. Download the same numbers from `/api/model-comparison`.
+
+The small runtime report is bundled as `models/comparison.json`. To regenerate
+it from an existing training run without fitting models:
+
+```bash
+python scripts/export_model_comparison.py --artifacts artifacts/training-final --output models/comparison.json
+```
+
+The report records source checksums; its loader checks metric summaries and
+the production model version before displaying results. The table remains
+available when JavaScript is disabled. Charts use local scripts and SVG and
+add no runtime dependencies.
+
+Routes are `/`, `/analytics`, `/health`, `/api/model-comparison`, `/api/session`, `/api/upload`, `/api/chat`,
 `/api/download/<id>` and `/api/reset`. Mutation requests require the CSRF token
 from `/api/session` in `X-CSRF-Token`. The UI handles that automatically.
 
@@ -171,7 +194,7 @@ python3 scripts/check_container.py --image ml-project-web --cpus 0.1 --output ar
 ```
 
 It starts the actual Gunicorn command with a custom port, secure cookies and
-proxy handling, then exercises uploads, frozen-model tools, conditional tasks,
+proxy handling, then verifies the dashboard's bundled results and exercises uploads, frozen-model tools, conditional tasks,
 isolated downloads and the maximum-row batch under the configured resource
 limits. Only the OpenAI HTTP provider is mocked. It removes its own temporary
 container. The [observed report](docs/container-compatibility.json) records the

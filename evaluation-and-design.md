@@ -168,6 +168,19 @@ Render settings. This is not a completed deployment.
 
 ## Agent and runtime design
 
+The `/analytics` dashboard presents the recorded comparison from
+`models/comparison.json`, exported by `scripts/export_model_comparison.py` from
+the original CV results and metadata. It preserves full metric precision and
+fold scores, records source checksums, and validates its summaries and model
+version at startup. Viewing the dashboard never fits a model or calls the LLM.
+All comparison metrics are development-set cross-validation results; the
+selected model's hold-out metrics and confusion matrix appear separately.
+Error bars describe variation across folds, not confidence intervals.
+Because all models used identical folds, the dashboard also pairs the
+production model's fold scores with any other model's and counts the folds
+each one led. These counts describe the recorded folds; they are not a
+significance test and played no part in model selection.
+
 The production artifact at `models/production.joblib` is verified against
 `models/manifest.json`; deployment does not retrain it. Heavy model-library
 imports are deferred until training or PyTorch inference, so loading the frozen

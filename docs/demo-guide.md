@@ -18,8 +18,12 @@ as evidence. Keep credentials and deploy-hook URLs out of the recording.
    Explain that OpenAI selects tools and stored results, while Python produces
    classifications and metrics. No feature-level explanation tool exists.
 2. Show the dataset provenance, deduplication and leakage controls, the
-   seven-model comparison, and the held-out errors in
-   [evaluation and design](../evaluation-and-design.md). Explain the fixed
+   seven-model comparison in the app's **Model dashboard** (`/analytics`),
+   and the held-out errors in its separate final-model panel. Use the metric
+   controls to compare performance, fold variation and recorded fit times,
+   and the fold-by-fold panel to show how often LightGBM led the runner-up on
+   the shared folds.
+   Relate these results to [evaluation and design](../evaluation-and-design.md). Explain the fixed
    decision threshold and limitations. Do not run tuning on the hold-out.
 3. Open the live app and `/health`. Show the tested commit and model version;
    relate them to the successful workflow and frozen-model checksum.

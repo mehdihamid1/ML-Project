@@ -16,11 +16,19 @@
     "missing_label_rows": 1
   },
   "cpu_limit": 0.1,
+  "dashboard": {
+    "folds": 10,
+    "model_count": 7,
+    "selected_model": "LightGBM",
+    "source": "models/comparison.json"
+  },
   "health_commit": "container-compatibility-probe",
   "http_statuses": {
     "conditional_pass": 200,
     "conditional_skip": 200,
     "cross_session_download": 404,
+    "dashboard_css": 200,
+    "dashboard_js": 200,
     "health": 200,
     "health_after_large_batch": 200,
     "invalid_batch_download": 200,
@@ -30,6 +38,8 @@
     "large_batch_prediction": 200,
     "missing_label_column": 200,
     "missing_label_rows": 200,
+    "model_comparison": 200,
+    "model_dashboard": 200,
     "session_a": 200,
     "session_b": 200,
     "session_large": 200,
@@ -48,13 +58,13 @@
     "upload_single.csv": 201
   },
   "image": "ml-project-web",
-  "image_id": "sha256:a995497e5daf9c78af58f75b84946cb78ebd09a9aba4a9b9878e8ffb341ff0d9",
+  "image_id": "sha256:b987158f85f3be919fe22469df18bef43eee583300042befbb522653198c536d",
   "large_batch_upload_bytes": 2619213,
   "memory_limit_bytes": 536870912,
   "memory_observation": {
-    "MemPerc": "36.38%",
-    "MemUsage": "186.3MiB / 512MiB",
-    "PIDs": "6"
+    "MemPerc": "38.42%",
+    "MemUsage": "196.7MiB / 512MiB",
+    "PIDs": "7"
   },
   "memory_observation_note": "One post-request Docker sample; this is not a peak-memory measurement.",
   "mock_provider": {

@@ -4,13 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Quantic · PE file classifier</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
   <script src="{{ url_for('static', filename='app.js') }}" defer></script>
 </head>
 <body>
   <div class="workspace">
     <header class="site-header">
       <a class="brand" href="/" aria-label="Quantic classifier home"><span class="brand-mark">Q</span><span>Quantic<span class="brand-detail">Machine learning laboratory</span></span></a>
+      <nav class="primary-nav" aria-label="Main navigation"><a href="/" aria-current="page">Chat</a><a href="/analytics">Model dashboard</a></nav>
       <div class="model-status" id="model-status"><span class="status-dot"></span>Checking model…</div>
     </header>
     <main>

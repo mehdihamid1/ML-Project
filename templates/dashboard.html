@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Model comparison · Quantic</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+  {% if comparison %}<script src="{{ url_for('static', filename='dashboard.js') }}" defer></script>{% endif %}
+</head>
+<body>
+  <div class="workspace dashboard-workspace">
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="Quantic classifier home"><span class="brand-mark">Q</span><span>Quantic<span class="brand-detail">Machine learning laboratory</span></span></a>
+      <nav class="primary-nav" aria-label="Main navigation"><a href="/">Chat</a><a href="/analytics" aria-current="page">Model dashboard</a></nav>
+      <span class="recorded-badge"><span class="status-dot"></span>Recorded experiment</span>
+    </header>
+    <main>
+      <section class="dashboard-intro">
+        <div><p class="eyebrow">MODEL PERFORMANCE · WINDOWS PE FILES</p><h1>Compare the models.</h1><p class="intro-copy">See how each model performed on the same training folds, then inspect the production model's reserved test results.</p></div>
+        {% if comparison %}<a class="download-report" href="/api/model-comparison" download="model-comparison.json"><span aria-hidden="true">↓</span> Download results</a>{% endif %}
+      </section>
+      {% if not comparison %}
+      <section class="panel comparison-unavailable" aria-labelledby="unavailable-heading"><span class="welcome-symbol" aria-hidden="true">↗</span><h2 id="unavailable-heading">Model comparison is unavailable</h2><p>{{ comparison_error or 'Recorded model results could not be loaded.' }}</p><a href="/">Return to the chat</a></section>
+      {% else %}
+      {% set winner = comparison.models | selectattr('model', 'equalto', comparison.selected_model) | first %}
+      {% set holdout = comparison.holdout_metrics %}
+      <section class="dashboard-metrics" aria-label="Experiment highlights">
+        <article class="panel metric-tile production-tile"><p class="tile-label">Production model</p><p class="tile-value model-name">{{ comparison.selected_model }}</p><p class="tile-detail"><span class="selection-dot" aria-hidden="true"></span> Selected by cross-validation AUC</p></article>
+        <article class="panel metric-tile"><p class="tile-label">Highest mean CV AUC</p><p class="tile-value">{{ '%.6f' | format(winner.auc_mean) }}</p><p class="tile-detail">± {{ '%.6f' | format(winner.auc_std) }} across {{ comparison.folds }} folds</p></article>
+        <article class="panel metric-tile"><p class="tile-label">Production hold-out accuracy</p><p class="tile-value">{{ '%.3f' | format(holdout.accuracy * 100) }}<span class="value-unit">%</span></p><p class="tile-detail">{{ '{:,}'.format(holdout.sample_count) }} files reserved for the final test</p></article>
+        <article class="panel metric-tile"><p class="tile-label">Files in the experiment</p><p class="tile-value">{{ '{:,}'.format(comparison.data.clean_rows) }}</p><p class="tile-detail">{{ '{:,}'.format(comparison.training_rows) }} training · {{ '{:,}'.format(comparison.holdout_rows) }} hold-out</p></article>
+      </section>
+
+      <section class="panel comparison-panel" aria-labelledby="comparison-heading">
+        <div class="dashboard-panel-heading"><div><p class="panel-kicker">THE COMPARISON</p><h2 id="comparison-heading">{{ comparison.models | length }} models, the same {{ comparison.folds }} folds</h2><p>Training-only stratified cross-validation · mean and fold standard deviation</p></div><span class="training-label">Cross-validation</span></div>
+        <div class="chart-toolbar"><div class="metric-switch" role="group" aria-label="Chart metric"><button type="button" data-metric="auc" class="active" aria-pressed="true" disabled>AUC</button><button type="button" data-metric="accuracy" aria-pressed="false" disabled>Accuracy</button><button type="button" data-metric="fit" aria-pressed="false" disabled>Fit time</button></div></div>
+        <p class="chart-explanation" id="chart-explanation">Dots show each model's mean cross-validation AUC; whiskers show ±1 fold standard deviation. Higher is better.</p>
+        <div class="comparison-chart" id="comparison-chart" role="group" aria-label="Cross-validation AUC comparison. Use the arrow keys to step through the models." aria-describedby="chart-explanation"><p class="chart-fallback">The chart needs JavaScript. Every value is in the table below.</p></div>
+        <p class="chart-legend" id="chart-legend"><span class="legend-marker production-marker" aria-hidden="true"></span>Production model <span class="legend-marker" aria-hidden="true"></span>Other models</p>
+        <p class="dashboard-notice" id="dashboard-notice" role="status" aria-live="polite"></p>
+        <div class="comparison-table-wrap" tabindex="0" role="region" aria-label="All recorded cross-validation results; scroll horizontally on small screens">
+          <table class="comparison-table" id="comparison-table"><caption class="sr-only">Best recorded configuration of each model, sorted by mean cross-validation AUC. Standard deviation is across folds, not a confidence interval.</caption><thead><tr><th scope="col">AUC rank</th><th scope="col">Model</th><th scope="col" aria-sort="descending"><button type="button" data-sort="auc_mean" disabled>CV AUC <span aria-hidden="true" class="sort-indicator">↓</span></button><span class="column-note">mean ± std</span></th><th scope="col" aria-sort="none"><button type="button" data-sort="accuracy_mean" disabled>CV accuracy <span aria-hidden="true" class="sort-indicator"></span></button><span class="column-note">% ± percentage points</span></th><th scope="col" aria-sort="none"><button type="button" data-sort="fit_seconds_mean" disabled>Fit time <span aria-hidden="true" class="sort-indicator"></span></button><span class="column-note">mean seconds / fold</span></th></tr></thead><tbody>
+          {% for model in comparison.models %}<tr data-model="{{ model.model }}"{% if model.model == comparison.selected_model %} class="production-row"{% endif %}><td><span class="rank-number">{{ loop.index }}</span></td><th scope="row">{{ model.model }}{% if model.model == comparison.selected_model %}<span class="production-pill">Production</span>{% endif %}</th><td>{{ '%.6f' | format(model.auc_mean) }} <span class="table-deviation">± {{ '%.6f' | format(model.auc_std) }}</span></td><td>{{ '%.3f' | format(model.accuracy_mean * 100) }}% <span class="table-deviation">± {{ '%.3f' | format(model.accuracy_std * 100) }} pp</span></td><td>{{ '%.3f' | format(model.fit_seconds_mean) }} <span class="table-deviation">s</span></td></tr>{% endfor %}
+          </tbody></table>
+        </div>
+        <p class="table-footnote">Each model's best recorded configuration is shown. Fold variability is a standard deviation, not a confidence interval. Fit times describe this training run and depend on the machine.</p>
+      </section>
+
+      <div class="dashboard-detail-grid">
+        <section class="panel holdout-panel" aria-labelledby="holdout-heading"><div class="dashboard-panel-heading"><div><p class="panel-kicker">RESERVED TEST SET</p><h2 id="holdout-heading">{{ comparison.selected_model }} on unseen files</h2><p>Final evaluation after model selection</p></div><span class="training-label">Hold-out</span></div><div class="holdout-metrics"><div><p class="tile-label">AUC</p><p class="holdout-value">{{ '%.6f' | format(holdout.auc) }}</p></div><div><p class="tile-label">Accuracy</p><p class="holdout-value">{{ '%.3f' | format(holdout.accuracy * 100) }}<span class="value-unit">%</span></p></div><div><p class="tile-label">Decision threshold</p><p class="holdout-value">{{ comparison.threshold }}</p></div></div><table class="holdout-confusion"><caption>Confusion matrix · {{ '{:,}'.format(holdout.sample_count) }} files</caption><thead><tr><td></td><th scope="col">Predicted<br>goodware</th><th scope="col">Predicted<br>malware</th></tr></thead><tbody><tr><th scope="row">Actual goodware</th><td class="correct"><strong>{{ '{:,}'.format(holdout.confusion_matrix[0][0]) }}</strong><span>Correctly cleared</span></td><td class="incorrect"><strong>{{ '{:,}'.format(holdout.confusion_matrix[0][1]) }}</strong><span>False positives</span></td></tr><tr><th scope="row">Actual malware</th><td class="incorrect"><strong>{{ '{:,}'.format(holdout.confusion_matrix[1][0]) }}</strong><span>False negatives</span></td><td class="correct"><strong>{{ '{:,}'.format(holdout.confusion_matrix[1][1]) }}</strong><span>Correctly detected</span></td></tr></tbody></table><p class="table-footnote">The hold-out set was kept separate from preprocessing, cross-validation and model selection. These test metrics belong only to {{ comparison.selected_model }}.</p></section>
+        <section class="panel selection-panel" aria-labelledby="selection-heading"><p class="panel-kicker">WHY THIS MODEL?</p><h2 id="selection-heading">Chosen by training results</h2><p class="selection-copy">{{ comparison.selected_model }} achieved the highest mean cross-validation AUC among the compared models.</p><p class="selection-rule">Selection rule: {{ comparison.selection_rule }}.</p>{% if comparison.models | length > 1 %}{% set auc_gap = comparison.models[0].auc_mean - comparison.models[1].auc_mean %}<p class="selection-copy selection-caution">The gap between the top two mean AUCs is {{ '%.6f' | format(auc_gap) }}{% if auc_gap < comparison.models[0].auc_std and auc_gap < comparison.models[1].auc_std %}, smaller than either model's fold standard deviation{% endif %}.{% if paired %} Because every model used the same folds, they can also be compared fold by fold: {{ paired.production }}'s AUC was higher than {{ paired.other }}'s in {{ paired.production_higher }} of {{ paired.folds | length }} folds.{% endif %} Neither figure is a significance test.</p>{% endif %}<div class="method-facts"><div><span>Cross-validation</span><strong>{{ comparison.folds }} stratified folds</strong></div><div><span>Random seed</span><strong>{{ comparison.random_state }}</strong></div><div><span>Conflicting hashes removed</span><strong>{{ comparison.data.conflicting_hashes_removed }}</strong></div><div><span>Excluded identifiers</span><strong>SHA1 · FirstSeenDate</strong></div></div><a class="back-to-chat" href="/">Use the production model in chat <span aria-hidden="true">↗</span></a></section>
+      </div>
+
+      {% if paired %}
+      <section class="panel fold-panel" aria-labelledby="fold-heading">
+        <div class="dashboard-panel-heading"><div><p class="panel-kicker">FOLD BY FOLD</p><h2 id="fold-heading">{{ paired.production }} against another model on the same folds</h2><p>Every model was scored on the same {{ comparison.folds }} validation folds, so each fold is a like-for-like comparison.</p></div><div class="fold-controls"><div><label for="fold-model">Compare with</label><select id="fold-model" disabled>{% for model in comparison.models if model.model != comparison.selected_model %}<option value="{{ model.model }}"{% if model.model == paired.other %} selected{% endif %}>{{ model.model }}</option>{% endfor %}</select></div><div><label for="fold-metric">Metric</label><select id="fold-metric" disabled><option value="auc">AUC</option><option value="accuracy">Accuracy</option></select></div></div></div>
+        <p class="fold-summary" id="fold-summary" aria-live="polite">{{ paired.production }}'s AUC was higher in <strong>{{ paired.production_higher }} of {{ paired.folds | length }}</strong> folds{% if paired.other_higher %}; {{ paired.other }} was higher in {{ paired.other_higher }}{% endif %}{% if paired.ties %}; {{ paired.ties }} tied{% endif %}. Mean difference: <strong>{{ '%+.6f' | format(paired.mean_difference) }}</strong> AUC.</p>
+        <div class="fold-body">
+          <div>
+            <div id="fold-chart" class="fold-chart" role="group" aria-label="Per-fold differences. Use the arrow keys to step through the folds." aria-describedby="fold-summary"></div>
+            <p class="chart-legend fold-legend"><span class="legend-marker bar production-marker" aria-hidden="true"></span><span id="fold-legend-production">{{ paired.production }} higher</span><span class="legend-marker bar" aria-hidden="true"></span><span id="fold-legend-other">{{ paired.other }} higher</span></p>
+            <p class="fold-caption" id="fold-caption">Bars show {{ paired.production }} minus {{ paired.other }} on each fold, in AUC; above zero means {{ paired.production }} scored higher. This describes the recorded folds; it is not a significance test.</p>
+          </div>
+          <div class="fold-table-wrap" tabindex="0" role="region" aria-label="Fold-by-fold values">
+            <table class="fold-table" id="fold-table"><caption class="sr-only" id="fold-table-caption">AUC on each validation fold</caption><thead><tr><th scope="col">Fold</th><th scope="col" id="fold-head-production">{{ paired.production }}</th><th scope="col" id="fold-head-other">{{ paired.other }}</th><th scope="col">Difference</th></tr></thead><tbody>{% for fold in paired.folds %}<tr><th scope="row">{{ fold.fold }}</th><td>{{ '%.6f' | format(fold.production) }}</td><td>{{ '%.6f' | format(fold.other) }}</td><td>{{ '%+.6f' | format(fold.difference) }}</td></tr>{% endfor %}</tbody></table>
+          </div>
+        </div>
+      </section>
+      {% endif %}
+      <p class="sr-only" id="chart-announcer" aria-live="polite"></p>
+
+      <details class="provenance-details"><summary>Experiment details and source records</summary><p>{{ comparison.search_scope }}</p><dl><dt>Production model version</dt><dd>{{ comparison.model_version }}</dd><dt>Dataset SHA-256</dt><dd><code>{{ comparison.dataset_sha256 }}</code></dd>{% for source in comparison.sources %}<dt>{{ source.name }}</dt><dd><code>{{ source.sha256 }}</code></dd>{% endfor %}</dl><p>The dashboard reads the saved experiment results. It does not train models or change the production selection.</p></details>
+      {% endif %}
+    </main>
+    <footer class="site-footer">Quantic Machine Learning and AI Agent Project<span>Recorded training results · Model comparison</span></footer>
+  </div>
+</body>
+</html>

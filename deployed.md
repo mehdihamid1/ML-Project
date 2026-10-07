@@ -91,19 +91,19 @@ Real chat behavior requires the separate provider evaluation described in
 The current Blueprint passes the JSON schema served by
 [Render](https://render.com/schema/render.yaml.json). Docker Compose configuration
 validates, and both the training and production images build successfully.
-The rebuilt training image passes 246 tests; the lean local environment passes
-235 tests. Authenticated Jupyter HTTP access works with the host owner's UID/GID.
+The rebuilt training image passes 285 tests; the lean local environment passes
+274 tests. Authenticated Jupyter HTTP access works with the host owner's UID/GID.
 
 The production image works at its local default port and honors a custom
 `PORT`, using non-root permissions, the lean dependencies and the verified
 frozen model. The container probe exercises the actual Gunicorn worker, proxy
-headers, secure cookies, uploads, all tool paths, conditional ordering, invalid
+headers, secure cookies, the model dashboard and its recorded JSON, uploads, all tool paths, conditional ordering, invalid
 rows and isolated downloads. It also scores and downloads every row of a
 maximum-row synthetic batch. The provider is mocked for these checks.
 
 The final [recorded container probe](docs/container-compatibility.json) passed
 with a 0.1 CPU quota and a 512 MiB memory limit, including all 10,000 batch rows
-and the subsequent health check. The recorded memory sample was 186.3 MiB
+and the subsequent health check. The report includes a memory sample taken
 after the requests; it is not a peak-memory measurement. The report identifies
 the tested image and explicitly marks the provider as mocked. Resource settings
 reflect the [Render Free plan](https://render.com/docs/compute-plans), while

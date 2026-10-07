@@ -143,6 +143,7 @@ def create_app(config=None, *, service=None, agent=None):
     app.config.from_mapping(
         SECRET_KEY=os.environ.get("FLASK_SECRET_KEY"),
         MODEL_PATH=os.environ.get("MODEL_PATH") or str(project / "models/production.joblib"),
+        COMPARISON_PATH=str(project / "models/comparison.json"),
         SESSION_ROOT=None,
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
@@ -191,6 +192,16 @@ def create_app(config=None, *, service=None, agent=None):
     app.extensions["tool_service"] = service
     app.extensions["chat_agent"] = agent
     app.extensions["session_store"] = store
+    from .comparison import fold_comparison, load_comparison
+    try:
+        comparison = load_comparison(app.config["COMPARISON_PATH"],
+                                     model_version=_metadata(service).get("model_version"))
+        # The runner-up is the default fold-by-fold comparison on the dashboard.
+        paired = fold_comparison(comparison, comparison["models"][1]["model"])
+    except (OSError, ValueError, TypeError):
+        app.logger.warning("Recorded model comparison is unavailable", exc_info=True)
+        comparison = paired = None
+    app.extensions["model_comparison"] = comparison
 
     def current_session(*, create=False, csrf_token=None, missing_status=403):
         if "leased_session" in g:
@@ -247,6 +258,17 @@ def create_app(config=None, *, service=None, agent=None):
     @app.get("/")
     def index():
         return render_template("index.html")
+
+    @app.get("/analytics")
+    def analytics():
+        return render_template("dashboard.html", comparison=comparison, paired=paired,
+                               comparison_error="Recorded model results are unavailable. Please try again later."), (200 if comparison else 503)
+
+    @app.get("/api/model-comparison")
+    def model_comparison():
+        if comparison is None:
+            raise RequestError("Recorded model results are unavailable. Please try again later.", 503)
+        return jsonify(comparison)
 
     @app.get("/health")
     def health():
