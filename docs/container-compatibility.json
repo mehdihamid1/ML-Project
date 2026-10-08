@@ -59,12 +59,12 @@
     "walkthrough_css": 200
   },
   "image": "ml-project-web",
-  "image_id": "sha256:a59e04f989c95c0e0ee2fe3ff2881ec20ede35f505b27f13b5cc99cf2399045b",
+  "image_id": "sha256:2d0a4049d7ca9b6b0417b9dd3d15138511c753d9f9b5962d74efe05b95e33c35",
   "large_batch_upload_bytes": 2619213,
   "memory_limit_bytes": 536870912,
   "memory_observation": {
-    "MemPerc": "37.93%",
-    "MemUsage": "194.2MiB / 512MiB",
+    "MemPerc": "38.31%",
+    "MemUsage": "196.2MiB / 512MiB",
     "PIDs": "7"
   },
   "memory_observation_note": "One post-request Docker sample; this is not a peak-memory measurement.",

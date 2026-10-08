@@ -81,6 +81,14 @@ def test_chat_page_and_health_do_not_call_llm(app, client):
     assert "Content-Security-Policy" in response.headers
 
 
+def test_chat_page_reads_files_then_chat_then_conditional_form(client):
+    # Phones stack the page in document order, so the chat follows the file list.
+    page = client.get("/").text
+    assert page.index('class="panel upload-panel"') < page.index('class="conversation panel"') < page.index('class="panel conditional-panel"')
+    assert 'id="file-input" class="file-input" accept=".csv,text/csv" multiple' in page
+    assert '<label class="upload-zone" for="file-input"' in page
+
+
 def test_missing_secret_is_rejected(tmp_path, monkeypatch):
     monkeypatch.delenv("FLASK_SECRET_KEY", raising=False)
     with pytest.raises(RuntimeError, match="FLASK_SECRET_KEY"):

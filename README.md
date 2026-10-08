@@ -17,7 +17,7 @@ under `docs/`, so a clean checkout can run the app without retraining.
 The ML milestone (`7a8279c`), application milestone (`8ca98b8`) and review fixes
 (`1c5f4bb`) are committed and pushed to `main`. The tools, OpenAI agent, Flask
 app, sample CSVs and deployment workflow are implemented. Plain `pytest` passes
-all 289 tests locally; the lean environment passes 278 tests. The previously observed
+all 290 tests locally; the lean environment passes 279 tests. The previously observed
 [full CI job](https://github.com/mehdihamid1/ML-Project/actions/runs/37396524639/job/112053720455)
 passed 222 tests, and the separate
 [runtime CI job](https://github.com/mehdihamid1/ML-Project/actions/runs/37396524639/job/112053720662)
@@ -61,12 +61,17 @@ defaulting to 5000 for this Compose mapping. Render's native Python service
 uses the same lean requirements and binds to its assigned port. The Blueprint
 sets Gunicorn options explicitly and keeps one worker for session isolation.
 
-Upload a CSV from [samples/](samples/README.md). The UI shows its opaque file
-ID; use the **Copy** button beside it to paste the ID into a request to classify
-a row, classify every row, or evaluate labels. Batch results include source row
-IDs, probabilities, invalid row status and errors, and a download link. The conditional form lets you choose
-an evaluation file, a prediction file, a row and an accuracy threshold.
-Activity records show the actual evaluation, prediction, failure or skip.
+Choose or drop one or more CSVs from [samples/](samples/README.md) on the
+upload area; each is validated as soon as it is added. Every file card offers
+**Predict row 0**, **Classify all** and, for files with a `Label` column,
+**Evaluate**; each button writes the request for that file into the chat box.
+The **Copy** button copies the opaque file ID for requests you type yourself.
+Batch results include source row IDs, probabilities, invalid row status and
+errors, and a download link. The conditional form lets you choose an
+evaluation file, a prediction file, a row and an accuracy threshold. Each
+answer lists the tools that produced it, or says that none was called, and the
+activity record lists every call in the session with its arguments and its
+evaluation, prediction, failure or skip.
 Follow-up questions use stored session results.
 Confusion-matrix follow-ups name false negatives, false positives, true negatives
 and true positives, with counts and rates calculated in code. Ordinary “tell me

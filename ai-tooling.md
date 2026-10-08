@@ -43,7 +43,7 @@ documentation and its Blueprint schema. It rebuilt both Docker images, verified
 authenticated Jupyter access, and added a reproducible production HTTP probe
 using an actual memory-limited Gunicorn container. The probe's provider is a
 local stub, while model predictions, metrics and downloads use production code.
-The latest local full and lean suites pass 289 and 278 tests respectively.
+The latest local full and lean suites pass 290 and 279 tests respectively.
 
 Claude Code (Anthropic) performed that review and checked its findings with
 read-only experiments: phrasing checks against the conditional detector and an
@@ -95,3 +95,14 @@ LightGBM's cross-validation rounds. The walkthrough colors were changed to pass
 the color-vision validator. Chrome checks again matched all 70 model/round
 pairs and covered pointer, keyboard and no-JavaScript use from 320 to 1440
 pixels.
+
+Codex added a Copy button for uploaded file IDs. Claude Code then reworked the
+chat page for the demo. The quick actions had always used the oldest upload
+and disappeared after the first answer, so each file card now carries its own
+**Predict row 0**, **Classify all** and, for labelled files, **Evaluate**
+buttons. Uploads start when files are chosen or dropped. Each answer lists the
+tools behind it, result cards lead with the verdict or headline metrics, the
+chat sits beside the files and stays in view, and no text is smaller than 11px.
+Phones show the chat straight after the file list. Chrome checks drove every
+demo step through the page against a local stand-in for the OpenAI API at
+1440 and 390 pixels.

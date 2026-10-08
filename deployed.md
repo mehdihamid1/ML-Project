@@ -91,8 +91,8 @@ Real chat behavior requires the separate provider evaluation described in
 The current Blueprint passes the JSON schema served by
 [Render](https://render.com/schema/render.yaml.json). Docker Compose configuration
 validates, and both the training and production images build successfully.
-The training image passes 289 tests; the lean local environment passes
-278 tests. Authenticated Jupyter HTTP access works with the host owner's UID/GID.
+The training image passes 290 tests; the lean local environment passes
+279 tests. Authenticated Jupyter HTTP access works with the host owner's UID/GID.
 
 The production image works at its local default port and honors a custom
 `PORT`, using non-root permissions, the lean dependencies and the verified

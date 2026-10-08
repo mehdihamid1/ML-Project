@@ -5,10 +5,19 @@ const ui = {
   messages: byId("messages"), notice: byId("notice"), files: byId("file-list"),
   activities: byId("activity-list"), input: byId("message-input"),
   evaluation: byId("evaluation-file"), prediction: byId("prediction-file"),
+  fileInput: byId("file-input"), uploadZone: byId("upload-zone"),
 };
+const TOOL_NAMES = {
+  predict_single: "Single prediction", predict_batch: "Batch prediction",
+  evaluate: "Evaluation", evaluate_then_predict: "Evaluate, then predict",
+};
+const STATUS_WORDS = { success: "ran", error: "failed", skipped: "skipped", recorded: "recorded" };
+const STATUS_MARKS = { success: "✓", error: "✕", skipped: "–", recorded: "•" };
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 let csrfToken = "";
 let files = [];
 let busy = false;
+let uploading = false;
 
 function element(tag, className, value) {
   const node = document.createElement(tag);
@@ -20,6 +29,22 @@ function element(tag, className, value) {
 function notice(message, success = false) {
   ui.notice.textContent = message || "";
   ui.notice.className = success ? "notice success" : "notice";
+}
+
+function plural(count, word) {
+  return `${Number(count).toLocaleString()} ${word}${count === 1 ? "" : "s"}`;
+}
+
+function fileLabel(id, withId = false) {
+  const file = files.find((item) => item.id === id);
+  const short = String(id || "").slice(0, 8);
+  if (!file) return `file ${short}`;
+  return withId ? `${file.name} (${short})` : file.name;
+}
+
+function percent(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "Unavailable";
+  return value > 0 && value < 0.0001 ? "<0.01%" : `${(value * 100).toFixed(2)}%`;
 }
 
 async function api(path, options = {}) {
@@ -43,64 +68,161 @@ function setBusy(value) {
   byId("send-button").firstChild.textContent = value ? "Working " : "Send ";
 }
 
+// Replies are written by Python. Put each sentence on its own line and turn the
+// download path into a link; the words themselves are unchanged.
+function appendReply(container, text) {
+  const formatted = text.replace(/\. (?=[A-Z])/g, ".\n");
+  const pattern = /(Download results: )?(\/api\/download\/[A-Za-z0-9_-]+)/g;
+  let last = 0;
+  for (const match of formatted.matchAll(pattern)) {
+    container.append(formatted.slice(last, match.index));
+    const link = element("a", "", match[1] ? "Download results ↓" : "download link");
+    link.href = match[2];
+    container.append(link);
+    last = match.index + match[0].length;
+  }
+  container.append(formatted.slice(last));
+}
+
 function message(role, text, pending = false) {
   const welcome = ui.messages.querySelector(".welcome-card");
   if (welcome) welcome.remove();
   const wrapper = element("div", `message ${role}${pending ? " pending" : ""}`);
   wrapper.append(element("div", "message-label", role === "user" ? "You" : "Assistant"));
-  wrapper.append(element("div", "message-text", text));
+  const body = element("div", "message-text");
+  if (role === "assistant" && !pending) appendReply(body, text);
+  else body.textContent = text;
+  wrapper.append(body);
   ui.messages.append(wrapper);
   ui.messages.scrollTop = ui.messages.scrollHeight;
   return wrapper;
 }
 
+function describeArguments(args = {}) {
+  const parts = [];
+  if (args.file_id) parts.push(fileLabel(args.file_id));
+  if (args.evaluation_file_id) parts.push(`evaluate ${fileLabel(args.evaluation_file_id)}`);
+  if (args.prediction_file_id) parts.push(`predict ${fileLabel(args.prediction_file_id)}`);
+  if (Number.isInteger(args.row_index)) parts.push(`row ${args.row_index}`);
+  if (typeof args.min_accuracy === "number") parts.push(`minimum accuracy ${args.min_accuracy}`);
+  return parts.join(", ");
+}
+
+function statusOf(entry) {
+  return ["success", "error", "skipped"].includes(entry.status) ? entry.status : "recorded";
+}
+
+// The tools behind one answer, in the order they ran.
+function toolTrail(activity) {
+  const trail = element("div", "tool-trail");
+  trail.append(element("span", "tool-trail-label", "Tools"));
+  if (!activity.length) {
+    trail.append(element("span", "tool-step none", "No tool was called for this answer"));
+    return trail;
+  }
+  for (const entry of activity) {
+    const status = statusOf(entry);
+    const step = element("span", `tool-step ${status}`);
+    const mark = element("span", "tool-mark", STATUS_MARKS[status]);
+    mark.setAttribute("aria-hidden", "true");
+    const target = describeArguments(entry.arguments);
+    step.append(mark, `${TOOL_NAMES[entry.tool] || "Tool"}${target ? ` · ${target}` : ""} · ${STATUS_WORDS[status]}`);
+    trail.append(step);
+  }
+  return trail;
+}
+
+function stat(label, value, className = "") {
+  const item = element("div", `stat ${className}`.trim());
+  item.append(element("div", "stat-label", label), element("div", "stat-value", value));
+  return item;
+}
+
+function singleSummary(result) {
+  const body = element("div", "result-body");
+  const label = String(result.label || "unavailable");
+  const verdict = element("div", `verdict ${label === "malware" ? "malware" : label === "goodware" ? "goodware" : ""}`.trim());
+  verdict.append(element("span", "verdict-label", label[0].toUpperCase() + label.slice(1)));
+  verdict.append(element("span", "verdict-detail", `Row ${result.row_index}${result.source_row ? ` · CSV line ${result.source_row}` : ""}`));
+  const stats = element("div", "stats");
+  stats.append(stat("Malware probability", percent(result.malware_probability)));
+  if (typeof result.threshold === "number") stats.append(stat("Decision threshold", result.threshold.toFixed(2)));
+  body.append(verdict, stats);
+  return body;
+}
+
+function batchSummary(result) {
+  const stats = element("div", "stats");
+  stats.append(stat("Rows", Number(result.total_count || 0).toLocaleString()));
+  stats.append(stat("Classified", Number(result.valid_count || 0).toLocaleString()));
+  stats.append(stat("Malware", Number(result.malware_count || 0).toLocaleString(), "malware"));
+  stats.append(stat("Goodware", Number(result.goodware_count || 0).toLocaleString(), "goodware"));
+  stats.append(stat("Invalid", Number(result.invalid_count || 0).toLocaleString(), result.invalid_count ? "warning" : ""));
+  return stats;
+}
+
+function confusionTable(matrix) {
+  const table = element("table", "confusion-table");
+  table.append(element("caption", "", "Confusion matrix"));
+  const head = element("tr", "");
+  head.append(element("td", ""));
+  for (const text of ["Predicted goodware", "Predicted malware"]) {
+    const cell = element("th", "", text);
+    cell.scope = "col";
+    head.append(cell);
+  }
+  table.append(head);
+  const names = [["Correctly cleared", "Wrongly flagged"], ["Missed", "Correctly detected"]];
+  matrix.forEach((values, row) => {
+    const line = element("tr", "");
+    const header = element("th", "", row === 0 ? "Actual goodware" : "Actual malware");
+    header.scope = "row";
+    line.append(header);
+    values.forEach((value, column) => {
+      const cell = element("td", row === column ? "correct" : "incorrect");
+      cell.append(element("strong", "", Number(value).toLocaleString()), element("span", "", names[row][column]));
+      line.append(cell);
+    });
+    table.append(line);
+  });
+  return table;
+}
+
+function evaluationSummary(result) {
+  const body = element("div", "result-body stacked");
+  const stats = element("div", "stats");
+  stats.append(stat("AUC", typeof result.auc === "number" ? result.auc.toFixed(6) : "Unavailable"));
+  stats.append(stat("Accuracy", percent(result.accuracy)));
+  stats.append(stat("Rows evaluated", `${Number(result.evaluated_count || 0).toLocaleString()} of ${Number(result.total_count || 0).toLocaleString()}`));
+  body.append(stats);
+  const matrix = result.confusion_matrix;
+  if (Array.isArray(matrix) && matrix.length === 2 && matrix.every((row) => Array.isArray(row) && row.length === 2)) {
+    body.append(confusionTable(matrix));
+  }
+  return body;
+}
+
 function resultCard(result) {
   const card = element("div", "result-card");
-  const headings = {
-    predict_single: "Single-record prediction", predict_batch: "Batch prediction",
-    evaluate: "Labeled evaluation", evaluate_then_predict: "Conditional prediction",
-  };
-  const title = element("div", "result-heading");
-  title.append(element("span", "", headings[result.tool] || "Model result"));
+  const heading = element("div", "result-heading");
+  const title = element("div", "result-title");
+  title.append(element("span", "result-kind", TOOL_NAMES[result.tool] || "Model result"));
+  if (result.file_id) title.append(element("span", "result-file", fileLabel(result.file_id)));
+  heading.append(title);
   if (/^[a-zA-Z0-9_-]+$/.test(result.download_id || "")) {
-    const link = element("a", "", "Download results ↓");
+    const link = element("a", "download-link", "Download results ↓");
     link.href = `/api/download/${encodeURIComponent(result.download_id)}`;
-    title.append(link);
+    heading.append(link);
   }
-  card.append(title);
-  const grid = element("div", "result-grid");
-  const known = ["row_index", "prediction", "label", "malware_probability", "auc", "accuracy", "evaluation_coverage", "total_count", "valid_count", "invalid_count", "evaluated_count", "missing_label_count", "invalid_label_count", "malware_count", "goodware_count"];
-  for (const key of known) {
-    if (result[key] === undefined) continue;
-    const item = element("div", "");
-    item.append(element("div", "metric-label", key.replaceAll("_", " ")));
-    let value = result[key];
-    if (value === null) value = "Unavailable";
-    else if (typeof value === "number" && ["accuracy", "malware_probability", "evaluation_coverage"].includes(key)) value = `${(value * 100).toFixed(2)}%`;
-    else if (typeof value === "number" && key === "auc") value = value.toFixed(6);
-    item.append(element("div", "metric-value", value));
-    grid.append(item);
-  }
-  card.append(grid);
-  if (Array.isArray(result.confusion_matrix) && result.confusion_matrix.length === 2) {
-    const table = element("table", "confusion-table");
-    const caption = element("caption", "", "Confusion matrix · rows: actual · columns: predicted");
-    table.append(caption);
-    const head = element("tr", "");
-    for (const text of ["", "Goodware", "Malware"]) head.append(element("th", "", text));
-    table.append(head);
-    result.confusion_matrix.forEach((values, index) => {
-      const row = element("tr", "");
-      row.append(element("th", "", index === 0 ? "Goodware" : "Malware"));
-      for (const value of values) row.append(element("td", "", value));
-      table.append(row);
-    });
-    card.append(table);
-  }
-  if (result.class_counts) card.append(element("p", "result-detail", `Evaluated labels: ${result.class_counts["0"]} goodware · ${result.class_counts["1"]} malware`));
-  if (result.auc === null) card.append(element("p", "result-detail", "AUC needs both classes among valid labeled rows."));
+  card.append(heading);
+  if (result.tool === "predict_single") card.append(singleSummary(result));
+  else if (result.tool === "predict_batch") card.append(batchSummary(result));
+  else card.append(evaluationSummary(result));
+  if (result.class_counts) card.append(element("p", "result-detail", `Labels evaluated: ${plural(result.class_counts["0"] || 0, "goodware file")} · ${plural(result.class_counts["1"] || 0, "malware file")}`));
+  if (result.tool !== "predict_single" && result.tool !== "predict_batch" && result.auc === null) card.append(element("p", "result-detail", "AUC needs both classes among the valid labeled rows."));
+  if (result.missing_label_count) card.append(element("p", "result-detail", `${plural(result.missing_label_count, "row")} had no label and ${result.missing_label_count === 1 ? "was" : "were"} left out of the metrics.`));
   if (result.invalid_count) {
-    card.append(element("p", "result-detail", `${result.invalid_count} invalid row(s). ${result.tool === "predict_batch" ? "Every row is retained in the downloadable CSV." : "Metrics cover only the valid labeled rows."}`));
+    card.append(element("p", "result-detail warning", `${plural(result.invalid_count, "invalid row")}. ${result.tool === "predict_batch" ? "Every row is kept in the downloadable CSV, with its error." : "Metrics cover only the valid labeled rows."}`));
     const invalid = element("ul", "invalid-row-list");
     for (const row of result.invalid_rows || []) {
       invalid.append(element("li", "", `Row ${row.row_index}${row.source_row ? ` (CSV line ${row.source_row})` : ""}: ${(row.errors || []).join("; ")}`));
@@ -115,6 +237,20 @@ function resultCard(result) {
   return card;
 }
 
+function usePrompt(text) {
+  ui.input.value = text;
+  ui.input.focus();
+  ui.input.setSelectionRange(text.length, text.length);
+}
+
+function fileAction(label, file, prompt) {
+  const button = element("button", "file-action", label);
+  button.type = "button";
+  button.setAttribute("aria-label", `${label}: ${file.name}`);
+  button.addEventListener("click", () => usePrompt(prompt.replace("{file_id}", file.id)));
+  return button;
+}
+
 function renderFiles(items) {
   files = items;
   ui.files.replaceChildren();
@@ -123,9 +259,10 @@ function renderFiles(items) {
   for (const file of items) {
     const item = element("li", "file-item");
     item.append(element("div", "file-name", file.name));
-    item.append(element("div", "file-meta", `${file.rows.toLocaleString()} rows · ${file.columns.length} columns`));
+    item.append(element("div", "file-meta", `${plural(file.rows, "row")} · ${plural(file.columns.length, "column")}${file.columns.includes("Label") ? " · labeled" : ""}`));
     const idRow = element("div", "file-id-row");
     const id = element("code", "file-id", file.id);
+    id.title = file.id;
     const copy = element("button", "copy-file-id", "Copy");
     copy.type = "button";
     copy.title = "Copy file ID";
@@ -150,6 +287,12 @@ function renderFiles(items) {
     });
     idRow.append(element("span", "file-id-label", "ID:"), id, copy);
     item.append(idRow);
+    // Each card asks about its own file, so a request never targets the wrong upload.
+    const actions = element("div", "file-actions");
+    actions.append(fileAction("Predict row 0", file, "Predict row 0 of file {file_id}."));
+    actions.append(fileAction("Classify all", file, "Classify all rows in file {file_id}."));
+    if (file.columns.includes("Label")) actions.append(fileAction("Evaluate", file, "Evaluate file {file_id} using its labels."));
+    item.append(actions);
     ui.files.append(item);
   }
   for (const select of [ui.evaluation, ui.prediction]) {
@@ -165,15 +308,22 @@ function renderFiles(items) {
 function renderActivities(items) {
   ui.activities.replaceChildren();
   if (!items.length) ui.activities.append(element("p", "empty-state", "Tool calls will be recorded here."));
-  for (const entry of items) {
+  items.forEach((entry, index) => {
+    const status = statusOf(entry);
     const item = element("div", "activity-item");
-    item.append(element("span", "", String(entry.tool || "Tool").replaceAll("_", " ")));
-    const status = ["success", "error", "skipped"].includes(entry.status) ? entry.status : "recorded";
-    item.append(element("span", `activity-status ${status}`, status));
-    if (entry.reason || entry.error) item.append(element("p", "", entry.reason || entry.error));
-    if (entry.arguments) item.append(element("p", "", JSON.stringify(entry.arguments)));
+    const heading = element("div", "activity-heading");
+    heading.append(element("span", "activity-number", index + 1), element("span", "activity-tool", TOOL_NAMES[entry.tool] || "Tool"));
+    heading.append(element("span", `activity-status ${status}`, STATUS_WORDS[status]));
+    item.append(heading);
+    const args = entry.arguments || {};
+    const described = { ...args };
+    for (const key of ["file_id", "evaluation_file_id", "prediction_file_id"]) {
+      if (described[key]) described[key] = fileLabel(described[key], true);
+    }
+    if (Object.keys(described).length) item.append(element("p", "activity-arguments", Object.entries(described).map(([key, value]) => `${key.replaceAll("_", " ")}: ${value}`).join(" · ")));
+    if (entry.reason || entry.error) item.append(element("p", "activity-reason", entry.reason || entry.error));
     ui.activities.append(item);
-  }
+  });
 }
 
 async function refreshSession() {
@@ -188,7 +338,7 @@ async function sendChat(text) {
   if (busy) return;
   notice("");
   setBusy(true);
-  message("user", text);
+  const question = message("user", text);
   ui.input.value = "";
   const pending = message("assistant", "Choosing tools and running the model…", true);
   try {
@@ -197,17 +347,19 @@ async function sendChat(text) {
     });
     pending.remove();
     const answer = message("assistant", response.reply || "The request completed.");
+    answer.append(toolTrail(response.activity || []));
     for (const result of response.results || []) answer.append(resultCard(result));
     if (response.error) notice(response.reply || "The request could not be completed.");
     await refreshSession();
-    ui.messages.scrollTop = ui.messages.scrollHeight;
+    // Show this turn from the question down, so a long answer is read from its start.
+    ui.messages.scrollTop = Math.max(0, question.offsetTop - 12);
   } catch (error) {
     pending.remove();
     message("assistant", error.message);
     notice(error.message);
   } finally {
     setBusy(false);
-    ui.input.focus();
+    ui.input.focus({ preventScroll: true });
   }
 }
 
@@ -224,32 +376,71 @@ ui.input.addEventListener("keydown", (event) => {
   }
 });
 
-byId("file-input").addEventListener("change", () => {
-  byId("selected-file").textContent = byId("file-input").files[0]?.name || "";
-});
+function setUploadText(title, hint) {
+  byId("upload-title").textContent = title;
+  byId("upload-hint").textContent = hint;
+}
 
-byId("upload-form").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const file = byId("file-input").files[0];
-  if (!file) return;
-  if (!file.name.toLowerCase().endsWith(".csv")) return notice("Choose a CSV file.");
-  if (file.size > 5 * 1024 * 1024) return notice("CSV upload exceeds 5 MiB.");
-  const data = new FormData();
-  data.append("file", file);
-  byId("upload-button").disabled = true;
-  byId("upload-button").textContent = "Validating CSV…";
+// Uploads start as soon as files are chosen or dropped, one at a time.
+async function uploadFiles(list) {
+  const chosen = Array.from(list || []);
+  if (!chosen.length || uploading) return;
+  uploading = true;
+  ui.fileInput.disabled = true;
+  ui.uploadZone.classList.add("busy");
+  const uploaded = [];
+  let problem = "";
   try {
-    const response = await api("/api/upload", { method: "POST", body: data });
+    for (const file of chosen) {
+      if (!file.name.toLowerCase().endsWith(".csv")) { problem = `${file.name} is not a CSV file.`; continue; }
+      if (file.size > MAX_UPLOAD_BYTES) { problem = `${file.name} is larger than 5 MiB.`; continue; }
+      setUploadText(`Validating ${file.name}…`, "Checking type, size and columns");
+      const data = new FormData();
+      data.append("file", file);
+      try {
+        await api("/api/upload", { method: "POST", body: data });
+        uploaded.push(file.name);
+      } catch (error) {
+        problem = `${file.name}: ${error.message}`;
+        break;
+      }
+    }
     await refreshSession();
-    byId("upload-form").reset();
-    byId("selected-file").textContent = "";
-    notice(`${response.file.name} uploaded. Use its ID in your request or choose a quick action.`, true);
-  } catch (error) { notice(error.message); }
-  finally {
-    byId("upload-button").disabled = false;
-    byId("upload-button").textContent = "Upload CSV";
+  } catch (error) {
+    problem = error.message;
+  } finally {
+    uploading = false;
+    ui.fileInput.disabled = false;
+    ui.fileInput.value = "";
+    ui.uploadZone.classList.remove("busy");
+    setUploadText("Choose or drop CSV files", "Up to 5 MiB · 10,000 rows each");
   }
+  if (problem) notice(uploaded.length ? `${uploaded.join(", ")} uploaded. ${problem}` : problem);
+  else notice(`${uploaded.join(", ")} uploaded. Use the buttons on ${uploaded.length === 1 ? "its card" : "each card"} or ask in the chat.`, true);
+}
+
+ui.fileInput.addEventListener("change", () => uploadFiles(ui.fileInput.files));
+byId("upload-form").addEventListener("submit", (event) => event.preventDefault());
+
+for (const type of ["dragenter", "dragover"]) {
+  ui.uploadZone.addEventListener(type, (event) => {
+    event.preventDefault();
+    ui.uploadZone.classList.add("dragging");
+  });
+}
+for (const type of ["dragleave", "drop"]) {
+  ui.uploadZone.addEventListener(type, () => ui.uploadZone.classList.remove("dragging"));
+}
+ui.uploadZone.addEventListener("drop", (event) => {
+  event.preventDefault();
+  uploadFiles(event.dataTransfer?.files);
 });
+// A file dropped outside the upload area must not navigate away from the session.
+for (const type of ["dragover", "drop"]) {
+  window.addEventListener(type, (event) => {
+    if (event.dataTransfer?.types?.includes("Files") && !ui.uploadZone.contains(event.target)) event.preventDefault();
+  });
+}
 
 byId("conditional-form").addEventListener("submit", (event) => {
   event.preventDefault();
@@ -260,11 +451,13 @@ byId("conditional-form").addEventListener("submit", (event) => {
   sendChat(`Evaluate file ${ui.evaluation.value}; only if accuracy >= ${threshold}, predict row ${index} of file ${ui.prediction.value}.`);
 });
 
+// The welcome suggestions use the most recent upload; evaluation needs one with labels.
 document.querySelectorAll("[data-prompt]").forEach((button) => {
   button.addEventListener("click", () => {
-    if (!files.length) return notice("Upload a feature CSV first.");
-    ui.input.value = button.dataset.prompt.replace("{file_id}", files[0].id);
-    ui.input.focus();
+    const needsLabels = button.dataset.prompt.startsWith("Evaluate");
+    const file = [...files].reverse().find((item) => !needsLabels || item.columns.includes("Label"));
+    if (!file) return notice(needsLabels ? "Upload a CSV with a Label column first." : "Upload a feature CSV first.");
+    usePrompt(button.dataset.prompt.replace("{file_id}", file.id));
   });
 });
 
