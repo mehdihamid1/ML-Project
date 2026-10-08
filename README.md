@@ -62,9 +62,9 @@ uses the same lean requirements and binds to its assigned port. The Blueprint
 sets Gunicorn options explicitly and keeps one worker for session isolation.
 
 Upload a CSV from [samples/](samples/README.md). The UI shows its opaque file
-ID; refer to that ID when asking to classify a row, classify every row, or
-evaluate labels. Batch results include source row IDs, probabilities, invalid
-row status and errors, and a download link. The conditional form lets you choose
+ID; use the **Copy** button beside it to paste the ID into a request to classify
+a row, classify every row, or evaluate labels. Batch results include source row
+IDs, probabilities, invalid row status and errors, and a download link. The conditional form lets you choose
 an evaluation file, a prediction file, a row and an accuracy threshold.
 Activity records show the actual evaluation, prediction, failure or skip.
 Follow-up questions use stored session results.

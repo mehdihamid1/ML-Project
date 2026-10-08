@@ -124,7 +124,32 @@ function renderFiles(items) {
     const item = element("li", "file-item");
     item.append(element("div", "file-name", file.name));
     item.append(element("div", "file-meta", `${file.rows.toLocaleString()} rows · ${file.columns.length} columns`));
-    item.append(element("code", "file-id", `ID: ${file.id}`));
+    const idRow = element("div", "file-id-row");
+    const id = element("code", "file-id", file.id);
+    const copy = element("button", "copy-file-id", "Copy");
+    copy.type = "button";
+    copy.title = "Copy file ID";
+    copy.setAttribute("aria-label", `Copy file ID for ${file.name}`);
+    let confirmationTimer;
+    copy.addEventListener("click", async () => {
+      clearTimeout(confirmationTimer);
+      copy.textContent = "Copy";
+      try {
+        await navigator.clipboard.writeText(file.id);
+        copy.textContent = "Copied!";
+        notice(`File ID for ${file.name} copied.`, true);
+        confirmationTimer = setTimeout(() => { copy.textContent = "Copy"; }, 1800);
+      } catch (_) {
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(id);
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+        notice("Could not copy automatically. The file ID is selected; press Ctrl+C or ⌘C to copy, or use your device's copy menu.");
+      }
+    });
+    idRow.append(element("span", "file-id-label", "ID:"), id, copy);
+    item.append(idRow);
     ui.files.append(item);
   }
   for (const select of [ui.evaluation, ui.prediction]) {
