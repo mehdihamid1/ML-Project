@@ -274,8 +274,12 @@ def run_probe(image, cpus=None):
             browser.request("GET", "/static/style.css", label="static_css")
             dashboard = browser.request("GET", "/analytics", label="model_dashboard")
             require(b"/static/dashboard.js" in dashboard, "Model dashboard did not render")
+            for section in (b'id="data-split"', b'id="cv-walkthrough"',
+                            b'id="model-comparison"', b'id="final-test"'):
+                require(section in dashboard, "Guided experiment section did not render")
             browser.request("GET", "/static/dashboard.js", label="dashboard_js")
             browser.request("GET", "/static/dashboard.css", label="dashboard_css")
+            browser.request("GET", "/static/walkthrough.css", label="walkthrough_css")
             comparison = json.loads(browser.request("GET", "/api/model-comparison", label="model_comparison"))
             require(comparison == expected_comparison, "Container dashboard differs from recorded experiment results")
             require(comparison["model_version"] == health["model_version"], "Dashboard and production model versions differ")

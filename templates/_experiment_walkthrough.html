@@ -1,0 +1,50 @@
+<section class="panel experiment-panel" id="data-split" aria-labelledby="data-split-heading">
+  <div class="dashboard-panel-heading">
+    <div><p class="panel-kicker">01 · RESERVE THE FINAL TEST FIRST</p><h2 id="data-split-heading">{{ '{:,}'.format(comparison.data.clean_rows) }} files, two separate purposes</h2><p>Duplicates were removed before the split, so no file can appear on both sides of it.</p></div>
+    <span class="training-label">Recorded experiment</span>
+  </div>
+  <ol class="cleaning-steps" aria-label="Cleaning before the split">
+    <li><strong>{{ '{:,}'.format(comparison.data.raw_rows) }}</strong><span>rows in the source CSV</span></li>
+    <li class="cleaning-removed"><strong>−{{ '{:,}'.format(comparison.data.removed_rows) }}</strong><span>repeated rows of the same file (same SHA1), plus every row of the {{ comparison.data.conflicting_hashes_removed }} files labelled both malware and goodware</span></li>
+    <li><strong>{{ '{:,}'.format(comparison.data.clean_rows) }}</strong><span>unique files, divided below</span></li>
+  </ol>
+  <figure class="dataset-split" aria-labelledby="split-caption">
+    {% set training_width = comparison.training_rows / comparison.data.clean_rows * 1000 %}
+    <svg class="split-bar" viewBox="0 0 1000 24" preserveAspectRatio="none" aria-hidden="true"><rect class="split-training" x="0" y="0" width="{{ training_width }}" height="24"></rect><rect class="split-reserved" x="{{ training_width }}" y="0" width="{{ 1000 - training_width }}" height="24"></rect><line class="split-divider" x1="{{ training_width }}" x2="{{ training_width }}" y1="0" y2="24"></line></svg>
+    <div class="split-labels">
+      <div><span class="split-key training-key" aria-hidden="true"></span><strong>{{ '%.0f' | format(comparison.training_rows / comparison.data.clean_rows * 100) }}% training</strong><span>{{ '{:,}'.format(comparison.training_rows) }} files for training and model comparison</span></div>
+      <div><span class="split-key reserved-key" aria-hidden="true"></span><strong>{{ '%.0f' | format(comparison.holdout_rows / comparison.data.clean_rows * 100) }}% reserved test</strong><span>{{ '{:,}'.format(comparison.holdout_rows) }} files for the final evaluation</span></div>
+    </div>
+    <figcaption id="split-caption">Only the training portion enters cross-validation. The reserved test stays separate until the production model has been selected and frozen. SHA1 and FirstSeenDate never enter the model: SHA1 only identifies the file, and FirstSeenDate records collection time, which would leak the label.</figcaption>
+  </figure>
+</section>
+
+<section class="panel experiment-panel" id="cv-walkthrough" aria-labelledby="walkthrough-heading">
+  <div class="dashboard-panel-heading">
+    <div><p class="panel-kicker">02 · UNDERSTAND THE TEN ROUNDS</p><h2 id="walkthrough-heading">Train on nine folds. Validate on one.</h2><p>Explore the saved scores from each round of the best recorded configuration of a model.</p></div>
+    <span class="training-label">Recorded results</span>
+  </div>
+  <div class="walkthrough-controls">
+    <div class="walkthrough-model-control"><label for="walkthrough-model">Explore a model</label><select id="walkthrough-model" disabled>{% for model in comparison.models %}<option value="{{ model.model }}"{% if model.model == comparison.selected_model %} selected{% endif %}>{{ model.model }}</option>{% endfor %}</select></div>
+    <div class="walkthrough-round-control"><div class="round-control-heading"><label for="walkthrough-round">Validation round</label><output id="walkthrough-round-output" for="walkthrough-round">Round 1 of {{ comparison.folds }}</output></div><input id="walkthrough-round" type="range" min="1" max="{{ comparison.folds }}" step="1" value="1" aria-valuetext="Round 1: fold 1 is validation; all other folds are training" aria-describedby="fresh-model-note" disabled><div class="round-buttons"><button type="button" id="walkthrough-previous" disabled>← Previous round</button><button type="button" id="walkthrough-next" disabled>Next round →</button></div></div>
+  </div>
+  <div class="walkthrough-body">
+    <div class="training-fold-area">
+      <p class="fold-area-label">Inside the {{ '{:,}'.format(comparison.training_rows) }} training files</p>
+      <div class="walkthrough-folds" role="group" aria-label="Training and validation folds" id="walkthrough-folds">
+        {% for fold in range(1, comparison.folds + 1) %}<div class="walkthrough-fold{% if fold == 1 %} is-validation{% endif %}" data-fold="{{ fold }}" aria-label="Fold {{ fold }}: {% if fold == 1 %}validation{% else %}training{% endif %}"><strong>Fold {{ fold }}</strong><span>{% if fold == 1 %}Validation{% else %}Training{% endif %}</span></div>{% endfor %}
+      </div>
+      <p class="walkthrough-legend"><span class="legend-item"><span class="fold-key" aria-hidden="true"></span>Nine training folds</span> <span class="legend-item"><span class="fold-key validation" aria-hidden="true"></span>One validation fold</span></p>
+    </div>
+    <aside class="reserved-test-box" aria-label="Reserved hold-out excluded from every round"><strong>{{ '{:,}'.format(comparison.holdout_rows) }} reserved test files</strong><p>Kept outside every round. Used after model selection and freezing.</p></aside>
+  </div>
+  <p class="fresh-model-note" id="fresh-model-note"><span aria-hidden="true">↻</span> <strong>Each round starts with a fresh model and freshly fitted preprocessing.</strong> Nothing learned in a previous round is carried over.</p>
+  <div class="walkthrough-results" aria-label="Recorded validation scores for the selected round">
+    <div><span>Validation AUC</span><strong id="walkthrough-auc">{{ '%.6f' | format(winner.fold_auc[0]) }}</strong></div>
+    <div><span>Validation accuracy</span><strong id="walkthrough-accuracy">{{ '%.3f' | format(winner.fold_accuracy[0] * 100) }}%</strong></div>
+    <div class="round-strip"><span>AUC in all {{ comparison.folds }} rounds</span><div class="round-strip-plot" id="round-strip" aria-hidden="true"></div><p class="round-strip-note" id="round-strip-note">{{ winner.model }} ranged from {{ '%.6f' | format(winner.fold_auc | min) }} to {{ '%.6f' | format(winner.fold_auc | max) }}. Step 3 summarises these scores as a mean of {{ '%.6f' | format(winner.auc_mean) }} ± {{ '%.6f' | format(winner.auc_std) }}.</p></div>
+  </div>
+  <p class="walkthrough-summary" id="walkthrough-summary" role="status" aria-live="polite">{{ winner.model }}, round 1: train a fresh pipeline on folds 2–{{ comparison.folds }} and validate on fold 1. Recorded AUC {{ '%.6f' | format(winner.fold_auc[0]) }}; accuracy {{ '%.3f' | format(winner.fold_accuracy[0] * 100) }}%.</p>
+  <p class="walkthrough-footnote">The controls display saved results. Across all rounds, every training fold becomes validation once. The folds are stratified by label and fixed by random seed {{ comparison.random_state }}, so all {{ comparison.models | length }} models were validated on the same folds. The selected configuration is then fitted on all training files and frozen before the final test.</p>
+  <noscript><p class="walkthrough-footnote">JavaScript is disabled. Round 1 is shown above; all ten recorded scores for every model are available in the downloadable results.</p></noscript>
+</section>

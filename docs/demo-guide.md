@@ -18,11 +18,18 @@ as evidence. Keep credentials and deploy-hook URLs out of the recording.
    Explain that OpenAI selects tools and stored results, while Python produces
    classifications and metrics. No feature-level explanation tool exists.
 2. Show the dataset provenance, deduplication and leakage controls, the
-   seven-model comparison in the app's **Model dashboard** (`/analytics`),
-   and the held-out errors in its separate final-model panel. Use the metric
-   controls to compare performance, fold variation and recorded fit times,
-   and the fold-by-fold panel to show how often LightGBM led the runner-up on
-   the shared folds.
+   app's **Model dashboard** (`/analytics`) and its four experiment sections.
+   Start with the duplicate removal and the train/test split. Advance the
+   cross-validation walkthrough from Round 1 to Round 2: fold 1 returns to
+   training, fold 2 becomes validation, and the strip highlights round 2's
+   AUC among all ten. Explain that every round starts with a fresh pipeline,
+   and the reserved test remains separate. Choose another algorithm to inspect
+   its saved scores, then show the seven-model comparison. Use the metric
+   controls to compare performance, fold variation and recorded fit times.
+   In the selection panel, state the selection rule and show how often
+   LightGBM led the runner-up on the shared folds. Finish with the final-test
+   panel: the hold-out results beside the cross-validation range, and the
+   held-out errors.
    Relate these results to [evaluation and design](../evaluation-and-design.md). Explain the fixed
    decision threshold and limitations. Do not run tuning on the hold-out.
 3. Open the live app and `/health`. Show the tested commit and model version;

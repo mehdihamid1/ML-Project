@@ -43,7 +43,7 @@ documentation and its Blueprint schema. It rebuilt both Docker images, verified
 authenticated Jupyter access, and added a reproducible production HTTP probe
 using an actual memory-limited Gunicorn container. The probe's provider is a
 local stub, while model predictions, metrics and downloads use production code.
-The latest local full and lean suites pass 285 and 274 tests respectively.
+The latest local full and lean suites pass 289 and 278 tests respectively.
 
 Claude Code (Anthropic) performed that review and checked its findings with
 read-only experiments: phrasing checks against the conditional detector and an
@@ -75,3 +75,23 @@ line joining unordered folds became a paired fold-by-fold comparison with a
 value table. Chart colors were checked with a color-vision validator, and the
 charts gained keyboard-accessible tooltips and larger caption text. It checked
 the result in headless-browser screenshots at desktop and phone widths.
+
+Codex added the guided experiment presentation at the user's request: a
+train/test split diagram, a selectable cross-validation round with saved
+scores, and ordered comparison and final-test sections. Codex remained the
+sole editor while parallel agents reviewed calculations and regression
+coverage read-only, following the shared-checkout instructions. The walkthrough
+uses the existing report and does not retrain or alter the production model.
+Chrome checks matched all 70 saved model/round score pairs, exercised keyboard
+controls and existing charts, and verified fallback views and layouts from
+320 to 1440 pixels without page overflow or overlapping fold labels.
+
+Claude Code then reviewed that presentation and revised it. The selection
+rationale and fold-by-fold comparison moved ahead of the final test, matching
+the order of the experiment. The first step gained the recorded deduplication
+counts; the walkthrough gained a strip of the chosen model's ten round scores
+around their mean; and the final-test panel gained error rates and the range of
+LightGBM's cross-validation rounds. The walkthrough colors were changed to pass
+the color-vision validator. Chrome checks again matched all 70 model/round
+pairs and covered pointer, keyboard and no-JavaScript use from 320 to 1440
+pixels.

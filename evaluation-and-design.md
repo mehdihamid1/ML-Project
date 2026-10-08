@@ -88,6 +88,11 @@ Missed malware and false alarms have different practical costs; accuracy alone
 does not describe them. AUC measures ranking from malware probabilities and
 does not guarantee safe decisions at a particular threshold.
 
+For comparison, LightGBM's ten cross-validation rounds ranged from 0.997467 to
+0.999041 AUC and from 98.300% to 98.906% accuracy (fold scores in
+`models/comparison.json`), so both hold-out results fall within those ranges.
+This comparison was made after selection and changed nothing.
+
 The decision threshold is the fixed default of 0.5, not a value tuned on the
 hold-out. No feature-level causes are inferred from these errors. Counts,
 rates and matrix order are checked against the original saved metadata by the
@@ -173,6 +178,16 @@ The `/analytics` dashboard presents the recorded comparison from
 the original CV results and metadata. It preserves full metric precision and
 fold scores, records source checksums, and validates its summaries and model
 version at startup. Viewing the dashboard never fits a model or calls the LLM.
+Its guided sections follow the experiment's order: deduplication and the
+train/test split, a selectable validation round, the seven-model comparison
+and the selection rationale, then the final hold-out test. The round slider
+rotates one validation fold among the ten training folds and displays the
+selected model's saved scores for that round, with a strip placing that
+round's AUC among all ten and marking their mean. It explicitly shows
+that each CV round fits a fresh pipeline, while the reserved test files stay
+outside every round. The controls explore recorded results and do not change
+the production selection. The default round and result tables are rendered
+on the server and remain readable without JavaScript.
 All comparison metrics are development-set cross-validation results; the
 selected model's hold-out metrics and confusion matrix appear separately.
 Error bars describe variation across folds, not confidence intervals.

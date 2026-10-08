@@ -16,6 +16,13 @@
   const foldChart = document.getElementById("fold-chart");
   const foldSummary = document.getElementById("fold-summary");
   const foldCaption = document.getElementById("fold-caption");
+  const walkthrough = document.getElementById("cv-walkthrough");
+  const walkthroughModel = document.getElementById("walkthrough-model");
+  const walkthroughRound = document.getElementById("walkthrough-round");
+  const walkthroughPrevious = document.getElementById("walkthrough-previous");
+  const walkthroughNext = document.getElementById("walkthrough-next");
+  const roundStrip = document.getElementById("round-strip");
+  const roundStripNote = document.getElementById("round-strip-note");
   const svgNS = "http://www.w3.org/2000/svg";
   const metrics = {
     auc: {key: "auc_mean", deviation: "auc_std", folds: "fold_auc", name: "AUC", scale: 1, decimals: 6, unit: "", spreadUnit: "", deltaUnit: " AUC"},
@@ -284,6 +291,65 @@
     }));
   }
 
+  // Every round's validation AUC on a fitted axis, with the chosen round in the validation colour
+  // and the mean that the comparison reports. Clicking a dot selects that round.
+  function renderRoundStrip(model, round) {
+    const scores = model.fold_auc;
+    const scale = niceScale(Math.min(...scores), Math.max(...scores), roundStrip.parentElement.clientWidth < 400 ? 2 : 4);
+    const percent = value => ((value - scale.min) / (scale.max - scale.min)) * 100 + "%";
+    const mean = element("span", "round-strip-mean");
+    mean.style.left = percent(model.auc_mean);
+    const dots = scores.map((score, index) => {
+      const dot = element("span", "round-strip-dot" + (index + 1 === round ? " current" : ""));
+      dot.style.left = percent(score);
+      dot.onpointerenter = () => showTooltip(dot, [score.toFixed(6) + " AUC", model.model + " · round " + (index + 1)]);
+      dot.onpointerleave = hideTooltip;
+      dot.onclick = () => {
+        walkthroughRound.value = String(index + 1);
+        hideTooltip();
+        renderWalkthrough();
+      };
+      return dot;
+    });
+    const axis = element("div", "round-strip-axis");
+    scale.ticks.forEach(tick => {
+      const label = element("span", "", tick.toFixed(scale.decimals));
+      label.style.left = percent(tick);
+      axis.append(label);
+    });
+    roundStrip.replaceChildren(element("span", "round-strip-track"), mean, ...dots, axis);
+    roundStripNote.textContent = "The blue dot is round " + round + "; the line marks the mean, " + model.auc_mean.toFixed(6) +
+      " ± " + model.auc_std.toFixed(6) + ", which step 3 reports for " + model.model + ".";
+  }
+
+  function renderWalkthrough() {
+    if (!walkthrough) return;
+    const round = Number(walkthroughRound.value);
+    const model = comparison.models.find(candidate => candidate.model === walkthroughModel.value);
+    if (roundStrip) renderRoundStrip(model, round);
+    const trainingFolds = [];
+    walkthrough.querySelectorAll("[data-fold]").forEach(block => {
+      const fold = Number(block.dataset.fold);
+      const validating = fold === round;
+      const role = validating ? "validation" : "training";
+      block.classList.toggle("is-validation", validating);
+      block.setAttribute("aria-label", "Fold " + fold + ": " + role);
+      block.querySelector("span").textContent = validating ? "Validation" : "Training";
+      if (!validating) trainingFolds.push(fold);
+    });
+    const auc = model.fold_auc[round - 1].toFixed(6);
+    const accuracy = (model.fold_accuracy[round - 1] * 100).toFixed(3) + "%";
+    document.getElementById("walkthrough-round-output").value = "Round " + round + " of " + comparison.folds;
+    walkthroughRound.setAttribute("aria-valuetext", "Round " + round + ": fold " + round + " is validation; all other folds are training");
+    document.getElementById("walkthrough-auc").textContent = auc;
+    document.getElementById("walkthrough-accuracy").textContent = accuracy;
+    document.getElementById("walkthrough-summary").textContent = model.model + ", round " + round +
+      ": train a fresh pipeline on folds " + trainingFolds.join(", ") + " and validate on fold " + round +
+      ". Recorded AUC " + auc + "; accuracy " + accuracy + ".";
+    walkthroughPrevious.disabled = round === 1;
+    walkthroughNext.disabled = round === comparison.folds;
+  }
+
   async function initialize() {
     try {
       const response = await fetch("/api/model-comparison", {headers: {Accept: "application/json"}, credentials: "same-origin"});
@@ -291,6 +357,21 @@
       comparison = await response.json();
       renderComparison();
       renderFolds();
+      if (walkthrough) {
+        walkthroughModel.disabled = false;
+        walkthroughRound.disabled = false;
+        renderWalkthrough();
+        walkthroughModel.addEventListener("change", renderWalkthrough);
+        walkthroughRound.addEventListener("input", renderWalkthrough);
+        walkthroughPrevious.addEventListener("click", () => {
+          walkthroughRound.value = String(Number(walkthroughRound.value) - 1);
+          renderWalkthrough();
+        });
+        walkthroughNext.addEventListener("click", () => {
+          walkthroughRound.value = String(Number(walkthroughRound.value) + 1);
+          renderWalkthrough();
+        });
+      }
       metricButtons.forEach(button => {
         button.disabled = false;
         button.addEventListener("click", () => {
@@ -316,15 +397,25 @@
         foldMetric.disabled = false;
         foldModel.addEventListener("change", renderFolds);
         foldMetric.addEventListener("change", renderFolds);
-        let resizeFrame;
-        window.addEventListener("resize", () => {
-          cancelAnimationFrame(resizeFrame);
-          resizeFrame = requestAnimationFrame(renderFolds);
-        });
       }
+      // Charts depend only on width. Phones fire resize when the address bar moves while
+      // scrolling; skipping those keeps the live summaries from being announced again.
+      let resizeFrame;
+      let renderedWidth = window.innerWidth;
+      window.addEventListener("resize", () => {
+        if (window.innerWidth === renderedWidth) return;
+        renderedWidth = window.innerWidth;
+        cancelAnimationFrame(resizeFrame);
+        resizeFrame = requestAnimationFrame(() => {
+          renderFolds();
+          if (walkthrough && roundStrip) {
+            renderRoundStrip(comparison.models.find(model => model.model === walkthroughModel.value), Number(walkthroughRound.value));
+          }
+        });
+      });
       window.addEventListener("scroll", hideTooltip, {passive: true});
     } catch (error) {
-      notice.textContent = "Interactive charts could not be loaded. Every recorded value is in the tables on this page.";
+      notice.textContent = "Interactive controls could not be loaded. The default round and recorded comparison tables remain available. Download results for all fold scores.";
     }
   }
   initialize();

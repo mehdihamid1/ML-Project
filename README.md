@@ -17,7 +17,7 @@ under `docs/`, so a clean checkout can run the app without retraining.
 The ML milestone (`7a8279c`), application milestone (`8ca98b8`) and review fixes
 (`1c5f4bb`) are committed and pushed to `main`. The tools, OpenAI agent, Flask
 app, sample CSVs and deployment workflow are implemented. Plain `pytest` passes
-all 285 tests locally; the lean environment passes 274 tests. The previously observed
+all 289 tests locally; the lean environment passes 278 tests. The previously observed
 [full CI job](https://github.com/mehdihamid1/ML-Project/actions/runs/37396524639/job/112053720455)
 passed 222 tests, and the separate
 [runtime CI job](https://github.com/mehdihamid1/ML-Project/actions/runs/37396524639/job/112053720662)
@@ -102,13 +102,26 @@ Behind Render's proxy, the deployment enables secure cookies and trusted
 forwarded protocol/client-IP handling; keep `TRUST_PROXY` off locally.
 
 Open **Model dashboard** in the header, or visit `/analytics`, to compare the
-recorded models. The dashboard shows cross-validation AUC, accuracy, fold
+recorded models. Follow its four steps: data split, cross-validation, model
+comparison and final test. The first step shows the duplicate removal
+(50,181 rows to 43,393 unique files) and separates the training files from
+the reserved test set. Choose any model and move through the ten saved
+rounds to see which fold is validation, which nine folds are training, and
+the recorded AUC and accuracy; a strip places that round's AUC among all ten
+and marks the mean that the comparison reports. Each round starts with a fresh
+model and freshly fitted preprocessing; no learned state carries over between
+rounds.
+
+The comparison shows cross-validation AUC, accuracy, fold
 standard deviation and mean fit time, with sortable results and interactive
 charts. Mean AUC and accuracy appear as dots with ±1 fold standard deviation on
-an axis fitted to the results, so close models stay distinguishable. Because
-every model used the same folds, a fold-by-fold panel compares LightGBM with
-any other model; it describes those folds and is not a significance test.
-LightGBM's final hold-out metrics and confusion matrix appear separately.
+an axis fitted to the results, so close models stay distinguishable. A
+selection panel follows, before the final test as in the experiment: it states
+the selection rule and, because every model used the same folds, compares
+LightGBM with any other model fold by fold. This describes those folds and is
+not a significance test. The final-test panel then shows LightGBM's hold-out
+metrics beside the range of its ten cross-validation rounds, and its confusion
+matrix with error rates.
 The comparison uses saved experiment output and requires no OpenAI key or
 retraining. Download the same numbers from `/api/model-comparison`.
 
@@ -120,8 +133,9 @@ python scripts/export_model_comparison.py --artifacts artifacts/training-final -
 ```
 
 The report records source checksums; its loader checks metric summaries and
-the production model version before displaying results. The table remains
-available when JavaScript is disabled. Charts use local scripts and SVG and
+the production model version before displaying results. The tables and default
+Round 1 remain available when JavaScript is disabled or interactive controls
+cannot load. Charts use local scripts and SVG and
 add no runtime dependencies.
 
 Routes are `/`, `/analytics`, `/health`, `/api/model-comparison`, `/api/session`, `/api/upload`, `/api/chat`,
