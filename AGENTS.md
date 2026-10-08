@@ -88,6 +88,9 @@ done, compare it with the matching requirement here.
 - Docs: `README.md`, `deployed.md`, `evaluation-and-design.md`,
   `agent-evaluation.md` (at least 8 real-LLM scenarios), `ai-tooling.md`,
   `.env.example`, small sample CSVs.
+- Outside the code: repository access for the grader account `quantic-grader`
+  (an invitation needs the user's explicit approval) and an 8–10 minute
+  narrated demo video.
 
 ## Environment
 
@@ -97,6 +100,42 @@ done, compare it with the matching requirement here.
   lean and separate from the training-only ones (PyTorch).
 - Render setup is modelled on the user's earlier project,
   `../AI-TechnArchi/render.yaml`.
+
+## Team and access
+
+- Three people share this repository, and both Codex and Claude Code work in it.
+- `OPENAI_API_KEY` lives only in Render's environment settings. Never ask for it
+  in chat or write it to a file. Scripts that need it (`scripts/check_openai.py`,
+  `scripts/run_agent_evaluation.py`) run only where a key holder has exported
+  it in their own shell.
+- The user creates and configures the Render service in its dashboard. Deploys
+  go through GitHub Actions and the deploy hook, never Render auto-deploy.
+
+## Working with two agents (Codex and Claude Code)
+
+Codex and Claude Code work in the same checkout and don't share memories. This
+file and the local, untracked `.agent-sync/handoff.md` are their shared state.
+
+- **One agent edits at a time.** Before changing files, read the standing notes
+  and latest entries in `.agent-sync/handoff.md`, run `git status --short` and
+  `git log --oneline -5`, and list recently changed files with
+  `find . \( -path ./.git -o -path ./.venv -o -path ./data -o -path ./artifacts \) -prune -o -type f -mmin -15 -print`.
+  If `.agent-sync/claude-active` is less than 30 minutes old, or recent
+  changes aren't yours, the other agent may still be working: stop and ask
+  the user.
+- **Mark your turn.** Codex writes the current time to
+  `.agent-sync/codex-active` when it starts changing files and deletes the
+  file when it finishes. Claude Code's hooks manage `claude-active` and show
+  Claude what changed while it was idle.
+- **Build on, never undo, the other agent's work.** Review uncommitted changes
+  you didn't make before building on or committing them. Ask before reverting.
+- **Hand off.** When a task that changed files is done, append an entry to
+  `.agent-sync/handoff.md`: time, agent, what changed and why, what was
+  verified (commands and results), and what is still open. Keep it under
+  12 lines.
+- **Standing instructions are shared.** When the user gives either agent an
+  instruction that should outlast the session, add it to this file, or to the
+  hand-off log's standing notes if it concerns only this machine.
 
 ## Conventions
 
