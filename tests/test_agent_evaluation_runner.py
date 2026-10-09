@@ -71,11 +71,13 @@ class ScriptedBackend:
                 if self.mode == "misrouted_conditional" or (complete and result["accuracy"] >= threshold):
                     return self.function("predict_single", {"file_id": target.group(2), "row_index": int(target.group(1))})
             return self.final(ids=[result["result_id"]])
-        if body.get("tool_choice") != "auto":
+        if isinstance(body.get("tool_choice"), dict):
             # The server forces evaluate first for a conditional request.
             return self.function("evaluate", {"file_id": re.search(r"(?:evaluate file|accuracy of file) (\w+)", prompt, re.I).group(1)})
         if "false negatives" in prompt:
             context = json.loads(inputs[0]["content"].partition(": ")[2])
+            if self.mode == "followup_tool":
+                return self.function("predict_single", {"file_id": context["registered_files"][0]["file_id"], "row_index": 0})
             result_id = context["session_results"][-1]["result_id"] if context["session_results"] else "no-result"
             if self.mode == "stale_followup":
                 result_id = "different-session-result"
@@ -159,6 +161,16 @@ def test_runner_marks_stale_followup_failed_even_when_other_scenarios_pass(tmp_p
     assert "unavailable in this session" in followup["observed"]["reply"]
 
 
+def test_runner_followup_guard_blocks_provider_prediction_attempt(tmp_path, backend_factory):
+    backend = backend_factory("followup_tool")
+    assert run(tmp_path / "report") is True
+    followup = record(read_report(tmp_path / "report"), "False-negative follow-up")
+    assert followup["passed"] and followup["observed"]["activity"] == []
+    request = next(r for r in backend.requests if any(
+        item.get("role") == "user" and "false negatives" in item["content"] for item in r["input"]))
+    assert request["tools"] == [] and request["tool_choice"] == "none"
+
+
 def test_runner_records_a_model_that_predicts_despite_the_condition(tmp_path, backend_factory):
     backend_factory("misrouted_conditional")
     assert run(tmp_path / "report") is False
@@ -178,7 +190,11 @@ def test_runner_preserves_failure_report_on_provider_outage(tmp_path, backend_fa
     # Only the clarification scenario passes: the server answers it before any provider call.
     assert report["scenario_count"] == 15 and report["passed_count"] == 1
     assert record(report, "Ambiguous condition")["passed"]
-    assert all(item["observed"]["error"] == "provider" for item in report["records"] if item["scenario"] != "Ambiguous condition")
+    assert all(item["observed"]["error"] == "provider" for item in report["records"]
+               if item["scenario"] not in {"Ambiguous condition", "False-negative follow-up"})
+    # The previous evaluation failed, so this follow-up has no stored evidence.
+    followup = record(report, "False-negative follow-up")["observed"]
+    assert "unavailable in this session" in followup["reply"] and not followup["activity"]
     assert "PRIVATE_PROVIDER_ERROR_TOKEN" not in json.dumps(report)
 
 

@@ -15,18 +15,19 @@ under `docs/`, so a clean checkout can run the app without retraining.
 ## Current status
 
 The tools, OpenAI agent, Flask app, sample CSVs and deployment workflow are
-implemented. Plain `pytest` passes all 396 tests locally; the lean runtime
-suite passes 385 tests.
+implemented. Plain `pytest` passes all 427 tests locally; the lean runtime
+suite passes 416 tests.
 
-The last code change, commit
-[`d9ecab7`](https://github.com/mehdihamid1/ML-Project/commit/d9ecab7), was
-deployed by [GitHub Actions run 37956413667](https://github.com/mehdihamid1/ML-Project/actions/runs/37956413667):
+Commit [`2bf449b`](https://github.com/mehdihamid1/ML-Project/commit/2bf449b) was
+deployed by [GitHub Actions run 37957260512](https://github.com/mehdihamid1/ML-Project/actions/runs/37957260512):
 the full, runtime and container tests passed, then the deploy job ran and its
 live health check passed. On 2026-10-09,
 [live health](https://quantic-malware-agent.onrender.com/health) reported that
 commit, `status: ok`, LightGBM, `openai_configured: true` and the model
-`gpt-4.1-mini`. The real-LLM run against that deployment (Run 5) passed all 15
-evaluation scenarios. See [deployed.md](deployed.md) and
+`gpt-4.1-mini`. The independent real-LLM repeat (Run 6) passed 14 of 15
+scenarios: a follow-up triggered an unrequested prediction. The server now
+disables tool execution for stored-result questions; its fresh live evaluation
+will be recorded after deployment. See [deployed.md](deployed.md) and
 [agent-evaluation.md](agent-evaluation.md).
 
 ## Run the application

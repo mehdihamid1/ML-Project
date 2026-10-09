@@ -6,10 +6,9 @@ The app is live at <https://quantic-malware-agent.onrender.com/>. On
 2026-10-09, its [/health](https://quantic-malware-agent.onrender.com/health)
 reported `status: ok`, `selected_model: LightGBM`, `openai_configured: true`,
 `openai_model: gpt-4.1-mini`, model version `d13e54cf1970-1791236375742615262`
-and commit [`d9ecab7`](https://github.com/mehdihamid1/ML-Project/commit/d9ecab7),
-the last code change.
+and commit [`2bf449b`](https://github.com/mehdihamid1/ML-Project/commit/2bf449b).
 
-Observed [GitHub Actions run 37956413667](https://github.com/mehdihamid1/ML-Project/actions/runs/37956413667)
+Observed [GitHub Actions run 37957260512](https://github.com/mehdihamid1/ML-Project/actions/runs/37957260512)
 for that commit:
 
 | Check | Observed result |
@@ -22,7 +21,9 @@ for that commit:
 | Overall workflow | Passed. |
 
 The real-LLM run of the 15 evaluation scenarios against that deployment
-(Run 5) passed 15 of 15; see [agent-evaluation.md](agent-evaluation.md).
+(Run 6) passed 14 of 15; a stored-result follow-up triggered an unrequested
+prediction. The server guard is tested locally and will be evaluated again
+after deployment; see [agent-evaluation.md](agent-evaluation.md).
 
 ## Render setup
 
@@ -92,8 +93,8 @@ separately against the live site; see [agent-evaluation.md](agent-evaluation.md)
 The current Blueprint passes the JSON schema served by
 [Render](https://render.com/schema/render.yaml.json). Docker Compose configuration
 validates, and both the training and production images build successfully.
-The training image passes 337 tests; the lean local environment passes
-326 tests. Authenticated Jupyter HTTP access works with the host owner's UID/GID.
+The training image passes 427 tests; the lean runtime passes 416 tests.
+Authenticated Jupyter HTTP access works with the host owner's UID/GID.
 
 The production image works at its local default port and honors a custom
 `PORT`, using non-root permissions, the lean dependencies and the verified
@@ -128,10 +129,8 @@ which otherwise delayed large batches on the Free plan CPU allowance. Exact
 numeric validation, model parameters, probabilities and the decision threshold
 are preserved; no training or hold-out tuning was performed.
 
-The latest chat-progress compatibility report is local evidence for the new
-changes. The successful CI and live observations above describe commit
-`341448f`; they do not establish that the uncommitted chat-progress update
-has run on GitHub or Render.
+The container report is local compatibility evidence; GitHub Actions and live
+health observations are recorded separately above.
 
 For a manual execution of the same verified path, export the settings and the
 tested commit into the environment, then run:

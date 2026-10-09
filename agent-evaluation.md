@@ -5,10 +5,10 @@ push and check routing, failures and safety rules deterministically. Separately,
 scenario runs use the real OpenAI model through the deployed app; those are the
 real-LLM evidence below.
 
-**Latest result:** Run 5, on 2026-10-09 against the live site at commit
-`d9ecab7` with `gpt-4.1-mini` and the stronger runner, passed **15 of 15**
-scenarios. Earlier runs are kept below with their failures and the fixes that
-followed.
+**Latest result:** Run 6, on 2026-10-09 against the live site at commit
+`2bf449b` with `gpt-4.1-mini` and the stronger runner, passed **14 of 15**
+scenarios. A stored-result follow-up triggered an unrequested prediction.
+Earlier runs are kept below, including passing runs and failures.
 
 ## How a real-LLM run works
 
@@ -334,6 +334,29 @@ choices vary: scenario 6 also passed in Run 3, under the old instructions,
 before failing in Run 4. The mocked tests and the server's checks cover wrong
 conditional decisions, and in Run 4 an unneeded follow-up tool call still
 gave the correct numbers.
+
+## Run 6: live site at commit `2bf449b`, 2026-10-09
+
+An independent repeat used the same stronger runner at
+`2026-10-09T16:20:39+00:00`. The [generated report](docs/agent-evaluation-live-2bf449b.md)
+records **14 of 15 scenarios passed** and **29 of 29 numeric checks matched**.
+The frozen model and sample checksums matched the earlier runs.
+
+Scenario 5 correctly evaluated `conditional-fail.csv`, returned accuracy 0,
+and withheld prediction against the user's minimum of 0.9. Scenario 6 then
+asked only, "How many false negatives were there in that evaluation?" The
+agent called `predict_single` on the prior prediction file. Its answer included
+the correct false-negative count and the new classification. The failure was
+an unrequested tool execution on a later turn; the original threshold check
+worked correctly.
+
+The fix makes stored-result questions a server-enforced mode. Tools are
+disabled for that turn, compatible session evidence is scoped to explicit
+references, and a provider function call is intercepted before validation or
+execution. Explicit requests to evaluate or classify again still run tools.
+Adversarial mocked-provider tests cover attempts to run all three tools after
+a withheld prediction. A fresh real-provider run must verify this change after
+deployment.
 
 ## Mocked tests in CI
 

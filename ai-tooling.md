@@ -43,7 +43,7 @@ documentation and its Blueprint schema. It rebuilt both Docker images, verified
 authenticated Jupyter access, and added a reproducible production HTTP probe
 using an actual memory-limited Gunicorn container. The probe's provider is a
 local stub, while model predictions, metrics and downloads use production code.
-The latest local full and lean runtime suites pass 396 and 385 tests respectively.
+The latest local full and lean runtime suites pass 426 and 416 tests respectively.
 
 Claude Code (Anthropic) performed that review and checked its findings with
 read-only experiments: phrasing checks against the conditional detector and an
@@ -55,9 +55,9 @@ threshold-wording handling with tests, reran the container probe on a fresh
 image, and rehearsed the Blueprint's native build and start commands, which the
 lean CI job now runs from `render.yaml`.
 
-Real OpenAI scenario runs and live Render verification remain pending. Mocked
-SDK tests and local health checks do not fulfill those deliverables. Their
-status is recorded in [agent-evaluation.md](agent-evaluation.md) and
+Real OpenAI scenario runs and live Render verification are recorded separately
+from mocked SDK tests and local health checks. Their status is recorded in
+[agent-evaluation.md](agent-evaluation.md) and
 [deployed.md](deployed.md). The project author must review, understand, and
 explain the resulting code and experiment design.
 
@@ -172,3 +172,12 @@ overlapped. Claude Code clarified them, and the fifth live run, against that
 deployed change, passed all 15. It also added the README's sample
 requests and the design document's tool schemas and AI model choice, checking
 each field against the code and the HTTP example against the live site.
+
+Codex independently repeated the live run on `2bf449b`: 14 of 15 scenarios
+passed, with all 29 numeric checks matching. An unrequested prediction on the
+false-negative follow-up showed that routing instructions alone were
+insufficient. Codex disabled tools for stored-result questions and added a
+server guard before any execution, with adversarial tests for all three tools,
+explicit fresh requests and scoped session references. Team approval was
+confirmed for a controlled failing-test commit to demonstrate the deployment
+gate; its observed runs will be recorded in `deployed.md`.

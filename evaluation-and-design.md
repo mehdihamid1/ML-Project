@@ -296,7 +296,11 @@ requests. Independent evaluation and classification can run in the same turn;
 sequencing ("when finished") and requests to report an accuracy comparison do
 not turn them into conditional predictions.
 Confusion-matrix follow-ups name true/false positives and negatives, with
-rates computed from stored counts. Known tool validation errors explain the
+counts and rates computed from stored results. Stored-result questions disable
+tools for that turn; a provider function call is intercepted before execution.
+Explicit fresh evaluation/classification commands remain available, and
+explicit session references restrict which stored results may be rendered.
+Known tool validation errors explain the
 problem; unexpected exceptions remain sanitized.
 
 Stateless Responses calls request encrypted reasoning for compatibility with
@@ -423,8 +427,10 @@ because Python computes them all.
 
 The live runs measure the choice: with `gpt-4.1-mini`, Runs 3 and 5 passed
 all 15 scenarios and Run 4 passed 14 ([agent-evaluation.md](agent-evaluation.md)).
-Run 4's miss was an unneeded tool call with a correct answer, and clearer
-instructions fixed it for Run 5. Whatever the
+Run 4's miss was an unneeded tool call with a correct answer. Clearer
+instructions passed Run 5, but the independent Run 6 again made an unrequested
+tool call, this time a prediction after an earlier withheld prediction. The
+server now enforces stored-result follow-ups with tools disabled. Whatever the
 model, the server checks its conditional decision and blocks a disallowed
 prediction. The agent also accepts reasoning models through `OPENAI_MODEL`,
 replaying their encrypted reasoning between tool calls, but only

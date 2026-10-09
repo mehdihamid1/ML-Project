@@ -685,9 +685,131 @@ def test_followup_uses_existing_evidence_and_session_isolation(files):
     assert len(service.calls) == 1
     # A follow-up's focus narrows the answer to the metric asked about.
     assert "Accuracy" not in output["reply"]
+    assert followup.requests[0]["tools"] == []
+    assert followup.requests[0]["tool_choice"] == "none"
     other = Agent(service, FakeClient(final(result_ids=[result_id]))).chat("Tell me that other user's results", {}, files)
     assert "unavailable in this session" in other["reply"]
     assert "0.960000" not in other["reply"]
+
+
+@pytest.mark.parametrize("name,args", [
+    ("predict_single", {"file_id": "file-b", "row_index": 0}),
+    ("predict_batch", {"file_id": "file-b"}),
+    ("evaluate", {"file_id": "file-a"}),
+])
+@pytest.mark.parametrize("message", [
+    "How many false negatives were there in that evaluation?",
+    "What was its false negative rate?",
+    "How many false negatives were files predicted as goodware?",
+    "Do not evaluate again. How many false negatives were there in that evaluation?",
+    "How many false negatives were there? Don't predict another row.",
+    "Don't predict or classify. How many false negatives were there?",
+])
+def test_followup_cannot_execute_provider_tools_after_withheld_prediction(files, name, args, message):
+    state, service = {}, FakeService(accuracy=0, confusion_matrix=[[0, 0], [1, 0]])
+    first = Agent(service, FakeClient(tool("evaluate", file_id="file-a"), final())).chat(
+        "Evaluate file-a; predict row 0 of file-b only if accuracy >= 0.9", state, files)
+    assert first["activity"][-1]["status"] == "skipped"
+    saved_results, saved_downloads = copy.deepcopy(state["results"]), dict(state["downloads"])
+    client = FakeClient(tool(name, **args))  # Ignores the disabled tools deliberately.
+    events = Agent(service, client).chat_events(message, state, files)
+    observed = []
+    while True:
+        try:
+            observed.append(next(events))
+        except StopIteration as finished:
+            output = finished.value
+            break
+    assert [call[0] for call in service.calls] == ["evaluate"]
+    assert "False negatives: 1" in output["reply"]
+    assert output["activity"] == [] and output["results"] == []
+    assert state["results"] == saved_results and state["downloads"] == saved_downloads
+    assert all(event["type"] == "progress" for event in observed)
+    assert client.requests[0]["tools"] == [] and client.requests[0]["tool_choice"] == "none"
+
+
+@pytest.mark.parametrize("message,name,args", [
+    ("Evaluate file-a again and show false negatives", "evaluate", {"file_id": "file-a"}),
+    ("Predict row 0 of file-b", "predict_single", {"file_id": "file-b", "row_index": 0}),
+    ("Classify every row of file-b", "predict_batch", {"file_id": "file-b"}),
+    ("Run a new evaluation of file-a", "evaluate", {"file_id": "file-a"}),
+])
+def test_explicit_fresh_commands_still_execute_after_stored_evaluation(files, message, name, args):
+    state, service = {}, FakeService()
+    Agent(service, FakeClient(tool("evaluate", file_id="file-a"), final())).chat("Evaluate", state, files)
+    output = Agent(service, FakeClient(tool(name, **args), final())).chat(message, state, files)
+    assert service.calls[-1][0] == name and len(service.calls) == 2
+    assert output["activity"][0]["status"] == "success"
+
+
+def test_followup_scopes_evaluation_evidence_and_explicit_older_result(files):
+    state, service = {}, FakeService(accuracy=0.8)
+    Agent(service, FakeClient(tool("evaluate", file_id="file-a"), final())).chat("Evaluate", state, files)
+    older = state["results"][0]["result_id"]
+    service.evaluation["accuracy"] = 0.9
+    Agent(service, FakeClient(tool("evaluate", file_id="file-b"), final())).chat("Evaluate again", state, files)
+    Agent(service, FakeClient(tool("predict_single", file_id="file-b", row_index=0), final())).chat("Predict row 0", state, files)
+    client = FakeClient(final(result_ids=[older], focus="accuracy"))
+    output = Agent(service, client).chat(f"What was the accuracy for result_id {older}?", state, files)
+    assert "Accuracy: 0.800000" in output["reply"]
+    context = json.loads(client.requests[0]["input"][0]["content"].partition(": ")[2])
+    assert [r["result_id"] for r in context["session_results"]] == [older]
+    assert len(service.calls) == 3 and not output["activity"]
+
+
+@pytest.mark.parametrize("message", [
+    "What was the AUC of result_id different-session-result?",
+    "What was the accuracy for file-unknown?",
+])
+def test_followup_missing_reference_never_substitutes_or_executes(files, message):
+    state, service = {}, FakeService()
+    Agent(service, FakeClient(tool("evaluate", file_id="file-a"), final())).chat("Evaluate", state, files)
+    client = FakeClient(tool("predict_single", file_id="file-b", row_index=0))
+    output = Agent(service, client).chat(message, state, files)
+    assert "unavailable in this session" in output["reply"]
+    assert len(service.calls) == 1 and client.requests == []
+    assert output["activity"] == [] and output["results"] == []
+
+
+def test_metric_question_can_evaluate_a_different_upload_without_stored_result(files):
+    state, service = {}, FakeService()
+    Agent(service, FakeClient(tool("evaluate", file_id="file-a"), final())).chat("Evaluate", state, files)
+    output = Agent(service, FakeClient(tool("evaluate", file_id="file-b"), final())).chat(
+        "Show accuracy for file-b", state, files)
+    assert len(service.calls) == 2 and output["activity"][0]["tool"] == "evaluate"
+
+
+def test_followup_requested_metric_and_sole_reference_override_empty_provider_selection(files):
+    state, service = {}, FakeService()
+    Agent(service, FakeClient(tool("evaluate", file_id="file-a"), final())).chat("Evaluate", state, files)
+    output = Agent(service, FakeClient(final(focus="accuracy"))).chat("How many false negatives?", state, files)
+    assert "False negatives: 0" in output["reply"] and "Accuracy" not in output["reply"]
+    assert len(service.calls) == 1 and not output["results"]
+
+
+@pytest.mark.parametrize("name,message,expected", [
+    ("predict_single", "What is the malware probability?", "malware probability 0.870000"),
+    ("predict_batch", "How many goodware files were there?", "0 goodware"),
+])
+def test_prediction_and_batch_followups_also_disable_new_tools(files, name, message, expected):
+    state, service = {}, FakeService()
+    args = {"file_id": "file-a", **({"row_index": 0} if name == "predict_single" else {})}
+    Agent(service, FakeClient(tool(name, **args), final())).chat("Classify", state, files)
+    client = FakeClient(tool("evaluate", file_id="file-a"))
+    output = Agent(service, client).chat(message, state, files)
+    assert expected in output["reply"] and len(service.calls) == 1
+    assert client.requests[0]["tool_choice"] == "none"
+
+
+def test_mixed_stored_prediction_and_batch_metrics_do_not_enable_tools(files):
+    state, service = {}, FakeService()
+    Agent(service, FakeClient(tool("predict_single", file_id="file-a", row_index=0), final())).chat("Classify row 0", state, files)
+    Agent(service, FakeClient(tool("predict_batch", file_id="file-b"), final())).chat("Classify all", state, files)
+    client = FakeClient(final(result_ids=[r["result_id"] for r in state["results"]]))
+    output = Agent(service, client).chat("What is the malware probability and goodware count?", state, files)
+    assert "malware probability 0.870000" in output["reply"] and "0 goodware" in output["reply"]
+    assert len(service.calls) == 2 and not output["activity"] and not output["results"]
+    assert client.requests[0]["tools"] == [] and client.requests[0]["tool_choice"] == "none"
 
 
 @pytest.mark.parametrize("focus", ["accuracy", "auc", "counts", "false_negatives"])
