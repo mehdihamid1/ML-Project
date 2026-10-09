@@ -209,10 +209,10 @@ training outputs are excluded from Git. A byte-for-byte copy of the small
 trusted production model is
 bundled under `models/` for the app. The tools, OpenAI agent and Flask application
 are implemented and deployed. In
-[CI run 37865252113](https://github.com/mehdihamid1/ML-Project/actions/runs/37865252113),
+[CI run 37940826452](https://github.com/mehdihamid1/ML-Project/actions/runs/37940826452),
 the test, runtime-test and container-test jobs passed, then the
-[deploy job](https://github.com/mehdihamid1/ML-Project/actions/runs/37865252113/job/113610767130)
-deployed commit `3f384a8` and its live `/health` check passed. Real-provider
+[deploy job](https://github.com/mehdihamid1/ML-Project/actions/runs/37940826452/job/113855099737)
+deployed commit `db49bfe` and its live `/health` check passed. Real-provider
 evidence is in [agent-evaluation.md](agent-evaluation.md).
 
 ## Agent and runtime design

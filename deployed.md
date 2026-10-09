@@ -5,10 +5,11 @@
 The app is live at <https://quantic-malware-agent.onrender.com/>. On
 2026-10-09, its [/health](https://quantic-malware-agent.onrender.com/health)
 reported `status: ok`, `selected_model: LightGBM`, `openai_configured: true`,
-model version `d13e54cf1970-1791236375742615262` and commit
-[`3f384a8`](https://github.com/mehdihamid1/ML-Project/commit/3f384a8).
+`openai_model: gpt-4.1-mini`, model version `d13e54cf1970-1791236375742615262`
+and commit [`db49bfe`](https://github.com/mehdihamid1/ML-Project/commit/db49bfe),
+the last code change.
 
-Observed [GitHub Actions run](https://github.com/mehdihamid1/ML-Project/actions/runs/37865252113)
+Observed [GitHub Actions run 37940826452](https://github.com/mehdihamid1/ML-Project/actions/runs/37940826452)
 for that commit:
 
 | Check | Observed result |
@@ -20,11 +21,8 @@ for that commit:
 | Live `/health` smoke test | Passed. |
 | Overall workflow | Passed. |
 
-A real-LLM run of the 13 evaluation scenarios against that deployment passed
-13 of 13; see [agent-evaluation.md](agent-evaluation.md). The AI-decided
-conditional task, the sample-file buttons and the model name in `/health`,
-described in the current README, are verified locally but not yet deployed;
-the observations above describe commit `3f384a8`.
+The latest real-LLM run of the 15 evaluation scenarios against that
+deployment passed 15 of 15; see [agent-evaluation.md](agent-evaluation.md).
 
 ## Render setup
 

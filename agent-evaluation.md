@@ -5,6 +5,10 @@ push and check routing, failures and safety rules deterministically. Separately,
 scenario runs use the real OpenAI model through the deployed app; those are the
 real-LLM evidence below.
 
+**Latest result:** Run 3, on 2026-10-09 against the live site at commit
+`db49bfe` with `gpt-4.1-mini`, passed **15 of 15** scenarios. Runs 1 and 2
+are kept below with their failures and the fixes that followed.
+
 ## How a real-LLM run works
 
 ```bash
@@ -173,9 +177,45 @@ model made outside the task.
   reply. A new evaluation now always reports every metric, the focus only
   narrows follow-ups, and the check reads the reply.
 
-## Run 3: after the routing and reply fixes
+## Run 3: live site at commit `db49bfe`, 2026-10-09
 
-Not run yet. It needs those fixes to be deployed.
+This run tests the routing and reply fixes from Run 2.
+
+- Where: <https://quantic-malware-agent.onrender.com>, deployed commit
+  `db49bfeaed948e50da32a5f58a94157ed2c740a6`.
+- AI model: `gpt-4.1-mini`, as reported by `/health`.
+- ML model version: `d13e54cf1970-1791236375742615262`.
+- Run (UTC): 2026-10-09T14:10:32+00:00.
+- Result: **15 of 15 scenarios passed (100%)**. All 27 six-decimal numbers in
+  the replies matched the tool outputs.
+- Full report with every reply:
+  [docs/agent-evaluation-live-db49bfe.md](docs/agent-evaluation-live-db49bfe.md).
+
+| # | Scenario | Tools called | Result |
+| --- | --- | --- | --- |
+| 1 | Single prediction | `predict_single` (success) | PASS |
+| 2 | Batch prediction | `predict_batch` (success) | PASS |
+| 3 | Labeled evaluation | `evaluate` (success) | PASS |
+| 4 | Conditional: prediction permitted | `evaluate` (success), `predict_single` (success) | PASS |
+| 5 | Conditional: prediction withheld | `evaluate` (success), `predict_single` (skipped) | PASS |
+| 6 | False-negative follow-up | none | PASS |
+| 7 | Condition without "if" | `evaluate` (success), `predict_single` (success) | PASS |
+| 8 | Earlier accuracy figure ignored | `evaluate` (success), `predict_single` (skipped) | PASS |
+| 9 | Invalid input row | `predict_batch` (success) | PASS |
+| 10 | Missing labels | `evaluate` (success) | PASS |
+| 11 | No Label column | `evaluate` (error) | PASS |
+| 12 | Single-class evaluation | `evaluate` (success) | PASS |
+| 13 | Tool failure | `predict_single` (error) | PASS |
+| 14 | Feature explanation refused | none | PASS |
+| 15 | Ambiguous condition | none | PASS |
+
+**Findings.** Every scenario passed. The plain single prediction went to
+`predict_single`. The evaluation reply reported accuracy, AUC and the
+confusion matrix, as requested. The single-class reply explained that AUC is
+unavailable and still gave accuracy. In the conditional scenarios, the model
+read the returned accuracy and made the correct call each time. One run per
+version cannot measure how often the model's choices vary; the mocked tests
+and the server's checks cover the cases where a model chooses wrongly.
 
 ## Mocked tests in CI
 

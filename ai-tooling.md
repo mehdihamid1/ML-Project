@@ -149,4 +149,4 @@ values prompt a clarification question), and added regression tests and two
 matching live scenarios. The second live run then failed 2 of 15 scenarios:
 the model routed a plain prediction to evaluation, and a reply depended on
 the metric focus the model chose. Routing instructions were tightened and new
-evaluations now always report every metric.
+evaluations now always report every metric. The third live run passed all 15.
