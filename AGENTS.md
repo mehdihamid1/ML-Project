@@ -79,8 +79,11 @@ done, compare it with the matching requirement here.
   labeled evaluation (AUC, accuracy, confusion matrix, counts; handle missing
   labels and single-class files).
 - Conditional task: call the evaluation tool first, then the single-prediction
-  tool only if returned accuracy ≥ the user's threshold. Answer follow-ups from
-  session results. Show an activity record of tool calls.
+  tool only if returned accuracy ≥ the user's threshold. The spec says the AI
+  model must use the returned accuracy to make that decision, so the model
+  chooses whether to call `predict_single`; server code only checks the choice
+  and blocks a disallowed prediction. Don't move the decision back into code.
+  Answer follow-ups from session results. Show an activity record of tool calls.
 - Flask app: chat UI, CSV upload, `/health`, request/upload/tool-call limits,
   session isolation.
 - Tests: unit, integration, and agent tests with a mocked LLM, plus failure

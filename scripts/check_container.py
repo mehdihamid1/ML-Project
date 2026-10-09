@@ -61,24 +61,30 @@ class Handler(BaseHTTPRequestHandler):
             encoded = json.dumps(inputs)
             if any(word in encoded for word in ("ImportedSymbols", "BaseOfCode", "kernel32.dll", "/tmp/ml-agent-sessions-")):
                 raise ValueError("CSV content or local paths were sent to provider")
+            prompt = next(item["content"] for item in reversed(inputs) if item.get("role") == "user")
+            files = re.findall(r"file ([a-f0-9]{32})", prompt)
+            condition = re.search(r"only if accuracy >= ([0-9.]+)", prompt)
+            name = None
             if inputs[-1].get("type") == "function_call_output":
                 result = json.loads(inputs[-1]["output"])
-                text = json.dumps({"kind": "results", "result_ids": [result["result_id"]], "focus": "summary"})
-                output = [{"id": "msg-" + uuid.uuid4().hex, "type": "message", "role": "assistant",
-                           "status": "completed", "content": [{"type": "output_text", "annotations": [], "text": text}]}]
-                calls.append("final")
+                complete = (result.get("evaluated_count") == result.get("total_count")
+                            and not any(result.get(key) for key in ("invalid_count", "missing_label_count", "invalid_label_count")))
+                # Like the real model, read the returned accuracy before choosing predict_single.
+                if (condition and result.get("tool") == "evaluate" and complete
+                        and result.get("accuracy") is not None and result["accuracy"] >= float(condition.group(1))):
+                    name, args = "predict_single", {"file_id": files[1], "row_index": 0}
+                else:
+                    text = json.dumps({"kind": "results", "result_ids": [result["result_id"]], "focus": "summary"})
+                    output = [{"id": "msg-" + uuid.uuid4().hex, "type": "message", "role": "assistant",
+                               "status": "completed", "content": [{"type": "output_text", "annotations": [], "text": text}]}]
+                    calls.append("final")
             else:
-                prompt = next(item["content"] for item in reversed(inputs) if item.get("role") == "user")
-                files = re.findall(r"file ([a-f0-9]{32})", prompt)
                 context = json.loads(inputs[0]["content"].split(": ", 1)[1])
                 registered = {item["file_id"] for item in context["registered_files"]}
                 if not files or any(identifier not in registered for identifier in files):
                     raise ValueError("Unregistered file reference")
-                if "only if accuracy >=" in prompt:
-                    name = "evaluate_then_predict"
-                    threshold = re.search(r"accuracy >= ([0-9.]+)", prompt)
-                    args = {"evaluation_file_id": files[0], "prediction_file_id": files[1],
-                            "row_index": 0, "min_accuracy": float(threshold.group(1))}
+                if condition:
+                    name, args = "evaluate", {"file_id": files[0]}
                 elif prompt.startswith("Classify every row"):
                     name, args = "predict_batch", {"file_id": files[0]}
                 elif prompt.startswith("Classify row 0"):
@@ -87,6 +93,7 @@ class Handler(BaseHTTPRequestHandler):
                     name, args = "evaluate", {"file_id": files[0]}
                 else:
                     raise ValueError("Unexpected probe prompt")
+            if name is not None:
                 if name not in {tool["name"] for tool in body["tools"]}:
                     raise ValueError("Tool was unavailable")
                 call_id = "call-" + uuid.uuid4().hex
@@ -334,6 +341,8 @@ def run_probe(image, cpus=None):
                     [("evaluate", "success"), ("predict_single", "skipped")], "Conditional threshold failure still predicted")
             require(len(skipped["results"]) == 1, "Skipped condition produced a prediction result")
             report["streamed_chat_checks"] = ["single_prediction", "conditional_pass", "conditional_skip"]
+            sample = json.loads(other.request("POST", "/api/samples/single", expected=201, label="load_sample_single"))
+            require((sample["file"]["name"], sample["file"]["rows"]) == ("single.csv", 1), "Bundled sample did not load from the image")
             large_browser = Browser(base, statuses)
             large_browser.session("session_large")
             large_file = large_browser.upload(large, "upload_large_batch")
@@ -351,7 +360,7 @@ def run_probe(image, cpus=None):
                                 "evaluated_rows": evaluation["evaluated_count"], "missing_label_rows": missing["missing_label_count"]}
             provider = json.loads(docker("exec", name, "python", "-c",
                                          "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:18081').read().decode())"))
-            require(all(tool in provider["tool_calls"] for tool in ("predict_single", "predict_batch", "evaluate", "evaluate_then_predict")), "Provider stub did not exercise every tool route")
+            require(all(tool in provider["tool_calls"] for tool in ("predict_single", "predict_batch", "evaluate")), "Provider stub did not exercise every tool route")
             report["mock_provider"] = provider
             report["status"] = "ok"
             return report

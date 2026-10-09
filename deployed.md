@@ -3,12 +3,12 @@
 ## Status
 
 The app is live at <https://quantic-malware-agent.onrender.com/>. On
-2026-10-08, its [/health](https://quantic-malware-agent.onrender.com/health)
+2026-10-09, its [/health](https://quantic-malware-agent.onrender.com/health)
 reported `status: ok`, `selected_model: LightGBM`, `openai_configured: true`,
 model version `d13e54cf1970-1791236375742615262` and commit
-[`341448f`](https://github.com/mehdihamid1/ML-Project/commit/341448f).
+[`3f384a8`](https://github.com/mehdihamid1/ML-Project/commit/3f384a8).
 
-Observed [GitHub Actions run](https://github.com/mehdihamid1/ML-Project/actions/runs/37862078681)
+Observed [GitHub Actions run](https://github.com/mehdihamid1/ML-Project/actions/runs/37865252113)
 for that commit:
 
 | Check | Observed result |
@@ -20,10 +20,11 @@ for that commit:
 | Live `/health` smoke test | Passed. |
 | Overall workflow | Passed. |
 
-The upload-prepared questions and incremental function progress described in
-the current README have been verified locally. They remain uncommitted and
-have not been deployed; the live observations above describe the existing
-committed app. Real-LLM scenario evaluation remains a separate requirement.
+A real-LLM run of the 13 evaluation scenarios against that deployment passed
+13 of 13; see [agent-evaluation.md](agent-evaluation.md). The AI-decided
+conditional task, the sample-file buttons and the model name in `/health`,
+described in the current README, are verified locally but not yet deployed;
+the observations above describe commit `3f384a8`.
 
 ## Render setup
 
@@ -83,24 +84,26 @@ and temporary deployment errors are retried. Hook URLs are never logged.
 
 Local Gunicorn HTTP checks and the built production container returned healthy
 model status. These are local verification, not evidence of a live Render
-deployment. `/health` reports model availability and whether the OpenAI key is
-set; the deploy smoke check verifies the model and commit without calling OpenAI.
-Real chat behavior requires the separate provider evaluation described in
-[agent-evaluation.md](agent-evaluation.md).
+deployment. `/health` reports model availability, whether the OpenAI key is
+set and the configured OpenAI model name; the deploy smoke check verifies the
+model and commit without calling OpenAI. Real chat behavior is evaluated
+separately against the live site; see [agent-evaluation.md](agent-evaluation.md).
 
 ## Local Docker and Render compatibility
 
 The current Blueprint passes the JSON schema served by
 [Render](https://render.com/schema/render.yaml.json). Docker Compose configuration
 validates, and both the training and production images build successfully.
-The training image passes 308 tests; the lean local environment passes
-297 tests. Authenticated Jupyter HTTP access works with the host owner's UID/GID.
+The training image passes 320 tests; the lean local environment passes
+309 tests. Authenticated Jupyter HTTP access works with the host owner's UID/GID.
 
 The production image works at its local default port and honors a custom
 `PORT`, using non-root permissions, the lean dependencies and the verified
 frozen model. The container probe exercises the actual Gunicorn worker, proxy
-headers, secure cookies, the model dashboard and its recorded JSON, uploads, all tool paths, incremental function events, conditional ordering, invalid
-rows and isolated downloads. It also scores and downloads every row of a
+headers, secure cookies, the model dashboard and its recorded JSON, uploads, a
+bundled sample file, all tool paths, incremental function events, the
+conditional task (its provider stub reads the returned accuracy before choosing
+`predict_single`), invalid rows and isolated downloads. It also scores and downloads every row of a
 maximum-row synthetic batch. The provider is mocked for these checks.
 
 The final [recorded container probe](docs/container-compatibility.json) passed

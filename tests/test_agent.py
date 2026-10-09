@@ -23,6 +23,11 @@ def final(kind="results", result_ids=None, focus="summary"):
     }))
 
 
+def brief(request):
+    """The developer message that states a conditional request's threshold."""
+    return [item["content"] for item in request["input"] if item.get("role") == "developer"][-1]
+
+
 class FakeClient:
     def __init__(self, *responses):
         self.responses = self
@@ -118,16 +123,44 @@ def test_batch_registers_download_and_reports_invalid_rows(files):
 
 
 @pytest.mark.parametrize("accuracy,predicts", [(0.89, False), (0.9, True), (0.91, True)])
-def test_conditional_uses_evaluation_first_and_inclusive_gate(files, accuracy, predicts):
+def test_conditional_evaluates_first_then_model_decides_from_returned_accuracy(files, accuracy, predicts):
     service = FakeService(accuracy)
-    client = FakeClient(tool("evaluate_then_predict", evaluation_file_id="file-a", prediction_file_id="file-b", row_index=0, min_accuracy=0.9))
+    # A correct model calls predict_single exactly when the returned accuracy meets 0.9.
+    client = FakeClient(tool("evaluate", file_id="file-a"),
+                        tool("predict_single", file_id="file-b", row_index=0) if predicts else final())
     response = Agent(service, client).chat("Evaluate file-a; only if accuracy >= 0.9 predict row 0 of file-b", {}, files)
     assert [c[0] for c in service.calls] == (["evaluate", "predict_single"] if predicts else ["evaluate"])
-    assert [a["tool"] for a in response["activity"]] == ["evaluate", "predict_single"]
-    assert response["activity"][-1]["status"] == ("success" if predicts else "skipped")
-    assert ("Prediction skipped" in response["reply"]) != predicts
-    assert client.requests[0]["tool_choice"]["name"] == "evaluate_then_predict"
-    assert [t["name"] for t in client.requests[0]["tools"]] == ["evaluate_then_predict"]
+    assert [(a["tool"], a["status"]) for a in response["activity"]] == [
+        ("evaluate", "success"), ("predict_single", "success" if predicts else "skipped")]
+    assert "error" not in response
+    assert response["reply"].startswith("Condition met" if predicts else "Prediction withheld")
+    first, second = client.requests
+    assert first["tool_choice"] == {"type": "function", "name": "evaluate"}
+    assert [t["name"] for t in first["tools"]] == ["evaluate"]
+    assert "minimum accuracy is 0.9 " in brief(first)
+    # The decision request carries the evaluation the model just received.
+    assert second["tool_choice"] == "auto"
+    assert [t["name"] for t in second["tools"]] == ["predict_single"]
+    returned = second["input"][-1]
+    assert returned["type"] == "function_call_output"
+    assert json.loads(returned["output"])["accuracy"] == accuracy
+
+
+@pytest.mark.parametrize("coverage", [
+    {"accuracy": 0.89},
+    {"missing_label_count": 1, "evaluated_count": 9, "evaluation_coverage": 0.9},
+    {"invalid_count": 1}, {"invalid_label_count": 1},
+    {"evaluation_coverage": None}, {"accuracy": None},
+])
+def test_server_blocks_a_prediction_the_condition_does_not_allow(files, coverage):
+    service = FakeService(**coverage)
+    client = FakeClient(tool("evaluate", file_id="file-a"), tool("predict_single", file_id="file-b", row_index=0))
+    response = Agent(service, client).chat("Evaluate and predict if accuracy >= 0.9", {}, files)
+    assert [c[0] for c in service.calls] == ["evaluate"]
+    assert [(a["tool"], a["status"]) for a in response["activity"]] == [("evaluate", "success"), ("predict_single", "blocked")]
+    assert response["activity"][-1]["arguments"] == {"file_id": "file-b", "row_index": 0}
+    assert "the server blocked it" in response["reply"]
+    assert len(response["results"]) == 1
 
 
 @pytest.mark.parametrize("coverage", [
@@ -135,22 +168,58 @@ def test_conditional_uses_evaluation_first_and_inclusive_gate(files, accuracy, p
     {"invalid_count": 1}, {"invalid_label_count": 1},
     {"evaluation_coverage": None}, {"accuracy": None},
 ])
-def test_conditional_fails_closed_for_incomplete_or_undefined_results(files, coverage):
+def test_withholding_for_incomplete_or_undefined_results_is_accepted(files, coverage):
     service = FakeService(**coverage)
-    response = Agent(service, FakeClient(tool("evaluate_then_predict", evaluation_file_id="file-a", prediction_file_id="file-b", row_index=0, min_accuracy=0.8))).chat("Evaluate and predict if accuracy >= 0.8", {}, files)
+    response = Agent(service, FakeClient(tool("evaluate", file_id="file-a"), final())).chat("Evaluate and predict if accuracy >= 0.8", {}, files)
     assert [c[0] for c in service.calls] == ["evaluate"]
-    assert "Prediction skipped" in response["reply"]
+    assert response["activity"][-1]["status"] == "skipped"
+    assert "error" not in response
+    assert response["reply"].startswith("Prediction withheld")
 
 
-def test_model_cannot_bypass_conditional_or_lower_user_threshold(files):
-    for selected in [
-        tool("predict_single", file_id="file-b", row_index=0),
-        tool("evaluate_then_predict", evaluation_file_id="file-a", prediction_file_id="file-b", row_index=0, min_accuracy=0.1),
-    ]:
-        service = FakeService()
-        response = Agent(service, FakeClient(selected)).chat("Only predict if accuracy >= 0.95", {}, files)
-        assert response["error"] == "tool"
-        assert service.calls == []
+def test_model_withholding_a_permitted_prediction_is_reported_not_overridden(files):
+    service = FakeService(accuracy=0.95)
+    response = Agent(service, FakeClient(tool("evaluate", file_id="file-a"), final())).chat(
+        "Only predict row 0 of file-b if accuracy >= 0.9", {}, files)
+    # The server checks the model's decision; it never predicts on the model's behalf.
+    assert [c[0] for c in service.calls] == ["evaluate"]
+    assert response["error"] == "tool"
+    assert response["activity"][-1]["status"] == "skipped"
+    assert "did not call predict_single, although accuracy 0.950000 meets the required 0.900000" in response["reply"]
+
+
+@pytest.mark.parametrize("selected", [
+    tool("predict_single", file_id="file-b", row_index=0),
+    tool("predict_batch", file_id="file-b"),
+])
+def test_conditional_turn_cannot_skip_the_evaluation(files, selected):
+    service = FakeService()
+    response = Agent(service, FakeClient(selected)).chat("Only predict if accuracy >= 0.95", {}, files)
+    assert response["error"] == "tool"
+    assert "must call evaluate first" in response["reply"]
+    assert service.calls == []
+
+
+def test_after_the_evaluation_only_predict_single_can_follow(files):
+    service = FakeService()
+    client = FakeClient(tool("evaluate", file_id="file-a"), tool("predict_batch", file_id="file-b"))
+    response = Agent(service, client).chat("Only predict if accuracy >= 0.5", {}, files)
+    assert response["error"] == "tool"
+    assert [c[0] for c in service.calls] == ["evaluate"]
+    assert "No prediction was made." in response["reply"]
+
+
+def test_failed_evaluation_stops_the_conditional_task(files):
+    class NoLabels(FakeService):
+        def evaluate(self, path):
+            self.calls.append(("evaluate", Path(path)))
+            raise ValueError("Evaluation requires a Label column containing 0 or 1")
+    service, client = NoLabels(), FakeClient(tool("evaluate", file_id="file-a"))
+    output = Agent(service, client).chat("Only predict row 0 of file-b if accuracy >= 0.9", {}, files)
+    assert output["error"] == "tool"
+    assert output["reply"] == "Evaluation requires a Label column containing 0 or 1. No prediction was made."
+    assert [(a["tool"], a["status"]) for a in output["activity"]] == [("evaluate", "error")]
+    assert [c[0] for c in service.calls] == ["evaluate"] and len(client.requests) == 1
 
 
 def test_conditional_cannot_answer_with_stale_prediction_without_evaluating(files):
@@ -166,8 +235,10 @@ def test_conditional_cannot_answer_with_stale_prediction_without_evaluating(file
 
 def test_percentage_threshold_and_negative_input(files):
     service = FakeService()
-    response = Agent(service, FakeClient(tool("evaluate_then_predict", evaluation_file_id="file-a", prediction_file_id="file-b", row_index=0, min_accuracy=0.9))).chat("Predict only if accuracy is at least 90%", {}, files)
-    assert len(service.calls) == 2 and "condition was met" in response["reply"]
+    client = FakeClient(tool("evaluate", file_id="file-a"), tool("predict_single", file_id="file-b", row_index=0))
+    response = Agent(service, client).chat("Predict only if accuracy is at least 90%", {}, files)
+    assert len(service.calls) == 2 and "meets the required 0.900000" in response["reply"]
+    assert "minimum accuracy is 0.9 " in brief(client.requests[0])
     bad = Agent(service, FakeClient()).chat("Predict if accuracy >= -0.1", {}, files)
     assert bad["error"] == "input"
 
@@ -187,18 +258,20 @@ def test_extreme_user_threshold_is_rejected_before_provider_call(files, threshol
     "Predict if accuracy is at least 95 percent",
 ])
 def test_numeric_threshold_binding_does_not_consume_upload_id_digits(files, message):
-    service = FakeService()
-    output = Agent(service, FakeClient(tool("evaluate_then_predict", evaluation_file_id="file-a", prediction_file_id="file-b", row_index=0, min_accuracy=0.1))).chat(message, {}, files)
-    assert output["error"] == "tool"
-    assert "does not match" in output["reply"]
-    assert service.calls == []
+    service = FakeService(accuracy=0.94)
+    client = FakeClient(tool("evaluate", file_id="file-a"), tool("predict_single", file_id="file-b", row_index=0))
+    output = Agent(service, client).chat(message, {}, files)
+    assert "minimum accuracy is 0.95 " in brief(client.requests[0])
+    assert output["activity"][-1]["status"] == "blocked"
+    assert "below the required 0.950000" in output["reply"]
+    assert [call[0] for call in service.calls] == ["evaluate"]
 
 
 def test_classify_word_is_not_a_conditional_trigger(files):
     client = FakeClient(tool("predict_batch", file_id="file-a"), final())
     output = Agent(FakeService(), client).chat("Classify every row and report accuracy", {}, files)
     assert "error" not in output
-    assert len(client.requests[0]["tools"]) == 4
+    assert [t["name"] for t in client.requests[0]["tools"]] == ["predict_single", "predict_batch", "evaluate"]
 
 
 @pytest.mark.parametrize("message", [
@@ -242,8 +315,9 @@ def test_independent_evaluation_and_batch_in_one_turn_are_allowed(files):
 ])
 def test_comparison_wordings_bind_the_stated_threshold(files, message):
     service = FakeService(accuracy=0.9)
-    output = Agent(service, FakeClient(tool("evaluate_then_predict", evaluation_file_id="file-a",
-                   prediction_file_id="file-b", row_index=0, min_accuracy=0.95))).chat(message, {}, files)
+    client = FakeClient(tool("evaluate", file_id="file-a"), final())
+    output = Agent(service, client).chat(message, {}, files)
+    assert "minimum accuracy is 0.95 " in brief(client.requests[0])
     assert "error" not in output
     assert [call[0] for call in service.calls] == ["evaluate"]
     assert "below the required 0.950000" in output["reply"]
@@ -255,32 +329,22 @@ def test_comparison_wordings_bind_the_stated_threshold(files, message):
 ])
 def test_decimal_percentage_uses_canonical_user_threshold(files, message):
     service = FakeService(accuracy=0.333)
-    output = Agent(service, FakeClient(tool("evaluate_then_predict", evaluation_file_id="file-a",
-                   prediction_file_id="file-b", row_index=0, min_accuracy=0.333))).chat(message, {}, files)
+    output = Agent(service, FakeClient(tool("evaluate", file_id="file-a"),
+                                       tool("predict_single", file_id="file-b", row_index=0))).chat(message, {}, files)
     assert "error" not in output
     assert [call[0] for call in service.calls] == ["evaluate", "predict_single"]
 
 
-def test_float_roundoff_cannot_lower_actual_accuracy_gate(files):
-    neighboring = math.nextafter(0.333, 0)
-    service = FakeService(accuracy=neighboring)
-    output = Agent(service, FakeClient(tool("evaluate_then_predict", evaluation_file_id="file-a",
-                   prediction_file_id="file-b", row_index=0, min_accuracy=neighboring))).chat(
+@pytest.mark.parametrize("accuracy", [math.nextafter(0.333, 0), 0.333 - 1e-12, 0.332])
+def test_prediction_just_below_the_user_threshold_is_blocked(files, accuracy):
+    # Float round-off or a model misreading cannot lower the stated threshold.
+    service = FakeService(accuracy=accuracy)
+    output = Agent(service, FakeClient(tool("evaluate", file_id="file-a"),
+                                       tool("predict_single", file_id="file-b", row_index=0))).chat(
         "Only predict if accuracy >= 33.3%", {}, files)
-    assert "error" not in output
     assert [call[0] for call in service.calls] == ["evaluate"]
-    assert "Prediction skipped" in output["reply"]
-
-
-@pytest.mark.parametrize("threshold", [0.332, 0.333 - 1e-12])
-def test_provider_cannot_lower_even_a_small_real_threshold_difference(files, threshold):
-    service = FakeService()
-    output = Agent(service, FakeClient(tool("evaluate_then_predict", evaluation_file_id="file-a",
-                   prediction_file_id="file-b", row_index=0, min_accuracy=threshold))).chat(
-        "Only predict if accuracy >= 33.3%", {}, files)
-    assert output["error"] == "tool"
-    assert "does not match" in output["reply"]
-    assert service.calls == []
+    assert output["activity"][-1]["status"] == "blocked"
+    assert "Prediction withheld" in output["reply"]
 
 
 @pytest.mark.parametrize("message", [
@@ -295,7 +359,8 @@ def test_conditional_paraphrases_cannot_bypass_evaluation(files, message):
     output = Agent(service, client).chat(message, {}, files)
     assert output["error"] == "tool"
     assert service.calls == []
-    assert [t["name"] for t in client.requests[0]["tools"]] == ["evaluate_then_predict"]
+    assert [t["name"] for t in client.requests[0]["tools"]] == ["evaluate"]
+    assert client.requests[0]["tool_choice"] == {"type": "function", "name": "evaluate"}
 
 
 @pytest.mark.parametrize("message", [
@@ -315,7 +380,7 @@ def test_if_available_metric_followup_is_not_conditional_prediction(files):
     client = FakeClient(final(kind="help"))
     output = Agent(FakeService(), client).chat("Show accuracy if available", {}, files)
     assert "error" not in output
-    assert len(client.requests[0]["tools"]) == 4
+    assert len(client.requests[0]["tools"]) == 3
 
 
 @pytest.mark.parametrize("name,args", [
@@ -325,10 +390,8 @@ def test_if_available_metric_followup_is_not_conditional_prediction(files):
     ("predict_single", {"file_id": "file-a", "row_index": -1}),
     ("predict_single", {"file_id": "file-a", "row_index": 1.5}),
     ("predict_single", {"file_id": "file-a", "row_index": 0, "extra": "value"}),
-    ("evaluate_then_predict", {"evaluation_file_id": "file-a", "prediction_file_id": "file-b", "row_index": 0, "min_accuracy": float("nan")}),
-    ("evaluate_then_predict", {"evaluation_file_id": "file-a", "prediction_file_id": "file-b", "row_index": 0, "min_accuracy": float("inf")}),
-    ("evaluate_then_predict", {"evaluation_file_id": "file-a", "prediction_file_id": "file-b", "row_index": 0, "min_accuracy": 10 ** 400}),
-    ("evaluate_then_predict", {"evaluation_file_id": "file-a", "prediction_file_id": "file-b", "row_index": 0, "min_accuracy": True}),
+    # The former combined conditional tool no longer exists.
+    ("evaluate_then_predict", {"evaluation_file_id": "file-a", "prediction_file_id": "file-b", "row_index": 0, "min_accuracy": 0.5}),
 ])
 def test_untrusted_tool_arguments_cannot_invoke_service(files, name, args):
     service = FakeService()
@@ -409,9 +472,9 @@ def test_provider_errors_are_sanitized(files):
 
 
 def test_conditional_limit_reserves_both_underlying_calls(files):
-    service = FakeService()
-    output = Agent(service, FakeClient(tool("evaluate_then_predict", evaluation_file_id="file-a", prediction_file_id="file-b", row_index=0, min_accuracy=0.8)), max_tool_calls=1).chat("Predict if accuracy >= 0.8", {}, files)
-    assert output["error"] == "tool" and service.calls == []
+    service, client = FakeService(), FakeClient()
+    output = Agent(service, client, max_tool_calls=1).chat("Predict if accuracy >= 0.8", {}, files)
+    assert output["error"] == "tool" and service.calls == [] and client.requests == []
 
 
 def test_underlying_calls_are_bounded(files):
@@ -484,10 +547,11 @@ def test_confusion_counts_require_known_class_order_and_valid_integer_matrix(fil
 
 
 def test_single_class_auc_rendering_and_missing_labels_count(files):
-    service = FakeService(auc=None, missing_label_count=1, evaluated_count=9, evaluation_coverage=0.9)
+    # As the tool reports it, the unlabeled row is the one row left out of the metrics.
+    service = FakeService(auc=None, missing_label_count=1, invalid_count=1, evaluated_count=9, evaluation_coverage=0.9)
     output = Agent(service, FakeClient(tool("evaluate", file_id="file-a"), final())).chat("Evaluate", {}, files)
     assert "AUC: unavailable" in output["reply"]
-    assert "missing labels 1" in output["reply"]
+    assert "Evaluated 9 of 10 rows; 1 excluded (missing labels 1, invalid labels 0)." in output["reply"]
 
 
 def test_no_feature_explanations_can_be_invented(files):
@@ -564,8 +628,8 @@ def test_incremental_events_precede_provider_and_actual_tool_execution(files):
 @pytest.mark.parametrize("accuracy,status", [(0.89, "skipped"), (0.9, "success")])
 def test_incremental_conditional_events_preserve_order_and_gate(files, accuracy, status):
     service = FakeService(accuracy)
-    client = FakeClient(tool("evaluate_then_predict", evaluation_file_id="file-a",
-                             prediction_file_id="file-b", row_index=0, min_accuracy=0.9))
+    client = FakeClient(tool("evaluate", file_id="file-a"),
+                        tool("predict_single", file_id="file-b", row_index=0) if status == "success" else final())
     events = list(Agent(service, client).chat_events("Predict only if accuracy >= 0.9", {}, files))
     trail = [event["activity"] for event in events if event["type"] == "tool"]
     assert [(entry["tool"], entry["status"]) for entry in trail] == (
@@ -573,6 +637,9 @@ def test_incremental_conditional_events_preserve_order_and_gate(files, accuracy,
         if status == "skipped" else
         [("evaluate", "started"), ("evaluate", "success"), ("predict_single", "started"), ("predict_single", "success")])
     assert len(service.calls) == (1 if status == "skipped" else 2)
+    # The decision step is visible while the model reads the evaluation.
+    stages = [event["stage"] for event in events if event["type"] == "progress"]
+    assert stages.index("deciding") > stages.index("planning")
 
 
 def test_incremental_failed_tool_is_sanitized_and_not_successful(files):

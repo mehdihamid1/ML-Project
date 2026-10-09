@@ -10,6 +10,7 @@ COPY ml_project ./ml_project
 COPY models ./models
 COPY templates ./templates
 COPY static ./static
+COPY samples ./samples
 COPY app.py .
 COPY scripts/verify_model.py ./scripts/verify_model.py
 RUN python scripts/verify_model.py

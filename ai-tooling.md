@@ -43,7 +43,7 @@ documentation and its Blueprint schema. It rebuilt both Docker images, verified
 authenticated Jupyter access, and added a reproducible production HTTP probe
 using an actual memory-limited Gunicorn container. The probe's provider is a
 local stub, while model predictions, metrics and downloads use production code.
-The latest local full and lean suites pass 308 and 297 tests respectively.
+The latest local full and lean suites pass 320 and 309 tests respectively.
 
 Claude Code (Anthropic) performed that review and checked its findings with
 read-only experiments: phrasing checks against the conditional detector and an
@@ -123,3 +123,19 @@ column that scrolls on its own beside the chat. Chrome checks confirmed a
 visible chat input without scrolling at sizes from 1024×700 to 1920×1080, and
 the full demo flow with five uploaded files, against a local stand-in for the
 OpenAI API.
+
+Claude Code scored the project against the assignment's rubric at the user's
+request and found two gaps in the agent. The real-LLM scenarios had never run,
+and server code, not the AI model, decided the conditional prediction, although
+the assignment says the model must use the returned accuracy to decide. With
+the user's go-ahead it changed the conditional task: the model must call
+`evaluate` first, reads the accuracy and decides whether to call
+`predict_single`, and the server checks that decision and blocks a prediction
+the rule does not allow. It added a live mode to the scenario runner. That mode
+drives the deployed site over HTTP, so the OpenAI key stays in Render, and it
+checks each reply's numbers against the tool output. It also added sample-file
+buttons, so graders can try the app without a CSV of their own. The first live
+run, against the previous deployment, passed 13 of 13 scenarios; reading its
+replies led to two wording and coverage fixes recorded in
+[agent-evaluation.md](agent-evaluation.md). A training-folds-only feature check
+documents the input choice without changing the frozen model.

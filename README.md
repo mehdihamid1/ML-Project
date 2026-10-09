@@ -15,19 +15,20 @@ under `docs/`, so a clean checkout can run the app without retraining.
 ## Current status
 
 The tools, OpenAI agent, Flask app, sample CSVs and deployment workflow are
-implemented. Plain `pytest` passes all 308 tests locally; the lean environment
-passes 297 tests. The upload-prepared questions and incremental chat progress
-in this checkout are verified locally and await commit, push and deployment.
+implemented. Plain `pytest` passes all 320 tests locally; the lean environment
+passes 309 tests. The AI-decided conditional task, the sample-file buttons and
+the live mode of the evaluation runner in this checkout are verified locally
+and await commit, push and deployment.
 
 The deployed commit is
-[`341448f`](https://github.com/mehdihamid1/ML-Project/commit/341448f).
-Its [GitHub Actions run](https://github.com/mehdihamid1/ML-Project/actions/runs/37862078681)
+[`3f384a8`](https://github.com/mehdihamid1/ML-Project/commit/3f384a8).
+Its [GitHub Actions run](https://github.com/mehdihamid1/ML-Project/actions/runs/37865252113)
 passed the full, runtime and container tests, then deployed and passed the live
-health check. On 2026-10-08,
+health check. On 2026-10-09,
 [live health](https://quantic-malware-agent.onrender.com/health) reported that
-commit, `status: ok`, LightGBM and `openai_configured: true`. The real-LLM
-scenario report remains pending; health does not execute provider requests.
-See [deployed.md](deployed.md) and [agent-evaluation.md](agent-evaluation.md).
+commit, `status: ok`, LightGBM and `openai_configured: true`. A real-LLM run of
+the 13 evaluation scenarios against that deployment passed 13 of 13. See
+[deployed.md](deployed.md) and [agent-evaluation.md](agent-evaluation.md).
 
 ## Run the application
 
@@ -65,6 +66,10 @@ Choose or drop one or more CSVs from [samples/](samples/README.md) on the
 upload area; each is checked for CSV format, size and required columns as soon
 as it is added. A successful upload fills an editable question using the new
 file ID: predict row 0 for a one-row CSV, or classify all rows otherwise.
+Without a file of your own, the sample buttons under the upload area (**One
+row**, **Batch of 4**, **Labeled**, **Low accuracy**, **Invalid row**, **Missing
+label**, **One class**) load the matching CSV from `samples/` on the server,
+with the same checks, and prepare an evaluation question for labeled samples.
 Review or edit the question, then click **Send**. Every file card offers
 **Predict row 0**, **Classify all** and, for files with a `Label` column,
 **Evaluate**; each button writes the request for that file into the chat box.
@@ -74,7 +79,7 @@ errors, and a download link. The conditional form lets you choose an
 evaluation file, a prediction file, a row and an accuracy threshold. Its
 **Prepare question** button fills the chat box and waits for your Send action.
 During the request, live progress shows the current stage and actual function
-names with running, finished, failed or skipped states, plus elapsed time. Each
+names with running, finished, failed, skipped or blocked states, plus elapsed time. Each
 answer lists the tools that produced it, or says that none was called, and the
 activity record lists every call in the session with its arguments and its
 evaluation, prediction, failure or skip. On screens at least 721 pixels wide
@@ -98,10 +103,13 @@ bound to the user's stated value.
   counts over valid labeled rows, with explicit coverage and rejected-row counts.
   Missing label columns or no valid labeled rows fail visibly. A single-class
   file returns unavailable AUC with a reason.
-- Conditional prediction evaluates first and checks the user threshold in code.
-  It also requires complete valid labeled coverage; incomplete evaluation or a
-  failure skips prediction. Both underlying tool calls appear in the activity
-  record when performed.
+- Conditional prediction: the AI model must call `evaluate` first. It then
+  reads the returned accuracy and decides whether to call `predict_single`.
+  The server checks that decision against the user's stated threshold and
+  complete valid label coverage: it blocks a prediction the rule does not allow,
+  and never predicts on the model's behalf. A failed evaluation stops the task.
+  The activity record shows `evaluate`, then `predict_single` as finished,
+  skipped (withheld) or blocked.
 
 Only UTF-8 CSV data is accepted. Uploads and tools share schema validation and
 file limits. Oversized individual cells are retained and reported as invalid
@@ -152,8 +160,9 @@ Round 1 remain available when JavaScript is disabled or interactive controls
 cannot load. Charts use local scripts and SVG and
 add no runtime dependencies.
 
-Routes are `/`, `/analytics`, `/health`, `/api/model-comparison`, `/api/session`, `/api/upload`, `/api/chat`, `/api/chat/stream`,
-`/api/download/<id>` and `/api/reset`. Mutation requests require the CSRF token
+Routes are `/`, `/analytics`, `/health`, `/api/model-comparison`, `/api/session`, `/api/upload`,
+`/api/samples/<name>`, `/api/chat`, `/api/chat/stream`, `/api/download/<id>` and `/api/reset`.
+`/health` also names the configured OpenAI model. Mutation requests require the CSRF token
 from `/api/session` in `X-CSRF-Token`. The UI handles that automatically.
 
 ## Reproduce training and evaluation
@@ -190,6 +199,15 @@ python scripts/audit_experiment.py --data data/raw/brazilian-malware.csv --artif
 The aggregate [audit report](docs/experiment-audit.json) records partition
 integrity, exact raw input-vector overlap, CV selection and artifact checks.
 
+A training-folds-only check compares the frozen inputs with smaller, larger,
+filtered and projected ones for the selected LightGBM configuration. It ran
+after the model was frozen and changes nothing; see
+[evaluation-and-design.md](evaluation-and-design.md#feature-selection-check):
+
+```bash
+docker compose run --rm ml python scripts/explore_features.py --output docs/feature-exploration.json
+```
+
 `docker compose up ml` starts JupyterLab bound to localhost with token
 authentication. Copy its logged URL to your browser. `docker compose down`
 stops development services. The dataset is not included in the image.
@@ -212,8 +230,13 @@ suite, a lean-runtime suite and a production-container check; all must pass befo
 triggers a Render hook for the tested commit. Render auto-deploy is disabled. The job polls live
 `/health` and requires that exact commit to be healthy. See [deployed.md](deployed.md)
 for setup and the factual deployment status. Real OpenAI scenario execution is
-tracked separately in [agent-evaluation.md](agent-evaluation.md); mocked tests
-do not fulfill that requirement.
+recorded separately in [agent-evaluation.md](agent-evaluation.md); mocked tests
+do not fulfill that requirement. The scenario runner drives the deployed app
+like a browser, so it uses the server's key and needs none locally:
+
+```bash
+python3 scripts/run_agent_evaluation.py --base-url https://quantic-malware-agent.onrender.com --output artifacts/agent-evaluation/<run-name>
+```
 
 Reproduce the Docker compatibility check after building the web image:
 

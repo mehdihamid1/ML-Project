@@ -73,19 +73,20 @@ def test_real_model_batch_download_preserves_invalid_row_and_session_isolation(s
     assert str(ROOT) not in provider_inputs
 
 
-@pytest.mark.parametrize('sample,threshold,expected_status,results_count', [
-    ('labeled.csv', 0.0, 'success', 2),
-    ('conditional-fail.csv', 1.0, 'skipped', 1),
-    ('missing-labels.csv', 0.0, 'skipped', 1),
+@pytest.mark.parametrize('sample,threshold,model_predicts,expected_status,results_count', [
+    ('labeled.csv', 0.0, True, 'success', 2),
+    ('conditional-fail.csv', 1.0, False, 'skipped', 1),
+    ('missing-labels.csv', 0.0, False, 'skipped', 1),
+    # A model that predicts despite incomplete label coverage is blocked.
+    ('missing-labels.csv', 0.0, True, 'blocked', 1),
 ])
-def test_real_model_http_conditional_order_and_coverage(setup, sample, threshold, expected_status, results_count):
+def test_real_model_http_conditional_order_and_coverage(setup, sample, threshold, model_predicts, expected_status, results_count):
     _, client, provider, headers = setup
     evaluation_id = upload(client, headers, sample)
     prediction_id = upload(client, headers, 'single.csv')
-    provider.next_tool = ('evaluate_then_predict', {
-        'evaluation_file_id': evaluation_id, 'prediction_file_id': prediction_id,
-        'row_index': 0, 'min_accuracy': threshold,
-    })
+    provider.next_tools = [('evaluate', {'file_id': evaluation_id})]
+    if model_predicts:
+        provider.next_tools.append(('predict_single', {'file_id': prediction_id, 'row_index': 0}))
     reply = client.post('/api/chat', headers=headers, json={
         'message': f'Evaluate file {evaluation_id}; only if accuracy >= {threshold}, predict row 0 of file {prediction_id}.',
     })
@@ -94,7 +95,26 @@ def test_real_model_http_conditional_order_and_coverage(setup, sample, threshold
         ('evaluate', 'success'), ('predict_single', expected_status),
     ]
     assert len(reply.json['results']) == results_count
-    assert len(provider.calls) == 1
+    # The model made its decision after receiving the evaluation result.
+    assert len(provider.calls) == 2
+    assert json.loads(provider.calls[1]['input'][-1]['output'])['tool'] == 'evaluate'
+
+
+def test_bundled_samples_load_into_the_session_like_uploads(setup):
+    _, client, provider, headers = setup
+    loaded = client.post('/api/samples/labeled', headers=headers)
+    assert loaded.status_code == 201
+    file = loaded.json['file']
+    assert (file['name'], file['rows']) == ('labeled.csv', 4) and 'Label' in file['columns']
+    assert [item['id'] for item in client.get('/api/session').json['files']] == [file['id']]
+    for name in ('unknown', 'labeled.csv', 'README'):
+        assert client.post(f'/api/samples/{name}', headers=headers).status_code == 404
+    assert client.post('/api/samples/single').status_code == 403  # The CSRF token is still required.
+    # Loading never asks the model; the sample is an ordinary session file once the user sends a request.
+    assert provider.calls == []
+    provider.next_tool = ('evaluate', {'file_id': file['id']})
+    reply = client.post('/api/chat', headers=headers, json={'message': f"Evaluate file {file['id']}."})
+    assert reply.json['results'][0]['evaluated_count'] == 4
 
 
 def test_http_descriptive_if_request_reaches_saved_model(setup):
@@ -148,14 +168,14 @@ def test_http_independent_evaluation_and_batch_complete_both_tasks(setup):
     assert client.get(reply.json['results'][1]['download_url']).status_code == 200
 
 
-def test_http_fractional_percentage_accepts_provider_canonical_number(setup):
+def test_http_fractional_percentage_threshold_permits_prediction(setup):
     _, client, provider, headers = setup
     evaluation_id = upload(client, headers, 'labeled.csv')
     prediction_id = upload(client, headers, 'single.csv')
-    provider.next_tool = ('evaluate_then_predict', {
-        'evaluation_file_id': evaluation_id, 'prediction_file_id': prediction_id,
-        'row_index': 0, 'min_accuracy': 0.333,
-    })
+    provider.next_tools = [
+        ('evaluate', {'file_id': evaluation_id}),
+        ('predict_single', {'file_id': prediction_id, 'row_index': 0}),
+    ]
     reply = client.post('/api/chat', headers=headers, json={
         'message': f'Evaluate file {evaluation_id}; only if accuracy >= 33.3%, predict row 0 of file {prediction_id}',
     })

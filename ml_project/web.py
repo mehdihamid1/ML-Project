@@ -285,6 +285,7 @@ def create_app(config=None, *, service=None, agent=None):
             model_version=metadata.get("model_version"),
             selected_model=metadata.get("selected_model"),
             openai_configured=bool(os.environ.get("OPENAI_API_KEY")),
+            openai_model=getattr(agent, "model", None),
             commit=os.environ.get("RENDER_GIT_COMMIT", "local"),
         ), 200 if available else 503
 
@@ -298,22 +299,15 @@ def create_app(config=None, *, service=None, agent=None):
                            results=record.state.get("results", [])[-20:],
                            activity=record.state.get("activity", [])[-100:])
 
-    @app.post("/api/upload")
-    def upload():
+    def register_csv(read, filename):
+        """Validate CSV bytes and register them in the session, as uploads and samples share."""
         if service is None:
             raise RequestError("The production model is unavailable. Uploads cannot be validated.", 503)
-        if "file" not in request.files:
-            raise RequestError("Choose a CSV file to upload.")
-        incoming = request.files["file"]
-        if not incoming.filename or Path(incoming.filename).suffix.lower() != ".csv":
-            raise RequestError("Only CSV files are accepted.")
-        if incoming.mimetype not in {"text/csv", "application/csv", "application/vnd.ms-excel", "application/octet-stream", "text/plain"}:
-            raise RequestError("Only CSV files are accepted.")
         _, record = current_session()
         with record.lock:
             if len(record.files) >= app.config["MAX_FILES_PER_SESSION"]:
                 raise RequestError("The session file limit is reached. Reset the session to upload more.", 413)
-            content = incoming.stream.read(app.config["MAX_UPLOAD_BYTES"] + 1)
+            content = read(app.config["MAX_UPLOAD_BYTES"] + 1)
             if len(content) > app.config["MAX_UPLOAD_BYTES"]:
                 raise RequestError("CSV upload exceeds the size limit.", 413)
             if _disk_usage(record.directory) + len(content) > app.config["MAX_SESSION_BYTES"]:
@@ -326,9 +320,32 @@ def create_app(config=None, *, service=None, agent=None):
             except Exception:
                 path.unlink(missing_ok=True)
                 raise
-            name = secure_filename(incoming.filename)[:160] or "upload.csv"
+            name = secure_filename(filename)[:160] or "upload.csv"
             record.files[identifier] = {"path": path, "name": name, **details}
             return jsonify(file={"id": identifier, "name": name, **details}), 201
+
+    @app.post("/api/upload")
+    def upload():
+        if service is None:
+            raise RequestError("The production model is unavailable. Uploads cannot be validated.", 503)
+        if "file" not in request.files:
+            raise RequestError("Choose a CSV file to upload.")
+        incoming = request.files["file"]
+        if not incoming.filename or Path(incoming.filename).suffix.lower() != ".csv":
+            raise RequestError("Only CSV files are accepted.")
+        if incoming.mimetype not in {"text/csv", "application/csv", "application/vnd.ms-excel", "application/octet-stream", "text/plain"}:
+            raise RequestError("Only CSV files are accepted.")
+        return register_csv(incoming.stream.read, incoming.filename)
+
+    # The repository's sample CSVs give graders ready-made records to try.
+    samples = {path.stem: path for path in sorted((project / "samples").glob("*.csv"))}
+
+    @app.post("/api/samples/<name>")
+    def load_sample(name):
+        path = samples.get(name)
+        if path is None:
+            raise RequestError("That sample file does not exist.", 404)
+        return register_csv(lambda limit: path.read_bytes()[:limit], path.name)
 
     def chat_request():
         if agent is None:

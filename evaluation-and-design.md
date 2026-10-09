@@ -13,6 +13,15 @@ before fitting any preprocessing. SHA1, FirstSeenDate, and the three previously
 verified constant columns are excluded from model inputs. SHA1 remains in
 saved partition files to audit separation. Label is always excluded from inputs.
 
+Class balance: the raw file holds 29,065 malware and 21,116 goodware rows
+([dataset-source.md](dataset-source.md)). Most duplicate rows were malware, so
+after deduplication the classes are close to even. The development set has
+17,836 malware and 16,878 goodware rows, and the hold-out 4,459 and 4,220
+(counts in [feature-exploration.json](docs/feature-exploration.json)); both are
+51.4% malware. Stratified splitting and stratified folds keep that ratio in
+every partition. AUC does not depend on the decision threshold, and accuracy is
+meaningful at this balance, so no resampling or class weights were used.
+
 ## Seven models and preprocessing
 
 Logistic Regression, Decision Tree, Random Forest, a PyTorch MLP, XGBoost,
@@ -98,6 +107,39 @@ hold-out. No feature-level causes are inferred from these errors. Counts,
 rates and matrix order are checked against the original saved metadata by the
 [read-only audit](scripts/audit_experiment.py).
 
+## Feature selection check
+
+The inputs were fixed before the model comparison: 19 numeric fields after a
+signed log transform and scaling, 64-term TF-IDF vocabularies for imported DLLs
+and for imported symbols, and up to 32 `Identify` categories, 179 model inputs
+in all. Explicit feature selection was not part of the original search. To
+justify that choice, `scripts/explore_features.py` compares it with smaller,
+larger, filtered and projected inputs for the selected LightGBM configuration
+(31 leaves, 100 trees), on the same ten training folds. Every transformation,
+including the feature filter and the SVD projection, is fitted inside each
+fold. The check ran after the model was frozen, used no hold-out rows and
+changed nothing. Its report is
+[docs/feature-exploration.json](docs/feature-exploration.json).
+
+| Inputs | Model inputs | CV AUC mean ± std | CV accuracy mean ± std | Mean fit seconds |
+| --- | --- | --- | --- | --- |
+| Frozen choice | 179 | 0.998219 ± 0.000558 | 0.985741 ± 0.002176 | 8.91 |
+| Numeric fields only | 19 | 0.997782 ± 0.000680 | 0.983753 ± 0.002022 | 0.37 |
+| 16-term vocabularies | 83 | 0.998187 ± 0.000423 | 0.985539 ± 0.002223 | 7.75 |
+| 256-term vocabularies | 563 | 0.998138 ± 0.000534 | 0.985625 ± 0.002489 | 11.14 |
+| Best 50 by ANOVA F-score | 50 | 0.996842 ± 0.000601 | 0.978625 ± 0.001608 | 7.73 |
+| Truncated SVD, 32 components | 32 | 0.996420 ± 0.000906 | 0.978510 ± 0.002391 | 9.38 |
+
+The frozen choice reproduces the recorded LightGBM cross-validation result
+exactly and has the highest mean AUC and accuracy. Vocabulary size barely
+matters: 16 or 256 terms change mean AUC only in the fifth decimal place, well
+within the fold standard deviation. The import lists add a small gain over the
+numeric fields alone, in both AUC and accuracy, at a much higher fitting cost.
+Keeping the 50 highest-scoring features or projecting onto 32 components lowers
+both metrics. The trees already choose features through their splits, so an
+explicit filter or projection here only removes information. The frozen inputs
+stay. These are training-fold results, not a significance test.
+
 ## Limitations
 
 - The stratified random hold-out tests performance within this collection.
@@ -106,8 +148,10 @@ rates and matrix order are checked against the original saved metadata by the
   does not guarantee separation of related malware families.
 - Imported DLL and symbol vocabularies are each capped at 64 terms; the
   nonnative Identify encoder is capped at 32 categories. These memory bounds
-  can discard useful distinctions. Missingness and collection-specific text
-  patterns may also limit transfer to another source.
+  can discard useful distinctions, although the feature selection check above
+  found 16- and 256-term vocabularies within the fold variation. Missingness
+  and collection-specific text patterns may also limit transfer to another
+  source.
 - Only two fixed settings per model were compared, for 14 configurations in
   total. The comparison supports the selected configurations, rather than
   claiming each algorithm was fully optimized. CatBoost used 100 iterations,
@@ -164,12 +208,12 @@ held-out metrics, feature schema, and provenance. The dataset and original
 training outputs are excluded from Git. A byte-for-byte copy of the small
 trusted production model is
 bundled under `models/` for the app. The tools, OpenAI agent and Flask application
-are implemented. Live deployment and real-provider evaluation remain pending
-environment configuration. The
-[full CI job](https://github.com/mehdihamid1/ML-Project/actions/runs/37396524639/job/112053720455)
-and [lean runtime job](https://github.com/mehdihamid1/ML-Project/actions/runs/37396524639/job/112053720662)
-passed tests and model verification; the subsequent deploy job failed on missing
-Render settings. This is not a completed deployment.
+are implemented and deployed. In
+[CI run 37865252113](https://github.com/mehdihamid1/ML-Project/actions/runs/37865252113),
+the test, runtime-test and container-test jobs passed, then the
+[deploy job](https://github.com/mehdihamid1/ML-Project/actions/runs/37865252113/job/113610767130)
+deployed commit `3f384a8` and its live `/health` check passed. Real-provider
+evidence is in [agent-evaluation.md](agent-evaluation.md).
 
 ## Agent and runtime design
 
@@ -211,18 +255,29 @@ LLM cannot supply unrestricted classification text or feature-level causes.
 CSV tools validate schema and individual rows. Batch downloads preserve invalid
 rows with error status; user-provided IDs are neutralized for spreadsheet formula
 interpretation. Evaluation reports missing/invalid labels and coverage, and
-returns unavailable AUC for a single-class file. The conditional orchestration
-calls evaluation first, validates a finite user threshold, and predicts only
-when returned accuracy meets it and all rows have valid labels and features.
-Incomplete coverage and tool failures fail closed. The activity record shows
-the underlying calls and skipped predictions.
+returns unavailable AUC for a single-class file.
 
 The three model tools are `predict_single`, `predict_batch` and `evaluate`.
-The agent's `evaluate_then_predict` function orchestrates the conditional task
-by calling the evaluation and single-prediction tools in order. Thresholds are
-bound to explicit user input; an ambiguous condition requests clarification
-instead of guessing. Follow-ups select stored result references. Pasted CSVs
-are directed to the upload route before a provider call.
+A conditional request, such as "evaluate file A; only if accuracy is at least
+0.95, predict row 0 of file B", runs in two steps:
+
+1. The server makes the AI model call `evaluate` first (a forced tool choice).
+   The evaluation summary, with accuracy and label coverage, goes back to the
+   model together with the user's threshold.
+2. The model decides. It calls `predict_single` only if the returned accuracy
+   meets the threshold and every row was evaluated with valid features and
+   labels; otherwise it answers without predicting.
+
+The server then checks that decision against the same rule, using the threshold
+parsed from the user's message rather than a number the model supplies. A
+prediction the rule does not allow is blocked and recorded as `blocked`. If the
+model leaves out a permitted prediction, the reply reports that as an error;
+the server never predicts on the model's behalf. A failed evaluation stops the
+task without a prediction. The activity record shows each step: `evaluate`,
+then `predict_single` as finished, skipped (withheld) or blocked.
+Thresholds are bound to explicit user input; an ambiguous condition requests
+clarification instead of guessing. Follow-ups select stored result references.
+Pasted CSVs are directed to the upload route before a provider call.
 Descriptive requests such as “tell me if it is malware” are ordinary prediction
 requests. Independent evaluation and classification can run in the same turn.
 Confusion-matrix follow-ups name true/false positives and negatives, with
@@ -251,8 +306,11 @@ records containing user data remain protected until expiration. Its in-process
 state requires one Gunicorn worker and is ephemeral across restarts.
 
 Successful uploads prepare editable questions using the newly returned file ID.
-Uploads, per-file actions and the conditional form never submit chat requests;
-the user reviews the question and sends it. The browser consumes incremental
+The upload panel can also load any of the repository's sample CSVs on the
+server (`POST /api/samples/<name>`), through the same validation and session
+limits as an upload, so graders need no file of their own.
+Uploads, sample buttons, per-file actions and the conditional form never submit
+chat requests; the user reviews the question and sends it. The browser consumes incremental
 NDJSON from `/api/chat/stream`, showing real provider stages and function-start,
 success, failure or skip events. The existing `/api/chat` JSON interface shares
 the same execution and transaction checks. Events contain bounded tool
@@ -264,4 +322,4 @@ turn remains available in session results. Execution stays synchronous within
 the existing Gunicorn thread limit, without background jobs or new dependencies.
 Runtime dependencies are separate from the training environment. See
 [deployed.md](deployed.md) for operational setup and
-[agent-evaluation.md](agent-evaluation.md) for the pending real-LLM evidence.
+[agent-evaluation.md](agent-evaluation.md) for the real-LLM evidence.

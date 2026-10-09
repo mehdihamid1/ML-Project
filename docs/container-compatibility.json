@@ -36,6 +36,7 @@
     "labeled_evaluation": 200,
     "large_batch_download": 200,
     "large_batch_prediction": 200,
+    "load_sample_single": 201,
     "missing_label_column": 200,
     "missing_label_rows": 200,
     "model_comparison": 200,
@@ -59,7 +60,7 @@
     "walkthrough_css": 200
   },
   "image": "ml-project-web",
-  "image_id": "sha256:84b7327fea9e80ef0c1a5ce00063cdfe646de150d50a18d435f7fd7adcce6899",
+  "image_id": "sha256:bd03c03cb739b7363ba189a59c68121cfcf814013cd3a5085cb83a9453c8a9bf",
   "large_batch_upload_bytes": 2619213,
   "memory_limit_bytes": 536870912,
   "memory_observation": {
@@ -70,7 +71,7 @@
   "memory_observation_note": "One post-request Docker sample; this is not a peak-memory measurement.",
   "mock_provider": {
     "provider": "mocked",
-    "request_count": 15,
+    "request_count": 17,
     "tool_calls": [
       "predict_single",
       "predict_batch",
@@ -78,8 +79,9 @@
       "evaluate",
       "evaluate",
       "evaluate",
-      "evaluate_then_predict",
-      "evaluate_then_predict",
+      "evaluate",
+      "predict_single",
+      "evaluate",
       "predict_batch"
     ]
   },

@@ -30,12 +30,16 @@
               <input type="file" id="file-input" class="file-input" accept=".csv,text/csv" multiple aria-describedby="upload-hint">
               <label class="upload-zone" for="file-input" id="upload-zone"><span class="upload-icon" aria-hidden="true">↑</span><strong id="upload-title">Choose or drop CSV files</strong><span id="upload-hint">Up to 5 MiB · 10,000 rows each</span></label>
             </form>
-            <p class="helper">Upload a CSV to prepare a classification question. Review or edit it, then click <strong>Send</strong>. Include <code>Label</code> (0 or 1) to evaluate. Row numbers start at 0.</p>
+            <div class="sample-files">
+              <p class="sample-label" id="sample-label">No CSV at hand? Load a sample:</p>
+              <div class="sample-buttons" role="group" aria-labelledby="sample-label"><button type="button" class="sample-button" data-sample="single" title="single.csv · one record without a label">One row</button><button type="button" class="sample-button" data-sample="batch" title="batch.csv · four records without labels">Batch of 4</button><button type="button" class="sample-button" data-sample="labeled" title="labeled.csv · four records from both classes, with labels">Labeled</button><button type="button" class="sample-button" data-sample="conditional-fail" title="conditional-fail.csv · one record whose label the model gets wrong">Low accuracy</button><button type="button" class="sample-button" data-sample="invalid-rows" title="invalid-rows.csv · four records, one with an invalid value">Invalid row</button><button type="button" class="sample-button" data-sample="missing-labels" title="missing-labels.csv · four records, one without a label">Missing label</button><button type="button" class="sample-button" data-sample="single-class" title="single-class.csv · malware labels only, so AUC is undefined">One class</button></div>
+            </div>
+            <p class="helper">Upload a CSV or load a sample to prepare a classification question. Review or edit it, then click <strong>Send</strong>. Include <code>Label</code> (0 or 1) to evaluate. Row numbers start at 0.</p>
             <ul class="file-list" id="file-list"><li class="empty-state">Your uploaded files will appear here.</li></ul>
           </section>
           <section class="panel conditional-panel">
             <div class="section-heading"><h2>Conditional prediction</h2></div>
-            <p class="helper">Evaluate first. Predict only when accuracy meets your minimum and every evaluation row is valid and labeled.</p>
+            <p class="helper">The assistant evaluates first, reads the accuracy, and predicts only when it meets your minimum and every evaluation row is valid and labeled. The server blocks any other prediction.</p>
             <form id="conditional-form">
               <label for="evaluation-file">Labeled evaluation file</label><select id="evaluation-file" required><option value="">Upload a CSV first</option></select>
               <label for="prediction-file">Prediction file</label><select id="prediction-file" required><option value="">Upload a CSV first</option></select>
@@ -48,7 +52,7 @@
         <section class="conversation panel" aria-labelledby="chat-heading">
           <div class="chat-header"><div><h2 id="chat-heading">Analysis assistant</h2><p>OpenAI plans the tools · LightGBM classifies</p></div><span class="privacy-label">Private session</span></div>
           <div class="messages" id="messages" role="log" aria-live="polite" aria-relevant="additions">
-            <div class="welcome-card"><span class="welcome-symbol">✳</span><h3>Start with a feature file</h3><p>Upload a CSV and choose what you want to know. You can also ask about earlier results in this session.</p><div class="example-prompts"><button type="button" data-prompt="Classify all rows in file {file_id}.">Classify a CSV</button><button type="button" data-prompt="Evaluate file {file_id} using its labels.">Evaluate accuracy</button><button type="button" data-prompt="Predict row 0 of file {file_id}.">Predict one row</button></div></div>
+            <div class="welcome-card"><span class="welcome-symbol">✳</span><h3>Start with a feature file</h3><p>Upload a CSV or load a sample, then choose what you want to know. You can also ask about earlier results in this session.</p><div class="example-prompts"><button type="button" data-prompt="Classify all rows in file {file_id}.">Classify a CSV</button><button type="button" data-prompt="Evaluate file {file_id} using its labels.">Evaluate accuracy</button><button type="button" data-prompt="Predict row 0 of file {file_id}.">Predict one row</button></div></div>
           </div>
           <div class="chat-footer">
             <div class="notice" id="notice" role="status" aria-live="polite"></div>

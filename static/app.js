@@ -7,12 +7,9 @@ const ui = {
   evaluation: byId("evaluation-file"), prediction: byId("prediction-file"),
   fileInput: byId("file-input"), uploadZone: byId("upload-zone"),
 };
-const TOOL_NAMES = {
-  predict_single: "Single prediction", predict_batch: "Batch prediction",
-  evaluate: "Evaluation", evaluate_then_predict: "Evaluate, then predict",
-};
-const STATUS_WORDS = { started: "running", success: "finished", error: "failed", skipped: "skipped", recorded: "recorded" };
-const STATUS_MARKS = { started: "…", success: "✓", error: "✕", skipped: "–", recorded: "•" };
+const TOOL_NAMES = { predict_single: "Single prediction", predict_batch: "Batch prediction", evaluate: "Evaluation" };
+const STATUS_WORDS = { started: "running", success: "finished", error: "failed", skipped: "skipped", blocked: "blocked", recorded: "recorded" };
+const STATUS_MARKS = { started: "…", success: "✓", error: "✕", skipped: "–", blocked: "⊘", recorded: "•" };
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 let csrfToken = "";
 let files = [];
@@ -65,6 +62,7 @@ async function api(path, options = {}) {
 function setBusy(value) {
   busy = value;
   for (const id of ["send-button", "conditional-button", "reset-button"]) byId(id).disabled = value || uploading;
+  for (const button of document.querySelectorAll(".sample-button")) button.disabled = value || uploading;
   ui.fileInput.disabled = value || uploading;
   byId("send-button").firstChild.textContent = value ? "Working " : "Send ";
 }
@@ -102,15 +100,12 @@ function message(role, text, pending = false) {
 function describeArguments(args = {}) {
   const parts = [];
   if (args.file_id) parts.push(fileLabel(args.file_id));
-  if (args.evaluation_file_id) parts.push(`evaluate ${fileLabel(args.evaluation_file_id)}`);
-  if (args.prediction_file_id) parts.push(`predict ${fileLabel(args.prediction_file_id)}`);
   if (Number.isInteger(args.row_index)) parts.push(`row ${args.row_index}`);
-  if (typeof args.min_accuracy === "number") parts.push(`minimum accuracy ${args.min_accuracy}`);
   return parts.join(", ");
 }
 
 function statusOf(entry) {
-  return ["started", "success", "error", "skipped"].includes(entry.status) ? entry.status : "recorded";
+  return ["started", "success", "error", "skipped", "blocked"].includes(entry.status) ? entry.status : "recorded";
 }
 
 // The tools behind one answer, in the order they ran.
@@ -319,9 +314,7 @@ function renderActivities(items) {
     item.append(heading);
     const args = entry.arguments || {};
     const described = { ...args };
-    for (const key of ["file_id", "evaluation_file_id", "prediction_file_id"]) {
-      if (described[key]) described[key] = fileLabel(described[key], true);
-    }
+    if (described.file_id) described.file_id = fileLabel(described.file_id, true);
     if (Object.keys(described).length) item.append(element("p", "activity-arguments", Object.entries(described).map(([key, value]) => `${key.replaceAll("_", " ")}: ${value}`).join(" · ")));
     if (entry.reason || entry.error) item.append(element("p", "activity-reason", entry.reason || entry.error));
     ui.activities.append(item);
@@ -515,6 +508,38 @@ for (const type of ["dragover", "drop"]) {
     if (event.dataTransfer?.types?.includes("Files") && !ui.uploadZone.contains(event.target)) event.preventDefault();
   });
 }
+
+// A labeled sample prepares an evaluation; the others a prediction. Nothing is sent.
+function questionFor(file) {
+  if (file.columns.includes("Label")) return `Evaluate file ${file.id} using its labels.`;
+  return file.rows === 1 ? `Predict row 0 of file ${file.id}.` : `Classify all rows in file ${file.id}.`;
+}
+
+// Samples are the repository's CSVs, loaded server side, so graders need no download.
+async function loadSample(name) {
+  if (uploading || busy) return;
+  uploading = true;
+  setBusy(busy);
+  let prepared;
+  let problem = "";
+  try {
+    prepared = (await api(`/api/samples/${encodeURIComponent(name)}`, { method: "POST" })).file;
+    await refreshSession();
+  } catch (error) {
+    problem = error.message;
+  } finally {
+    uploading = false;
+    setBusy(busy);
+  }
+  if (prepared) usePrompt(questionFor(prepared));
+  const ready = prepared ? `${prepared.name} loaded. Review or edit the question, then click Send.` : "";
+  if (problem) notice(`${ready} ${problem}`.trim());
+  else notice(ready, true);
+}
+
+document.querySelectorAll("[data-sample]").forEach((button) => {
+  button.addEventListener("click", () => loadSample(button.dataset.sample));
+});
 
 byId("conditional-form").addEventListener("submit", (event) => {
   event.preventDefault();

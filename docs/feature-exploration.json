@@ -1,0 +1,158 @@
+{
+  "purpose": "Training-folds-only check of the input choice for the frozen LightGBM configuration; run after selection, changed nothing.",
+  "dataset_sha256": "d13e54cf1970ffedbf1043196c135da3187c90a82e397f681d843ed320249242",
+  "folds": 10,
+  "random_state": 42,
+  "development_rows": 34714,
+  "model": "LightGBM",
+  "model_parameters": {
+    "learning_rate": 0.1,
+    "n_estimators": 100,
+    "num_leaves": 31,
+    "random_state": 42
+  },
+  "class_counts": {
+    "development": {
+      "0": 16878,
+      "1": 17836
+    },
+    "holdout": {
+      "0": 4220,
+      "1": 4459
+    }
+  },
+  "variants": [
+    {
+      "variant": "Production inputs",
+      "description": "Numeric fields, 64-term DLL and symbol vocabularies, Identify categories (the frozen choice)",
+      "model_input_width": 179,
+      "auc_mean": 0.9982191428654114,
+      "auc_std": 0.0005580313953924574,
+      "accuracy_mean": 0.9857405650106811,
+      "accuracy_std": 0.0021760962837490106,
+      "fit_seconds_mean": 8.912882614135743,
+      "fold_auc": [
+        0.998501689584086,
+        0.9977148441650904,
+        0.999040975070665,
+        0.998922259207702,
+        0.9987373770936281,
+        0.9975858982299356,
+        0.9979169047853211,
+        0.9985227783197285,
+        0.9977815094108922,
+        0.9974671927870647
+      ]
+    },
+    {
+      "variant": "Numeric fields only",
+      "description": "Drops the DLL, symbol and Identify text columns",
+      "model_input_width": 19,
+      "auc_mean": 0.9977818283009372,
+      "auc_std": 0.0006795135229169181,
+      "accuracy_mean": 0.9837528976098205,
+      "accuracy_std": 0.002021777144568747,
+      "fit_seconds_mean": 0.3650752782821655,
+      "fold_auc": [
+        0.9978383750770407,
+        0.9971466683845877,
+        0.9988354222897583,
+        0.9987495815888465,
+        0.9980990879875387,
+        0.9972747281373521,
+        0.997567867139094,
+        0.9982111197646014,
+        0.9965484977924738,
+        0.9975469348480781
+      ]
+    },
+    {
+      "variant": "Smaller vocabularies",
+      "description": "16 terms per DLL and symbol list instead of 64",
+      "model_input_width": 83,
+      "auc_mean": 0.9981874205396588,
+      "auc_std": 0.0004233195282681503,
+      "accuracy_mean": 0.9855389355117519,
+      "accuracy_std": 0.0022232392645048964,
+      "fit_seconds_mean": 7.7457191228866575,
+      "fold_auc": [
+        0.9981930283403823,
+        0.9978098168554608,
+        0.9990107564873653,
+        0.9987089027267123,
+        0.9983703857778156,
+        0.9977448890353827,
+        0.9980918389316689,
+        0.9984508443355227,
+        0.9977047576771669,
+        0.9977889852291123
+      ]
+    },
+    {
+      "variant": "Larger vocabularies",
+      "description": "256 terms per DLL and symbol list instead of 64",
+      "model_input_width": 563,
+      "auc_mean": 0.9981380673580009,
+      "auc_std": 0.0005336506833774935,
+      "accuracy_mean": 0.9856253742331125,
+      "accuracy_std": 0.002489451231201264,
+      "fit_seconds_mean": 11.143436741828918,
+      "fold_auc": [
+        0.9982320468407965,
+        0.9978682615879966,
+        0.9991613512953478,
+        0.9989737304210146,
+        0.9983354975132974,
+        0.9975825755380767,
+        0.9979129176822703,
+        0.9981084518610468,
+        0.997759248085526,
+        0.9974465927546364
+      ]
+    },
+    {
+      "variant": "Univariate selection",
+      "description": "Keeps the 50 encoded features with the highest ANOVA F-score, fitted in each fold",
+      "model_input_width": 50,
+      "auc_mean": 0.996842114369082,
+      "auc_std": 0.0006008553259381151,
+      "accuracy_mean": 0.978625323118346,
+      "accuracy_std": 0.0016080840597325115,
+      "fit_seconds_mean": 7.726707005500794,
+      "fold_auc": [
+        0.9971650983996769,
+        0.9963608191826239,
+        0.9978637786113531,
+        0.9975878264935286,
+        0.9969231873386833,
+        0.9966591994704957,
+        0.9966024898129517,
+        0.9970636647324786,
+        0.996555309093519,
+        0.9956397705555098
+      ]
+    },
+    {
+      "variant": "Truncated SVD",
+      "description": "Projects the encoded features onto 32 components, fitted in each fold",
+      "model_input_width": 32,
+      "auc_mean": 0.9964202010559525,
+      "auc_std": 0.0009064055170713074,
+      "accuracy_mean": 0.978510024468705,
+      "accuracy_std": 0.0023907504393594807,
+      "fit_seconds_mean": 9.377740812301635,
+      "fold_auc": [
+        0.997289957601003,
+        0.9953147912991733,
+        0.9979846529445519,
+        0.9972597390177035,
+        0.9958923221894679,
+        0.9951216238128021,
+        0.9958690289809231,
+        0.997208363347359,
+        0.9962479699000301,
+        0.9960135614665095
+      ]
+    }
+  ]
+}

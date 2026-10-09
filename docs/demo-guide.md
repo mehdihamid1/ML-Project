@@ -1,14 +1,13 @@
 # Demo recording guide
 
 The supplied review requests an 8–10 minute video. Recording and publishing
-that video remain pending. This guide describes what to demonstrate; it does
-not claim that live deployment or real-provider evaluation has succeeded.
+that video remain pending. This guide describes what to demonstrate.
 
 ## Before recording
 
 Configure OpenAI and Render using [deployment instructions](../deployed.md).
-Run `scripts/check_openai.py`, then the real-provider scenario runner described
-in [agent evaluation](../agent-evaluation.md). Retain its original transcripts.
+Run the real-provider scenario runner against the live site, as described in
+[agent evaluation](../agent-evaluation.md), and keep its original report.
 Use the successful deployment workflow and its verified live health response
 as evidence. Keep credentials and deploy-hook URLs out of the recording.
 
@@ -34,9 +33,10 @@ as evidence. Keep credentials and deploy-hook URLs out of the recording.
    decision threshold and limitations. Do not run tuning on the hold-out.
 3. Open the live app and `/health`. Show the tested commit and model version;
    relate them to the successful workflow and frozen-model checksum.
-4. Upload [single.csv](../samples/single.csv). Show the automatically prepared
-   question and its new file ID, review it, then click **Send**. Show live
-   `predict_single()` progress, the verdict, probability and completed tool
+4. Upload [single.csv](../samples/single.csv), or click the **One row** sample
+   button, which loads the same file on the server. Show the automatically
+   prepared question and its new file ID, review it, then click **Send**. Show
+   live `predict_single()` progress, the verdict, probability and completed tool
    trail, then the activity record. File-card actions also prepare questions.
 5. Upload [invalid-rows.csv](../samples/invalid-rows.csv), review the prepared
    batch question and click **Send**. Download the results and show the explicit invalid-row status. Demonstrate
@@ -47,11 +47,15 @@ as evidence. Keep credentials and deploy-hook URLs out of the recording.
    was called.
 7. Use the conditional form with [labeled.csv](../samples/labeled.csv) and
    [single.csv](../samples/single.csv) to demonstrate a passing threshold.
-   Click **Prepare question**, review it, then **Send**; evaluation starts
-   before prediction can run.
-   Then use [conditional-fail.csv](../samples/conditional-fail.csv) with a
-   demanding threshold and show the prediction was skipped. Explain that the
-   fail sample has synthetic labels and is a control-flow fixture.
+   Click **Prepare question**, review it, then **Send**. Narrate the two steps:
+   the agent must call `evaluate` first; the AI model then reads the returned
+   accuracy and calls `predict_single` itself, and the server checks that
+   decision against your threshold. The reply begins "Condition met".
+   Then use [conditional-fail.csv](../samples/conditional-fail.csv) (the **Low
+   accuracy** sample) with a demanding threshold: the reply begins "Prediction
+   withheld" and the trail shows `predict_single()` skipped. Ask "How many false
+   negatives were there?" to show the follow-up. Explain that the fail sample
+   has a synthetic label and is a control-flow fixture.
 8. Demonstrate unavailable AUC with **Evaluate** on
    [single-class.csv](../samples/single-class.csv), a missing-label error by
    typing an evaluation request for [batch.csv](../samples/batch.csv) (its card
@@ -66,4 +70,4 @@ as evidence. Keep credentials and deploy-hook URLs out of the recording.
 Record the walkthrough with your own explanation, save its shareable link, and
 confirm the grader can access the repository and video. A public repository
 does not establish that the requested collaborator invitation has been sent or
-accepted. That invitation remains a separate action awaiting explicit approval.
+accepted. The repository owner sends that invitation from GitHub's settings.

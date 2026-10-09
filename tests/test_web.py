@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from io import BytesIO
 from pathlib import Path
+import re
 from threading import Event, Lock
 import time
 
@@ -78,8 +79,15 @@ def test_chat_page_and_health_do_not_call_llm(app, client):
     assert response.get_json()["model_version"] == "test-model"
     assert response.get_json()["selected_model"] == "LightGBM"
     assert response.get_json()["commit"]
+    assert "openai_model" in response.get_json()
     assert app.extensions["chat_agent"].calls == []
     assert "Content-Security-Policy" in response.headers
+
+
+def test_every_sample_button_names_a_bundled_sample(client):
+    names = re.findall(r'data-sample="([^"]+)"', client.get("/").text)
+    samples = Path(__file__).resolve().parents[1] / "samples"
+    assert sorted(names) == sorted(path.stem for path in samples.glob("*.csv"))
 
 
 def test_chat_page_groups_side_panels_beside_one_chat(client):

@@ -1,79 +1,133 @@
 # Agent evaluation
 
-## Current evidence
+The agent is evaluated in two ways. Mocked-provider tests run in CI on every
+push and check routing, failures and safety rules deterministically. Separately,
+scenario runs use the real OpenAI model through the deployed app; those are the
+real-LLM evidence below.
 
-Automated agent tests use a mocked OpenAI Responses client. They test routing,
-conditional ordering and threshold enforcement, follow-ups, fabricated output,
-malformed tool arguments, unknown file IDs, provider failures, and tool failures.
-Runner tests also use the pinned OpenAI SDK with mocked HTTP responses and the
-frozen production model. Flask integration tests cover upload, tool execution,
-conditional ordering, downloads and session isolation. These checks are included
-in the successful [full CI job](https://github.com/mehdihamid1/ML-Project/actions/runs/37862078681/job/113599923002)
-and [lean runtime job](https://github.com/mehdihamid1/ML-Project/actions/runs/37862078681/job/113599922827).
-They are not real-LLM evaluation evidence.
-
-Regression tests cover ordinary descriptive “if” requests, named confusion
-counts and rates in stored-result follow-ups, safe validation errors, independent
-evaluation plus classification, and decimal percentage thresholds. SDK
-transport tests replay encrypted reasoning and assistant phase through multiple
-tool calls with `store=False`. These remain mocked-provider evidence.
-They also verify the compatible retry when a model rejects the encrypted
-include option, while unrelated provider errors fail without retry.
-The production-container probe uses a local provider stub and real model tools;
-it also remains separate from the real-LLM scenario evidence.
-Local streaming regressions additionally check function milestones, interrupted
-requests and session/storage cleanup. Those new changes await CI and deployment.
-
-Real OpenAI scenarios have **not been run** because `OPENAI_API_KEY` is not
-configured in the development environment. This deliverable remains incomplete
-until the runner produces observed transcripts. No real-LLM success rate is
-claimed.
-
-No real-provider `artifacts/agent-evaluation/results.json` or generated report
-currently exists. The scenario table below describes expected behavior, not
-observed real-LLM outcomes.
-
-## Reproducible real-provider run
-
-With `OPENAI_API_KEY` exported in the environment:
+## How a real-LLM run works
 
 ```bash
-python scripts/check_openai.py
-python scripts/run_agent_evaluation.py --output artifacts/agent-evaluation
+python3 scripts/run_agent_evaluation.py --base-url https://quantic-malware-agent.onrender.com --output artifacts/agent-evaluation/<run-name>
 ```
 
-Run the readiness probe first. It verifies that the configured model accepts
-function calling and structured Responses output, using a fixed harmless
-readiness message and no uploaded data. It is a compatibility check, not an
-agent evaluation. Without a key it exits before contacting OpenAI. Current
-official [model documentation](https://developers.openai.com/api/docs/models/gpt-4.1-mini)
-lists the default `gpt-4.1-mini` API model; account access and live availability
-still require this real call. Stateless replay follows the official
-[reasoning guide](https://developers.openai.com/api/docs/guides/reasoning).
+The runner drives the deployed site the way a browser does. For each scenario
+it opens a new session, uploads the sample CSVs it needs, sends the request to
+`/api/chat` and records the reply, the tools called and the tool results. The
+server's own OpenAI key is used, so no key is needed where the runner runs. It
+reads the AI model's name from `/health` and waits for a sleeping Render
+instance to start.
 
-The runner uses the bundled frozen model and the sample CSVs. It calls the real
-OpenAI API, records the model ID and timestamp, saves prompts, replies, activity
-and computed results in `results.json`, and generates `report.md`. Review every
-failure, retain the original run, and use a new directory for a later run.
-Copy the generated report into `docs/agent-evaluation-results.md` once run.
-Use the runtime environment with `requirements-runtime.txt` installed and run
-the command from the repository root. `OPENAI_MODEL` optionally overrides the
-default configured model. The runner exits unsuccessfully when a scenario
-fails; a generated report alone does not mean every scenario passed.
+Each scenario passes only if all of these hold:
 
-| Scenario | Expected behavior |
-| --- | --- |
-| Single record | The saved model produces the row classification and probability. |
-| Batch with download | Counts come from code and results are downloadable. |
-| Labeled evaluation | Probability AUC, accuracy, confusion matrix and coverage are returned. |
-| Invalid feature row | The invalid row is counted and appears in the download. |
-| Missing label column | Evaluation fails visibly; no classification or metric is invented. |
-| Partially missing labels | Missing labels and evaluated coverage are reported. |
-| Single class | Accuracy remains available; AUC is unavailable with an explanation. |
-| Conditional pass | Evaluation runs before single prediction when the threshold is met. |
-| Conditional skip | Single prediction is skipped when accuracy is below the threshold. |
-| Feature explanation refusal | No feature-level cause is invented. |
-| Session follow-up | Stored evaluation accuracy is reused without another tool call. |
+- the tools called, and their outcomes, match the expected list;
+- the scenario's own check holds, for example that an invalid row is reported
+  with its reason and kept in the download;
+- every six-decimal number in the reply equals a value in the tool output, or
+  a rate computed from its confusion matrix.
 
-The conditional-fail CSV deliberately contains a synthetic label opposite the
-model prediction. It exercises control flow; it is not a performance dataset.
+The runner writes every request, reply, tool call and result to `results.json`,
+and a summary to `report.md`. It exits unsuccessfully when any scenario fails.
+Without `--base-url` it runs the agent in-process instead, which needs
+`OPENAI_API_KEY` in the shell; `scripts/check_openai.py` checks that key first.
+
+## Scenarios
+
+The 13 scenarios cover every case the assignment lists. The sample files are
+in [samples/](samples/README.md).
+
+| # | Scenario | Assignment requirement | Expected behavior |
+| --- | --- | --- | --- |
+| 1 | Single prediction | Single prediction | `predict_single` returns class 0 or 1 with its probability. |
+| 2 | Batch prediction | Batch prediction | `predict_batch` classifies all 4 rows; the download lists each row. |
+| 3 | Labeled evaluation | Labeled evaluation | `evaluate` returns AUC, accuracy and a confusion matrix over 4 rows. |
+| 4 | Conditional: prediction permitted | Conditional task, both outcomes | `evaluate` first; accuracy meets 0.75, so `predict_single` is called. |
+| 5 | Conditional: prediction withheld | Conditional task, both outcomes | `evaluate` first; accuracy is below 0.9, so `predict_single` is not called. |
+| 6 | False-negative follow-up | False-negative follow-up | Answered from the stored evaluation in scenario 5's session, with no new tool call. |
+| 7 | Invalid input row | Invalid input | The invalid row is reported with its reason and kept in the download. |
+| 8 | Missing labels | Missing labels | The unlabeled row is reported; metrics use the 3 labeled rows. |
+| 9 | No Label column | Missing labels | `evaluate` fails visibly and asks for a Label column. |
+| 10 | Single-class evaluation | Single-class evaluation | AUC is reported as unavailable; accuracy is still given. |
+| 11 | Tool failure | Tool or service failure (controlled fault) | The one-row file has no row 7: the tool fails and no result is claimed. |
+| 12 | Feature explanation refused | No invented explanations | The agent says no explanation tool exists and runs no tool. |
+| 13 | Ambiguous condition | Clarification when ambiguous | The server asks for a numeric threshold before any AI call. |
+
+`conditional-fail.csv` deliberately holds one malware-labeled row that the
+model classifies as goodware. It exercises the withheld branch and gives the
+follow-up one false negative; it is not a performance dataset.
+
+## Run 1: live site at commit `3f384a8`, 2026-10-09
+
+- Where: <https://quantic-malware-agent.onrender.com>, deployed commit
+  `3f384a89b18eb59a886532a45b3283fc17f51230`.
+- AI model: not reported, because that version's `/health` does not name it.
+  The app's default is `gpt-4.1-mini` unless `OPENAI_MODEL` is set in Render.
+- ML model version: `d13e54cf1970-1791236375742615262`.
+- Run (UTC): 2026-10-09T13:02:40+00:00.
+- Result: **13 of 13 scenarios passed (100%)**. All 14 six-decimal numbers in
+  the replies matched the tool outputs.
+- Full report with every reply:
+  [docs/agent-evaluation-live-3f384a8.md](docs/agent-evaluation-live-3f384a8.md).
+
+| # | Scenario | Tools called | Result |
+| --- | --- | --- | --- |
+| 1 | Single prediction | `predict_single` (success) | PASS |
+| 2 | Batch prediction | `predict_batch` (success) | PASS |
+| 3 | Labeled evaluation | `evaluate` (success) | PASS |
+| 4 | Conditional: prediction permitted | `evaluate` (success), `predict_single` (success) | PASS |
+| 5 | Conditional: prediction withheld | `evaluate` (success), `predict_single` (skipped) | PASS |
+| 6 | False-negative follow-up | none | PASS |
+| 7 | Invalid input row | `predict_batch` (success) | PASS |
+| 8 | Missing labels | `evaluate` (success) | PASS |
+| 9 | No Label column | `evaluate` (error) | PASS |
+| 10 | Single-class evaluation | `evaluate` (success) | PASS |
+| 11 | Tool failure | `predict_single` (error) | PASS |
+| 12 | Feature explanation refused | none | PASS |
+| 13 | Ambiguous condition | none | PASS |
+
+**Findings.** No scenario failed: every observed tool sequence matched the
+expected one. The model answered the false-negative follow-up from the stored
+result ("False negatives: 1 malware files predicted as goodware") and called no
+tool for the explanation request. Three changes followed from reading the
+replies:
+
+- In that version, server code decided the conditional prediction inside a
+  combined tool. The assignment asks the AI model to use the returned accuracy
+  to make that decision, so the agent now does: the model calls `evaluate`,
+  reads the accuracy and decides whether to call `predict_single`, and the
+  server checks the decision (see
+  [evaluation-and-design.md](evaluation-and-design.md)). Run 1 therefore tests
+  the earlier design.
+- Scenario 10 asked only for the AUC, so its reply left out accuracy. The
+  scenario now sends a plain evaluation request and also checks that accuracy
+  is reported, as the assignment asks for single-class files.
+- Reply 8 said "invalid rows 1, missing labels 1" about one unlabeled row,
+  which reads like two problem rows. Replies now say "1 excluded (missing
+  labels 1, invalid labels 0)".
+
+## Run 2: after the AI-decided conditional task
+
+Not run yet. It needs the change to be committed, pushed and deployed. The
+same command then runs against the new deployment; its report will be added
+here and to `docs/`.
+
+## Mocked tests in CI
+
+These run on every push and are not real-LLM evidence:
+
+- Agent tests use a scripted OpenAI client. They cover tool routing, the
+  conditional task, follow-ups, fabricated provider text, malformed tool
+  arguments, unknown file IDs, provider failures and tool failures. For the
+  conditional task they check that:
+  - `evaluate` is forced first;
+  - the evaluation result reaches the model before its decision;
+  - a prediction the threshold or label coverage does not allow is blocked;
+  - a permitted prediction the model leaves out is reported, never made by
+    the server.
+- Runner tests drive the same scenarios through the pinned OpenAI SDK with
+  mocked HTTP responses and the frozen model. One runs the live mode against
+  a local HTTP server.
+- Flask integration tests cover uploads, sample files, tool execution, the
+  conditional task over HTTP, downloads and session isolation.
+- The production-container probe uses a local provider stub that reads the
+  returned accuracy before choosing `predict_single`.
