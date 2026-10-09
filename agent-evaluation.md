@@ -5,10 +5,10 @@ push and check routing, failures and safety rules deterministically. Separately,
 scenario runs use the real OpenAI model through the deployed app; those are the
 real-LLM evidence below.
 
-**Latest result:** Run 7, on 2026-10-09 against the live site at commit
-`15df7ec` with `gpt-4.1-mini` and the stronger runner, passed **15 of 15**
-scenarios; all **27 numeric checks** matched. Four supplemental follow-up
-paraphrases ran no tools, though one summary request was unnecessarily refused.
+**Latest result:** Run 8, on 2026-10-09 against the live site at commit
+`652bdf8` with `gpt-4.1-mini` and the stronger runner, passed **15 of 15**
+scenarios; all **27 numeric checks** matched. All **9 supplemental follow-up
+checks** passed, including per-record questions after a batch.
 Earlier runs are kept below, including passing runs and failures.
 
 ## How a real-LLM run works
@@ -390,6 +390,62 @@ statistic, which answers its question; the second answer remains a usability
 failure. These observations are not counted as extra passes in Run 7.
 Small scenario runs demonstrate the recorded cases, not universal language
 understanding.
+
+## Run 8: live site at commit `652bdf8`, 2026-10-09
+
+This run tests two fixes to the stored-result guard.
+
+**What was found.** A manual check on the live site after Run 7 showed that
+the guard also blocked per-record questions after a batch. Once a batch result
+was stored, "What is the malware probability of row 2?" was answered "That
+result reference is unavailable in this session", and "Is row 0 malware?"
+returned only the batch's class counts, with no tool call. The brief asks for
+per-record results with follow-up questions. Commit `bf9474b` lets a question
+that names specific rows classify them, unless a stored prediction already
+answers it. In the past tense ("What was the prediction for row 0?"), a tool
+runs only for rows a stored batch classified, so a withheld prediction stays
+withheld. A supplemental check against `bf9474b`
+([raw output](docs/agent-evaluation-followups-bf9474b.json)) passed 8 of 9.
+After a withheld prediction, "What was the prediction for row 0?" ran no tool,
+but the model replied with usage help. Commit `652bdf8` answers such a
+question from the activity record: no prediction was made, and why. It also
+shows the stored result when the model answers a stored-result question with
+usage help, or declines it as a feature explanation (Run 7's "Explain what
+the evaluation found.").
+
+**Standard scenarios.** The runner used the deployed app at
+`2026-10-09T17:25:21+00:00`, after
+[CI run 37965571132](https://github.com/mehdihamid1/ML-Project/actions/runs/37965571132)
+passed and deployed `652bdf8f1caa83bc88fe520f8504601585e656d0`. The
+[generated report](docs/agent-evaluation-live-652bdf8.md) records **15 of 15
+scenarios passed** and **27 of 27 numeric checks matched**. Classifications and
+batch downloads matched the frozen LightGBM reference; the reference model's
+SHA-256 was unchanged. The false-negative follow-up again used the stored
+evaluation, with no tool call.
+
+**Supplemental follow-up checks.** These ran just before Run 8, against the
+same deployment ([raw output](docs/agent-evaluation-followups-652bdf8.json)).
+Part A asked three row questions in one session after classifying `batch.csv`.
+Each had to call `predict_single` on the batch file and the named row, and
+the class and probability had to match the frozen model. Part B followed a
+withheld prediction: an evaluation of `conditional-fail.csv` returned accuracy
+0, below the requested 0.9. Each Part B question had to run no tool and show
+the stored evaluation. **All 9 passed.**
+
+| Part | Question | Tool execution | Observed answer |
+| --- | --- | --- | --- |
+| A | What is the malware probability of row 2? | `predict_single` on row 2 | Malware, probability 0.969699. |
+| A | Is row 0 malware? | `predict_single` on row 0 | Goodware, probability 0.001241. |
+| A | Tell me if row 1 of file `<batch.csv>` is malware. | `predict_single` on row 1 | Goodware, probability 0.002498. |
+| B | How many malware samples did it miss? | None | 1 false negative, rate 1.000000. |
+| B | Explain what the evaluation found. | None | Feature explanations are unavailable, followed by the stored evaluation. |
+| B | What did the classifier miss? | None | 1 false negative, rate 1.000000. |
+| B | Did it correctly identify all malware? | None | 0 true positives of 1 malware file, rate 0.000000. |
+| B | What was the prediction for row 0? | None | "Row 0: no prediction was made. Prediction withheld: accuracy 0.000000 is below the required 0.900000", then the stored evaluation. |
+| B | How many false negatives were there in that evaluation? | None | 1 false negative, rate 1.000000. |
+
+As with Run 7, these checks show the recorded wordings work, not that every
+wording will.
 
 ## Mocked tests in CI
 

@@ -1,0 +1,273 @@
+{
+  "purpose": "Supplemental live checks of stored-result follow-ups; not part of the 15-scenario runner.",
+  "run_at_utc": "2026-10-09T17:24:37+00:00",
+  "base_url": "https://quantic-malware-agent.onrender.com",
+  "health": {
+    "commit": "652bdf8f1caa83bc88fe520f8504601585e656d0",
+    "model_version": "d13e54cf1970-1791236375742615262",
+    "openai_configured": true,
+    "openai_model": "gpt-4.1-mini",
+    "selected_model": "LightGBM",
+    "status": "ok"
+  },
+  "reference_model_sha256": "e98b09552e0d77dd5abc070189e452e1084594a379e6849faba7b3385b94c677",
+  "sample_sha256": {
+    "batch.csv": "6c2c0f49c4a2966cbbcd490af3e799a443542daf5b84e1887e6a0223a021179f",
+    "conditional-fail.csv": "fb6d8af224d7bcd3c97c99afd9f6b79e4815b354a380f9c4ac3e1ffc8a557a14",
+    "single.csv": "7283a3d30164b401046fc826b099734a397b57438ae633d24931dd9b58600eb1"
+  },
+  "setup": {
+    "A": {
+      "prompt": "Classify all rows in file 372da44d488f4dc4921e348e004d2245.",
+      "activity": [
+        {
+          "arguments": {
+            "file_id": "372da44d488f4dc4921e348e004d2245"
+          },
+          "result_id": "76b6fda2cbec439ea3f99d7f4b148541",
+          "status": "success",
+          "tool": "predict_batch"
+        }
+      ]
+    },
+    "B": {
+      "prompt": "Evaluate file 0b4806eb7ac744bea942bd1b24e703e7; only if accuracy is at least 0.9, predict row 0 of file fa064eb59de34aa5b6c9553454d99a03.",
+      "activity": [
+        {
+          "arguments": {
+            "file_id": "0b4806eb7ac744bea942bd1b24e703e7"
+          },
+          "result_id": "0bc7881b19e74065bfb5ce4c3d184fed",
+          "status": "success",
+          "tool": "evaluate"
+        },
+        {
+          "arguments": {
+            "file_id": "fa064eb59de34aa5b6c9553454d99a03",
+            "row_index": 0
+          },
+          "reason": "Prediction withheld: accuracy 0.000000 is below the required 0.900000.",
+          "status": "skipped",
+          "tool": "predict_single"
+        }
+      ]
+    }
+  },
+  "check_count": 9,
+  "passed_count": 9,
+  "records": [
+    {
+      "part": "A: per-record question after a batch",
+      "prompt": "What is the malware probability of row 2?",
+      "expected": "predict_single on row 2 of the batch file",
+      "checks": {
+        "one predict_single call on the batch file and the named row": true,
+        "class and probability match the frozen model": true,
+        "reply states that probability": true
+      },
+      "passed": true,
+      "observed": {
+        "reply": "Row 2: the saved ML model predicts malware (malware probability 0.969699; threshold 0.500000).",
+        "activity": [
+          {
+            "arguments": {
+              "file_id": "372da44d488f4dc4921e348e004d2245",
+              "row_index": 2
+            },
+            "result_id": "40009c1dd8c847bdb608d539ad6186d3",
+            "status": "success",
+            "tool": "predict_single"
+          }
+        ],
+        "results": [
+          {
+            "file_id": "372da44d488f4dc4921e348e004d2245",
+            "label": "malware",
+            "malware_probability": 0.9696990129466847,
+            "model_version": "d13e54cf1970-1791236375742615262",
+            "prediction": 1,
+            "result_id": "40009c1dd8c847bdb608d539ad6186d3",
+            "row_id": "56b1ac36ff8b91e24f40589b23716e49b45558a7",
+            "row_id_truncated": false,
+            "row_index": 2,
+            "source_row": 4,
+            "threshold": 0.5,
+            "tool": "predict_single"
+          }
+        ]
+      }
+    },
+    {
+      "part": "A: per-record question after a batch",
+      "prompt": "Is row 0 malware?",
+      "expected": "predict_single on row 0 of the batch file",
+      "checks": {
+        "one predict_single call on the batch file and the named row": true,
+        "class and probability match the frozen model": true,
+        "reply states that probability": true
+      },
+      "passed": true,
+      "observed": {
+        "reply": "Row 0: the saved ML model predicts goodware (malware probability 0.001241; threshold 0.500000).",
+        "activity": [
+          {
+            "arguments": {
+              "file_id": "372da44d488f4dc4921e348e004d2245",
+              "row_index": 0
+            },
+            "result_id": "236874aa56764b6f87670f3e410ab114",
+            "status": "success",
+            "tool": "predict_single"
+          }
+        ],
+        "results": [
+          {
+            "file_id": "372da44d488f4dc4921e348e004d2245",
+            "label": "goodware",
+            "malware_probability": 0.0012408511473398537,
+            "model_version": "d13e54cf1970-1791236375742615262",
+            "prediction": 0,
+            "result_id": "236874aa56764b6f87670f3e410ab114",
+            "row_id": "7c5720b944b1f0a0dfecc0e405fa757da75c2f95",
+            "row_id_truncated": false,
+            "row_index": 0,
+            "source_row": 2,
+            "threshold": 0.5,
+            "tool": "predict_single"
+          }
+        ]
+      }
+    },
+    {
+      "part": "A: per-record question after a batch",
+      "prompt": "Tell me if row 1 of file 372da44d488f4dc4921e348e004d2245 is malware.",
+      "expected": "predict_single on row 1 of the batch file",
+      "checks": {
+        "one predict_single call on the batch file and the named row": true,
+        "class and probability match the frozen model": true,
+        "reply states that probability": true
+      },
+      "passed": true,
+      "observed": {
+        "reply": "Row 1: the saved ML model predicts goodware (malware probability 0.002498; threshold 0.500000).",
+        "activity": [
+          {
+            "arguments": {
+              "file_id": "372da44d488f4dc4921e348e004d2245",
+              "row_index": 1
+            },
+            "result_id": "7bf07114fa3646289f1e974a524bfa55",
+            "status": "success",
+            "tool": "predict_single"
+          }
+        ],
+        "results": [
+          {
+            "file_id": "372da44d488f4dc4921e348e004d2245",
+            "label": "goodware",
+            "malware_probability": 0.0024980906986084243,
+            "model_version": "d13e54cf1970-1791236375742615262",
+            "prediction": 0,
+            "result_id": "7bf07114fa3646289f1e974a524bfa55",
+            "row_id": "fffe606ea198e729326de74e4515e7dc8c3d986d",
+            "row_id_truncated": false,
+            "row_index": 1,
+            "source_row": 3,
+            "threshold": 0.5,
+            "tool": "predict_single"
+          }
+        ]
+      }
+    },
+    {
+      "part": "B: follow-up after a withheld prediction",
+      "prompt": "How many malware samples did it miss?",
+      "expected": "no tool; answer from the stored evaluation",
+      "checks": {
+        "no tool ran": true,
+        "reply shows the stored evaluation": true
+      },
+      "passed": true,
+      "observed": {
+        "reply": "Accuracy: 0.000000. AUC: unavailable (evaluation requires both classes for AUC). False negatives: 1 malware files predicted as goodware. The false negative rate is 1.000000 (1 / 1 evaluated malware files). Evaluated 1 of 1 rows; 0 excluded (missing labels 0, invalid labels 0).",
+        "activity": [],
+        "results": []
+      }
+    },
+    {
+      "part": "B: follow-up after a withheld prediction",
+      "prompt": "Explain what the evaluation found.",
+      "expected": "no tool; answer from the stored evaluation",
+      "checks": {
+        "no tool ran": true,
+        "reply shows the stored evaluation": true
+      },
+      "passed": true,
+      "observed": {
+        "reply": "Feature-level explanations are unavailable: this app has no explanation tool. Only the saved ML model produces classifications.\n\nAccuracy: 0.000000. AUC: unavailable (evaluation requires both classes for AUC). Confusion matrix (true rows / predicted columns, goodware then malware): [[0, 0], [1, 0]]. True negatives: 0 goodware files predicted as goodware; false positives: 0 goodware files predicted as malware; false negatives: 1 malware files predicted as goodware; true positives: 0 malware files predicted as malware. Evaluated 1 of 1 rows; 0 excluded (missing labels 0, invalid labels 0). Labeled class counts: goodware 0, malware 1.",
+        "activity": [],
+        "results": []
+      }
+    },
+    {
+      "part": "B: follow-up after a withheld prediction",
+      "prompt": "What did the classifier miss?",
+      "expected": "no tool; answer from the stored evaluation",
+      "checks": {
+        "no tool ran": true,
+        "reply shows the stored evaluation": true
+      },
+      "passed": true,
+      "observed": {
+        "reply": "Accuracy: 0.000000. AUC: unavailable (evaluation requires both classes for AUC). False negatives: 1 malware files predicted as goodware. The false negative rate is 1.000000 (1 / 1 evaluated malware files). Evaluated 1 of 1 rows; 0 excluded (missing labels 0, invalid labels 0).",
+        "activity": [],
+        "results": []
+      }
+    },
+    {
+      "part": "B: follow-up after a withheld prediction",
+      "prompt": "Did it correctly identify all malware?",
+      "expected": "no tool; answer from the stored evaluation",
+      "checks": {
+        "no tool ran": true,
+        "reply shows the stored evaluation": true
+      },
+      "passed": true,
+      "observed": {
+        "reply": "Accuracy: 0.000000. AUC: unavailable (evaluation requires both classes for AUC). True positives: 0 malware files predicted as malware. The true positive rate is 0.000000 (0 / 1 evaluated malware files). Evaluated 1 of 1 rows; 0 excluded (missing labels 0, invalid labels 0).",
+        "activity": [],
+        "results": []
+      }
+    },
+    {
+      "part": "B: follow-up after a withheld prediction",
+      "prompt": "What was the prediction for row 0?",
+      "expected": "no tool; answer from the stored evaluation",
+      "checks": {
+        "no tool ran": true,
+        "reply shows the stored evaluation": true
+      },
+      "passed": true,
+      "observed": {
+        "reply": "Row 0: no prediction was made. Prediction withheld: accuracy 0.000000 is below the required 0.900000.\n\nAccuracy: 0.000000. AUC: unavailable (evaluation requires both classes for AUC). Confusion matrix (true rows / predicted columns, goodware then malware): [[0, 0], [1, 0]]. True negatives: 0 goodware files predicted as goodware; false positives: 0 goodware files predicted as malware; false negatives: 1 malware files predicted as goodware; true positives: 0 malware files predicted as malware. Evaluated 1 of 1 rows; 0 excluded (missing labels 0, invalid labels 0). Labeled class counts: goodware 0, malware 1.",
+        "activity": [],
+        "results": []
+      }
+    },
+    {
+      "part": "B: follow-up after a withheld prediction",
+      "prompt": "How many false negatives were there in that evaluation?",
+      "expected": "no tool; answer from the stored evaluation",
+      "checks": {
+        "no tool ran": true,
+        "reply shows the stored evaluation": true
+      },
+      "passed": true,
+      "observed": {
+        "reply": "Accuracy: 0.000000. AUC: unavailable (evaluation requires both classes for AUC). False negatives: 1 malware files predicted as goodware. The false negative rate is 1.000000 (1 / 1 evaluated malware files). Evaluated 1 of 1 rows; 0 excluded (missing labels 0, invalid labels 0).",
+        "activity": [],
+        "results": []
+      }
+    }
+  ]
+}

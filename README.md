@@ -18,18 +18,17 @@ The tools, OpenAI agent, Flask app, sample CSVs and deployment workflow are
 implemented. Plain `pytest` passes all 463 tests locally; the lean runtime
 suite passes 452 tests.
 
-The final code change, [`15df7ec`](https://github.com/mehdihamid1/ML-Project/commit/15df7ec), was
-deployed by [GitHub Actions run 37961560594](https://github.com/mehdihamid1/ML-Project/actions/runs/37961560594):
+The last code change, [`652bdf8`](https://github.com/mehdihamid1/ML-Project/commit/652bdf8), was
+deployed by [GitHub Actions run 37965571132](https://github.com/mehdihamid1/ML-Project/actions/runs/37965571132):
 the full, runtime and container tests passed, then the deploy job ran and its
 live health check passed. On 2026-10-09,
 [live health](https://quantic-malware-agent.onrender.com/health) reported that
 commit, `status: ok`, LightGBM, `openai_configured: true` and the model
-`gpt-4.1-mini`. Run 7 passed all 15 real-LLM scenarios and all 27 numeric
-checks. The server now defaults subsequent questions to stored evidence,
-requiring an explicit request before reopening tool access. Four extra
-follow-up paraphrases ran no tools; one summary request was unnecessarily
-refused. See [deployed.md](deployed.md) and
-[agent-evaluation.md](agent-evaluation.md).
+`gpt-4.1-mini`. Run 8 passed all 15 real-LLM scenarios and all 27 numeric
+checks. Questions about stored results run no new tool, while a question about
+specific rows, such as "Is row 2 malware?" after a batch, still classifies
+them; all 9 supplemental follow-up checks passed. See
+[deployed.md](deployed.md) and [agent-evaluation.md](agent-evaluation.md).
 
 A team-approved temporary failing test on `main` also demonstrated the
 deployment gate: both test jobs failed, deployment was skipped, and live

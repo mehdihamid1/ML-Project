@@ -6,10 +6,10 @@ The app is live at <https://quantic-malware-agent.onrender.com/>. On
 2026-10-09, its [/health](https://quantic-malware-agent.onrender.com/health)
 reported `status: ok`, `selected_model: LightGBM`, `openai_configured: true`,
 `openai_model: gpt-4.1-mini`, model version `d13e54cf1970-1791236375742615262`
-and commit [`03efab7`](https://github.com/mehdihamid1/ML-Project/commit/03efab7)
-at `2026-10-09T17:01:17+00:00`, after the controlled failure was reverted.
+and commit [`652bdf8`](https://github.com/mehdihamid1/ML-Project/commit/652bdf8),
+the last code change.
 
-Observed [GitHub Actions run 37962725985](https://github.com/mehdihamid1/ML-Project/actions/runs/37962725985)
+Observed [GitHub Actions run 37965571132](https://github.com/mehdihamid1/ML-Project/actions/runs/37965571132)
 for that commit:
 
 | Check | Observed result |
@@ -21,10 +21,9 @@ for that commit:
 | Live `/health` smoke test | Passed. |
 | Overall workflow | Passed. |
 
-The final code commit `15df7ec` passed all 15 real-LLM scenarios (Run 7),
-with all 27 numeric checks matching. The revert restores exactly that file
-tree. Additional paraphrases are recorded with their limitations in
-[agent-evaluation.md](agent-evaluation.md).
+The real-LLM run against that deployment (Run 8) passed all 15 scenarios,
+with all 27 numeric checks matching, and all 9 supplemental follow-up checks
+passed; see [agent-evaluation.md](agent-evaluation.md).
 
 ## Observed blocked deployment
 

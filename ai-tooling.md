@@ -197,4 +197,5 @@ rows a stored batch classified, so a withheld prediction stays withheld. A
 stored-result question the model declines as a feature explanation, or
 answers with usage help, now also shows the stored result, and a question about
 a withheld row says no prediction was made and why. Regression tests cover
-these cases.
+these cases. After deployment, Run 8 passed all 15 scenarios and all 9
+supplemental follow-up checks.
