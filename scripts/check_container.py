@@ -176,9 +176,22 @@ class Browser:
                                         expected=201, label=label))
         return result["file"]["id"]
 
-    def chat(self, message, label, *, tool_error=False):
-        result = json.loads(self.request("POST", "/api/chat", payload=json.dumps({"message": message}).encode(),
-                                        content_type="application/json", label=label))
+    def chat(self, message, label, *, tool_error=False, stream=False):
+        contents = self.request("POST", "/api/chat/stream" if stream else "/api/chat",
+                                payload=json.dumps({"message": message}).encode(),
+                                content_type="application/json", label=label)
+        if stream:
+            events = [json.loads(line) for line in contents.splitlines()]
+            require(events[0].get("stage") == "accepted" and events[-1].get("type") == "result",
+                    f"{label} did not complete its progress stream")
+            result = events[-1]["response"]
+            for index, entry in enumerate(result["activity"]):
+                updates = [event["activity"] for event in events if event.get("type") == "tool" and event.get("index") == index]
+                expected = ["started", entry["status"]] if entry["status"] in {"success", "error"} else [entry["status"]]
+                require([update["status"] for update in updates] == expected, f"{label} function progress mismatch")
+                require(all(update["tool"] == entry["tool"] for update in updates), f"{label} function name mismatch")
+        else:
+            result = json.loads(contents)
         require(result.get("error") == ("tool" if tool_error else None), f"{label} did not complete its expected tool path")
         return result
 
@@ -290,7 +303,7 @@ def run_probe(image, cpus=None):
             browser.session("session_a")
             files = {sample: browser.upload(ROOT / "samples" / sample, "upload_" + sample) for sample in
                      ["single.csv", "invalid-rows.csv", "labeled.csv", "single-class.csv", "missing-labels.csv"]}
-            single_reply = browser.chat(f"Classify row 0 of file {files['single.csv']}.", "single_prediction")
+            single_reply = browser.chat(f"Classify row 0 of file {files['single.csv']}.", "single_prediction", stream=True)
             single = tool_result(single_reply, "predict_single")
             require(single["prediction"] in (0, 1) and 0 <= single["malware_probability"] <= 1, "Single prediction is invalid")
             require(single["model_version"] == manifest["model_version"], "Single prediction used an unexpected model")
@@ -308,7 +321,7 @@ def run_probe(image, cpus=None):
             require(missing["missing_label_count"] == 1 and missing["evaluated_count"] == 3, "Missing labels were silently dropped")
             no_labels = browser.chat(f"Evaluate file {files['single.csv']}.", "missing_label_column", tool_error=True)
             require(no_labels["activity"][-1]["status"] == "error" and "Label" in no_labels["reply"], "Missing label column did not fail visibly")
-            passed = browser.chat(f"Evaluate file {files['labeled.csv']}; only if accuracy >= 0.0, predict row 0 of file {files['single.csv']}.", "conditional_pass")
+            passed = browser.chat(f"Evaluate file {files['labeled.csv']}; only if accuracy >= 0.0, predict row 0 of file {files['single.csv']}.", "conditional_pass", stream=True)
             require([(entry["tool"], entry["status"]) for entry in passed["activity"]] ==
                     [("evaluate", "success"), ("predict_single", "success")], "Conditional pass did not evaluate before predicting")
             other = Browser(base, statuses)
@@ -316,10 +329,11 @@ def run_probe(image, cpus=None):
             other.request("GET", batch["download_url"], expected=404, label="cross_session_download")
             failing_file = other.upload(ROOT / "samples/conditional-fail.csv", "upload_conditional_fail")
             prediction_file = other.upload(ROOT / "samples/single.csv", "upload_session_b_single")
-            skipped = other.chat(f"Evaluate file {failing_file}; only if accuracy >= 1.0, predict row 0 of file {prediction_file}.", "conditional_skip")
+            skipped = other.chat(f"Evaluate file {failing_file}; only if accuracy >= 1.0, predict row 0 of file {prediction_file}.", "conditional_skip", stream=True)
             require([(entry["tool"], entry["status"]) for entry in skipped["activity"]] ==
                     [("evaluate", "success"), ("predict_single", "skipped")], "Conditional threshold failure still predicted")
             require(len(skipped["results"]) == 1, "Skipped condition produced a prediction result")
+            report["streamed_chat_checks"] = ["single_prediction", "conditional_pass", "conditional_skip"]
             large_browser = Browser(base, statuses)
             large_browser.session("session_large")
             large_file = large_browser.upload(large, "upload_large_batch")

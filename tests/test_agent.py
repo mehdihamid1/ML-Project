@@ -536,3 +536,52 @@ def test_missing_api_key_is_lazy_and_informative(files, monkeypatch):
 def test_blank_optional_model_uses_documented_default(monkeypatch):
     monkeypatch.setenv("OPENAI_MODEL", "")
     assert Agent(FakeService()).model == "gpt-4.1-mini"
+
+
+def test_incremental_events_precede_provider_and_actual_tool_execution(files):
+    service = FakeService()
+    client = FakeClient(tool("predict_single", file_id="file-a", row_index=0), final())
+    state = {}
+    events = Agent(service, client).chat_events("Predict row 0", state, files)
+    assert next(events)["stage"] == "planning"
+    assert not client.requests and not service.calls
+    assert next(events)["stage"] == "validating"
+    started = next(events)
+    assert started["activity"]["status"] == "started"
+    assert not service.calls
+    finished = next(events)
+    assert service.calls[0][0] == "predict_single"
+    assert finished["index"] == started["index"] == 0
+    assert finished["activity"]["status"] == "success"
+    assert started["activity"]["status"] == "started"  # Immutable snapshot.
+    assert next(events)["stage"] == "responding"
+    with pytest.raises(StopIteration) as end:
+        next(events)
+    assert end.value.value["results"][0]["prediction"] == 1
+    assert state["activity"][0]["status"] == "success"
+
+
+@pytest.mark.parametrize("accuracy,status", [(0.89, "skipped"), (0.9, "success")])
+def test_incremental_conditional_events_preserve_order_and_gate(files, accuracy, status):
+    service = FakeService(accuracy)
+    client = FakeClient(tool("evaluate_then_predict", evaluation_file_id="file-a",
+                             prediction_file_id="file-b", row_index=0, min_accuracy=0.9))
+    events = list(Agent(service, client).chat_events("Predict only if accuracy >= 0.9", {}, files))
+    trail = [event["activity"] for event in events if event["type"] == "tool"]
+    assert [(entry["tool"], entry["status"]) for entry in trail] == (
+        [("evaluate", "started"), ("evaluate", "success"), ("predict_single", "skipped")]
+        if status == "skipped" else
+        [("evaluate", "started"), ("evaluate", "success"), ("predict_single", "started"), ("predict_single", "success")])
+    assert len(service.calls) == (1 if status == "skipped" else 2)
+
+
+def test_incremental_failed_tool_is_sanitized_and_not_successful(files):
+    service = FakeService()
+    def broken(*args, **kwargs):
+        raise RuntimeError("PRIVATE_ROW_OR_SECRET")
+    service.predict_single = broken
+    events = list(Agent(service, FakeClient(tool("predict_single", file_id="file-a", row_index=0)))
+                  .chat_events("Predict row 0", {}, files))
+    trail = [event["activity"] for event in events if event["type"] == "tool"]
+    assert [entry["status"] for entry in trail] == ["started", "error"]
+    assert "PRIVATE_ROW_OR_SECRET" not in str(events)

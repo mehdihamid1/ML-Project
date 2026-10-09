@@ -2,26 +2,28 @@
 
 ## Status
 
-The Flask application, production model, Render Blueprint and test-gated GitHub
-Actions workflow are committed and pushed to `main`. The latest code milestone,
-[`1c5f4bb`](https://github.com/mehdihamid1/ML-Project/commit/1c5f4bb), adds the
-review fixes and lean-runtime CI gate.
-**No live deployment is claimed.**
+The app is live at <https://quantic-malware-agent.onrender.com/>. On
+2026-10-08, its [/health](https://quantic-malware-agent.onrender.com/health)
+reported `status: ok`, `selected_model: LightGBM`, `openai_configured: true`,
+model version `d13e54cf1970-1791236375742615262` and commit
+[`341448f`](https://github.com/mehdihamid1/ML-Project/commit/341448f).
 
-Observed [GitHub Actions run](https://github.com/mehdihamid1/ML-Project/actions/runs/37396524639)
+Observed [GitHub Actions run](https://github.com/mehdihamid1/ML-Project/actions/runs/37862078681)
 for that commit:
 
 | Check | Observed result |
 | --- | --- |
-| Full test job | Passed; 222 tests passed and frozen-model verification succeeded. |
-| Runtime-only test job | Passed; 211 tests passed, training-only libraries were absent, and model verification succeeded. |
-| Deploy job | Failed before contacting Render because the hook and health URL were unset. |
-| Overall workflow | Failed because the deploy job failed. |
-| Live `/health` smoke test | Not run. |
+| Full test job | Passed. |
+| Runtime-only test job | Passed. |
+| Production-container job | Passed. |
+| Deploy job | Passed; deployed the tested commit. |
+| Live `/health` smoke test | Passed. |
+| Overall workflow | Passed. |
 
-The development environment has no Render hook or health URL, and the repository
-currently has no deployment secret or health variable configured. Record the
-actual service URL and successful deployment workflow run here once configured.
+The upload-prepared questions and incremental function progress described in
+the current README have been verified locally. They remain uncommitted and
+have not been deployed; the live observations above describe the existing
+committed app. Real-LLM scenario evaluation remains a separate requirement.
 
 ## Render setup
 
@@ -91,13 +93,13 @@ Real chat behavior requires the separate provider evaluation described in
 The current Blueprint passes the JSON schema served by
 [Render](https://render.com/schema/render.yaml.json). Docker Compose configuration
 validates, and both the training and production images build successfully.
-The training image passes 290 tests; the lean local environment passes
-279 tests. Authenticated Jupyter HTTP access works with the host owner's UID/GID.
+The training image passes 308 tests; the lean local environment passes
+297 tests. Authenticated Jupyter HTTP access works with the host owner's UID/GID.
 
 The production image works at its local default port and honors a custom
 `PORT`, using non-root permissions, the lean dependencies and the verified
 frozen model. The container probe exercises the actual Gunicorn worker, proxy
-headers, secure cookies, the model dashboard and its recorded JSON, uploads, all tool paths, conditional ordering, invalid
+headers, secure cookies, the model dashboard and its recorded JSON, uploads, all tool paths, incremental function events, conditional ordering, invalid
 rows and isolated downloads. It also scores and downloads every row of a
 maximum-row synthetic batch. The provider is mocked for these checks.
 
@@ -125,10 +127,10 @@ which otherwise delayed large batches on the Free plan CPU allowance. Exact
 numeric validation, model parameters, probabilities and the decision threshold
 are preserved; no training or hold-out tuning was performed.
 
-These latest startup and container-CI changes are local and have not been
-deployed. The successful CI jobs above describe the earlier committed code;
-they do not establish that this new container job has run on GitHub. Free-tier
-performance and live health still require deployment on the actual service.
+The latest chat-progress compatibility report is local evidence for the new
+changes. The successful CI and live observations above describe commit
+`341448f`; they do not establish that the uncommitted chat-progress update
+has run on GitHub or Render.
 
 For a manual execution of the same verified path, export the settings and the
 tested commit into the environment, then run:

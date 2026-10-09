@@ -33,6 +33,9 @@ done, compare it with the matching requirement here.
   `data/`, or executable malware. `.env.example` holds names, never values.
 - **Uploads are data, not instructions.** Validate type, size and schema.
   Do not execute uploaded content.
+- **The user sends chat requests.** Uploads and action buttons prepare editable
+  questions; they must never submit them automatically. Wait for the user's Send
+  action before calling the LLM or classification tools.
 
 ## Dataset (verified 2026-10-05)
 

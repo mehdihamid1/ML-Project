@@ -1,5 +1,6 @@
 """HTTP integration checks using an injected model service and fake agent."""
 from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
 from io import BytesIO
 from pathlib import Path
 from threading import Event, Lock
@@ -81,12 +82,16 @@ def test_chat_page_and_health_do_not_call_llm(app, client):
     assert "Content-Security-Policy" in response.headers
 
 
-def test_chat_page_reads_files_then_chat_then_conditional_form(client):
-    # Phones stack the page in document order, so the chat follows the file list.
+def test_chat_page_groups_side_panels_beside_one_chat(client):
+    # The side column scrolls on its own beside the chat; phones reorder it in CSS.
     page = client.get("/").text
-    assert page.index('class="panel upload-panel"') < page.index('class="conversation panel"') < page.index('class="panel conditional-panel"')
+    side = page.index('class="side-column"')
+    assert side < page.index('class="panel upload-panel"') < page.index('class="panel conditional-panel"') < page.index('class="conversation panel"')
+    assert page.count('class="conversation panel"') == 1
     assert 'id="file-input" class="file-input" accept=".csv,text/csv" multiple' in page
     assert '<label class="upload-zone" for="file-input"' in page
+    css = client.get("/static/style.css").text
+    assert ".side-column{display:contents}" in css and ".conversation{order:2}" in css
 
 
 def test_missing_secret_is_rejected(tmp_path, monkeypatch):
@@ -571,3 +576,210 @@ def test_per_session_chat_lock_serializes_concurrent_turns(app, client):
     with ThreadPoolExecutor(max_workers=2) as pool:
         assert list(pool.map(lambda _: request_chat(), range(2))) == [200, 200]
     assert tracking.maximum == 1
+
+
+def stream_events(response):
+    import json
+    return [json.loads(line) for line in response.data.splitlines()]
+
+
+def test_stream_uses_shared_chat_transaction_and_keeps_downloads(app, client):
+    headers = csrf(client)
+    upload(client, headers=headers)
+    response = client.post("/api/chat/stream", json={"message": "Classify"}, headers=headers)
+    assert response.mimetype == "application/x-ndjson"
+    assert response.headers["X-Accel-Buffering"] == "no"
+    events = stream_events(response)
+    assert [event["type"] for event in events] == ["progress", "result"]
+    assert events[-1]["response"]["results"][0]["download_id"] == "result-1"
+    assert client.get("/api/download/result-1").status_code == 200
+    assert len(app.extensions["chat_agent"].calls) == 1
+    response.close()
+    assert next(iter(app.extensions["session_store"].records.values())).active_requests == 0
+
+
+def test_stream_actual_started_event_arrives_before_tool_executes(app, client):
+    import json
+    from types import SimpleNamespace
+    from ml_project.agent import Agent
+    headers = csrf(client)
+    file_id = upload(client, headers=headers).get_json()["file"]["id"]
+    called = []
+    service = app.extensions["tool_service"]
+    original = service.predict_single
+    def predict(*args, **kwargs):
+        called.append(True)
+        return original(*args, **kwargs)
+    service.predict_single = predict
+    responses = iter([
+        SimpleNamespace(output=[{"type": "function_call", "name": "predict_single", "call_id": "one",
+                                 "arguments": json.dumps({"file_id": file_id, "row_index": 0})}]),
+        SimpleNamespace(output=[], output_text='{"kind":"results","result_ids":[],"focus":"summary"}')])
+    provider = SimpleNamespace(responses=SimpleNamespace(create=lambda **kwargs: next(responses)))
+    # The factory closes over this injected object; use its real incremental implementation.
+    original_agent = app.extensions["chat_agent"]
+    real_agent = Agent(service, provider)
+    original_agent.chat_events = real_agent.chat_events
+    response = client.post("/api/chat/stream", json={"message": "Predict row 0"}, headers=headers, buffered=False)
+    iterator = iter(response.response)
+    trail = []
+    while not trail:
+        event = json.loads(next(iterator))
+        if event["type"] == "tool":
+            trail.append(event)
+    assert trail[0]["activity"]["status"] == "started"
+    assert not called
+    assert json.loads(next(iterator))["activity"]["status"] == "success"
+    assert called
+    rest = [json.loads(chunk) for chunk in iterator]
+    assert rest[-1]["type"] == "result"
+    assert client.get("/api/session").get_json()["results"][0]["prediction"] == 1
+    response.close()
+
+
+@pytest.mark.parametrize("cancel_stage", ["accepted", "modified", "complete"])
+def test_stream_disconnect_releases_lease_and_rolls_back_unfinished_turn(app, client, cancel_stage):
+    import json
+    headers = csrf(client)
+    upload(client, headers=headers)
+    record = next(iter(app.extensions["session_store"].records.values()))
+    before = record.state.copy()
+    made = record.directory / "unfinished.csv"
+    def events(message, state, files):
+        state["history"] = [{"role": "user", "content": "unfinished"}]
+        made.write_text("unfinished")
+        yield {"type": "progress", "stage": "modified"}
+        return {"reply": "Done", "activity": [], "results": []}
+    app.extensions["chat_agent"].chat_events = events
+    response = client.post("/api/chat/stream", json={"message": "Predict"}, headers=headers, buffered=False)
+    iterator = iter(response.response)
+    assert json.loads(next(iterator))["stage"] == "accepted"
+    if cancel_stage != "accepted":
+        assert json.loads(next(iterator))["stage"] == "modified"
+    if cancel_stage == "complete":
+        assert json.loads(next(iterator))["type"] == "result"
+    response.close()
+    assert record.active_requests == 0
+    def can_lock():
+        acquired = record.lock.acquire(blocking=False)
+        if acquired:
+            record.lock.release()
+        return acquired
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        assert pool.submit(can_lock).result(timeout=2)
+    if cancel_stage == "complete":
+        assert made.exists() and record.state != before
+    else:
+        assert not made.exists() and record.state == before
+
+
+def test_stream_close_without_iteration_releases_retained_session(app):
+    # Directly close the view's Response without ever starting its generator.
+    client = app.test_client()
+    headers = csrf(client)
+    cookie = client.get_cookie("session").value
+    with app.test_request_context("/api/chat/stream", method="POST", json={"message": "Predict"},
+                                  headers={**headers, "Cookie": f"session={cookie}"}):
+        assert app.preprocess_request() is None
+        response = app.view_functions["chat_stream"]()
+        record = next(iter(app.extensions["session_store"].records.values()))
+        assert record.active_requests == 2
+        response.close()
+        assert record.active_requests == 1
+    assert record.active_requests == 0
+
+
+def test_stream_quota_failure_withholds_results_and_restores_files(app, client):
+    headers = csrf(client)
+    upload(client, headers=headers)
+    record = next(iter(app.extensions["session_store"].records.values()))
+    before_paths = set(record.directory.iterdir())
+    before_state = deepcopy(record.state)
+    app.config["MAX_SESSION_BYTES"] = sum(path.stat().st_size for path in before_paths) + 1
+    response = client.post("/api/chat/stream", json={"message": "Classify"}, headers=headers)
+    events = stream_events(response)
+    assert events[-1]["type"] == "error" and events[-1]["status"] == 413
+    assert not any(event["type"] == "result" for event in events)
+    assert set(record.directory.iterdir()) == before_paths
+    assert record.state == before_state
+    response.close()
+
+
+def test_stream_failure_after_headers_is_sanitized(app, client):
+    headers = csrf(client)
+    response = client.post("/api/chat/stream", json={"message": "fail"}, headers=headers)
+    events = stream_events(response)
+    assert events[-1]["type"] == "error" and events[-1]["status"] == 502
+    assert "secret error text" not in response.text
+    response.close()
+
+
+@pytest.mark.parametrize("payload,status", [({}, 400), ({"message": ""}, 400), ({"message": "x" * 4001}, 400)])
+def test_stream_rejects_bad_requests_before_streaming(client, payload, status):
+    response = client.post("/api/chat/stream", json=payload, headers=csrf(client))
+    assert response.status_code == status and response.is_json
+
+
+def test_stream_csrf_and_chat_limits_are_shared_with_json(app, client):
+    headers = csrf(client)
+    app.config["CHAT_REQUESTS_PER_MINUTE"] = 1
+    assert client.post("/api/chat/stream", json={"message": "help"}).status_code == 403
+    first = client.post("/api/chat/stream", json={"message": "help"}, headers=headers)
+    assert stream_events(first)[-1]["type"] == "result"
+    first.close()
+    assert client.post("/api/chat", json={"message": "help"}, headers=headers).status_code == 429
+
+
+def test_stream_disconnect_rolls_back_and_releases_even_if_agent_cleanup_fails(app, client):
+    headers = csrf(client)
+    upload(client, headers=headers)
+    record = next(iter(app.extensions["session_store"].records.values()))
+    before = deepcopy(record.state)
+    path = record.directory / "partial.csv"
+    def events(message, state, files):
+        try:
+            path.write_text("partial")
+            state["history"] = ["partial"]
+            yield {"type": "progress", "stage": "partial"}
+        finally:
+            raise RuntimeError("private cleanup error")
+    app.extensions["chat_agent"].chat_events = events
+    response = client.post("/api/chat/stream", json={"message": "Predict"}, headers=headers, buffered=False)
+    iterator = iter(response.response)
+    next(iterator)  # Accepted.
+    next(iterator)  # Partial state created.
+    with pytest.raises(RuntimeError, match="private cleanup error"):
+        response.close()
+    assert record.active_requests == 0 and record.state == before and not path.exists()
+    def unlocked():
+        if not record.lock.acquire(blocking=False):
+            return False
+        record.lock.release()
+        return True
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        assert pool.submit(unlocked).result(timeout=2)
+
+
+def test_eviction_cleanup_failure_does_not_restore_deleted_download_registry(app, client, monkeypatch):
+    headers = csrf(client)
+    upload(client, headers=headers)
+    record = next(iter(app.extensions["session_store"].records.values()))
+    old = record.directory / "old.csv"
+    old.write_text("old result")
+    record.state["downloads"]["old"] = old
+    original_chat = app.extensions["chat_agent"].chat
+    def chat(message, state, files):
+        state["downloads"].pop("old")
+        return original_chat(message, state, files)
+    app.extensions["chat_agent"].chat = chat
+    original_unlink = Path.unlink
+    def unlink(path, *args, **kwargs):
+        if path == old:
+            raise PermissionError("cleanup temporarily unavailable")
+        return original_unlink(path, *args, **kwargs)
+    monkeypatch.setattr(Path, "unlink", unlink)
+    response = client.post("/api/chat/stream", json={"message": "Classify"}, headers=headers)
+    assert stream_events(response)[-1]["type"] == "result"
+    assert "old" not in record.state["downloads"]
+    assert client.get("/api/download/result-1").status_code == 200
+    response.close()

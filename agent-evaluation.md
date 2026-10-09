@@ -8,8 +8,8 @@ malformed tool arguments, unknown file IDs, provider failures, and tool failures
 Runner tests also use the pinned OpenAI SDK with mocked HTTP responses and the
 frozen production model. Flask integration tests cover upload, tool execution,
 conditional ordering, downloads and session isolation. These checks are included
-in the successful [full CI job](https://github.com/mehdihamid1/ML-Project/actions/runs/37396524639/job/112053720455)
-and [lean runtime job](https://github.com/mehdihamid1/ML-Project/actions/runs/37396524639/job/112053720662).
+in the successful [full CI job](https://github.com/mehdihamid1/ML-Project/actions/runs/37862078681/job/113599923002)
+and [lean runtime job](https://github.com/mehdihamid1/ML-Project/actions/runs/37862078681/job/113599922827).
 They are not real-LLM evaluation evidence.
 
 Regression tests cover ordinary descriptive “if” requests, named confusion
@@ -21,6 +21,8 @@ They also verify the compatible retry when a model rejects the encrypted
 include option, while unrelated provider errors fail without retry.
 The production-container probe uses a local provider stub and real model tools;
 it also remains separate from the real-LLM scenario evidence.
+Local streaming regressions additionally check function milestones, interrupted
+requests and session/storage cleanup. Those new changes await CI and deployment.
 
 Real OpenAI scenarios have **not been run** because `OPENAI_API_KEY` is not
 configured in the development environment. This deliverable remains incomplete

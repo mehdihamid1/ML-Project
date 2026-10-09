@@ -19,19 +19,32 @@
     <main>
       <section class="intro">
         <p class="eyebrow">WINDOWS PE · MALWARE CLASSIFICATION</p>
-        <h1>Ask about your files.<br><span>Let the model decide.</span></h1>
+        <h1>Ask about your files. <span>Let the model decide.</span></h1>
         <p class="intro-copy">Upload a CSV of PE features, then ask for a prediction, a batch report, or an evaluation. Every classification and metric comes from the trained model.</p>
       </section>
       <div class="workbench">
-        <section class="panel upload-panel">
-          <div class="section-heading"><h2>Your files</h2><span class="small-label" id="file-count">0 / 5</span></div>
-          <form id="upload-form">
-            <input type="file" id="file-input" class="file-input" accept=".csv,text/csv" multiple aria-describedby="upload-hint">
-            <label class="upload-zone" for="file-input" id="upload-zone"><span class="upload-icon" aria-hidden="true">↑</span><strong id="upload-title">Choose or drop CSV files</strong><span id="upload-hint">Up to 5 MiB · 10,000 rows each</span></label>
-          </form>
-          <p class="helper">Keep feature headers from the sample files. Include <code>Label</code> (0 or 1) to evaluate. Row numbers start at 0.</p>
-          <ul class="file-list" id="file-list"><li class="empty-state">Your uploaded files will appear here.</li></ul>
-        </section>
+        <div class="side-column">
+          <section class="panel upload-panel">
+            <div class="section-heading"><h2>Your files</h2><span class="small-label" id="file-count">0 / 5</span></div>
+            <form id="upload-form">
+              <input type="file" id="file-input" class="file-input" accept=".csv,text/csv" multiple aria-describedby="upload-hint">
+              <label class="upload-zone" for="file-input" id="upload-zone"><span class="upload-icon" aria-hidden="true">↑</span><strong id="upload-title">Choose or drop CSV files</strong><span id="upload-hint">Up to 5 MiB · 10,000 rows each</span></label>
+            </form>
+            <p class="helper">Upload a CSV to prepare a classification question. Review or edit it, then click <strong>Send</strong>. Include <code>Label</code> (0 or 1) to evaluate. Row numbers start at 0.</p>
+            <ul class="file-list" id="file-list"><li class="empty-state">Your uploaded files will appear here.</li></ul>
+          </section>
+          <section class="panel conditional-panel">
+            <div class="section-heading"><h2>Conditional prediction</h2></div>
+            <p class="helper">Evaluate first. Predict only when accuracy meets your minimum and every evaluation row is valid and labeled.</p>
+            <form id="conditional-form">
+              <label for="evaluation-file">Labeled evaluation file</label><select id="evaluation-file" required><option value="">Upload a CSV first</option></select>
+              <label for="prediction-file">Prediction file</label><select id="prediction-file" required><option value="">Upload a CSV first</option></select>
+              <div class="field-pair"><div><label for="threshold">Minimum accuracy</label><input type="number" id="threshold" min="0" max="1" step="0.01" value="0.95" required></div><div><label for="row-index">Row number</label><input type="number" id="row-index" min="0" step="1" value="0" required></div></div>
+              <button type="submit" class="secondary-button" id="conditional-button">Prepare question</button>
+            </form>
+          </section>
+          <button class="reset-button" id="reset-button">Reset session &amp; remove files</button>
+        </div>
         <section class="conversation panel" aria-labelledby="chat-heading">
           <div class="chat-header"><div><h2 id="chat-heading">Analysis assistant</h2><p>OpenAI plans the tools · LightGBM classifies</p></div><span class="privacy-label">Private session</span></div>
           <div class="messages" id="messages" role="log" aria-live="polite" aria-relevant="additions">
@@ -43,17 +56,6 @@
             <p class="footer-note">This model analyzes CSV features. Uploads are never executed. Results do not explain which features caused a prediction.</p>
           </div>
         </section>
-        <section class="panel conditional-panel">
-          <div class="section-heading"><h2>Conditional prediction</h2></div>
-          <p class="helper">Evaluate first. Predict only when accuracy meets your minimum and every evaluation row is valid and labeled.</p>
-          <form id="conditional-form">
-            <label for="evaluation-file">Labeled evaluation file</label><select id="evaluation-file" required><option value="">Upload a CSV first</option></select>
-            <label for="prediction-file">Prediction file</label><select id="prediction-file" required><option value="">Upload a CSV first</option></select>
-            <div class="field-pair"><div><label for="threshold">Minimum accuracy</label><input type="number" id="threshold" min="0" max="1" step="0.01" value="0.95" required></div><div><label for="row-index">Row number</label><input type="number" id="row-index" min="0" step="1" value="0" required></div></div>
-            <button type="submit" class="secondary-button" id="conditional-button">Evaluate, then predict</button>
-          </form>
-        </section>
-        <button class="reset-button" id="reset-button">Reset session &amp; remove files</button>
       </div>
       <section class="activity-section"><div class="section-heading"><h2>Tool activity</h2><span class="small-label">Visible, step by step</span></div><div id="activity-list" class="activity-list"><p class="empty-state">Tool calls will be recorded here.</p></div></section>
     </main>

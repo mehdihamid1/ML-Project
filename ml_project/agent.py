@@ -330,12 +330,20 @@ class Agent:
             output["error"] = error
         return output
 
+    @staticmethod
+    def _activity_event(activity):
+        # Each event is a snapshot: subsequent status updates must not change it.
+        entry = activity[-1]
+        return {"type": "tool", "index": len(activity) - 1,
+                "activity": {**entry, "arguments": dict(entry.get("arguments", {}))}}
+
     def _invoke(self, name, args, state, files, activity, results, budget):
         if budget[0] >= self.max_tool_calls:
             raise AgentError("The tool-call limit was reached. Start a new request to continue.")
         budget[0] += 1
         entry = {"tool": name, "arguments": dict(args), "status": "started"}
         activity.append(entry)
+        yield self._activity_event(activity)
         path = self._path(args["file_id"], files)
         download_id = None
         output_path = None
@@ -357,6 +365,7 @@ class Agent:
                 output_path.unlink(missing_ok=True)
             safe_error = self._validation_error(exc) if isinstance(exc, ValueError) else None
             entry.update(status="error", error=safe_error or "The classification tool failed. Check the CSV schema and rows, then try again.")
+            yield self._activity_event(activity)
             raise AgentError(entry["error"]) from None
         result = {k: v for k, v in value.items() if k in _PUBLIC_FIELDS}
         result.update(result_id=uuid.uuid4().hex, tool=name, file_id=args["file_id"])
@@ -372,16 +381,18 @@ class Agent:
                 state["downloads"].pop(old_id)
         results.append(result)
         entry.update(status="success", result_id=result["result_id"])
+        yield self._activity_event(activity)
         return result
 
     def _dispatch(self, name, args, state, files, activity, results, budget):
         if name != "evaluate_then_predict":
-            return self._invoke(name, args, state, files, activity, results, budget), None
+            result = yield from self._invoke(name, args, state, files, activity, results, budget)
+            return result, None
         # Reserve both underlying calls up front, before evaluating a condition
         # which cannot be completed within this request's configured budget.
         if self.max_tool_calls - budget[0] < 2:
             raise AgentError("The conditional task needs two available tool calls.")
-        evaluation = self._invoke("evaluate", {"file_id": args["evaluation_file_id"]}, state, files, activity, results, budget)
+        evaluation = yield from self._invoke("evaluate", {"file_id": args["evaluation_file_id"]}, state, files, activity, results, budget)
         complete = (
             evaluation.get("total_count", 0) > 0
             and evaluation.get("evaluated_count") == evaluation.get("total_count")
@@ -396,9 +407,10 @@ class Agent:
         elif accuracy < args["min_accuracy"]:
             reason = f"Prediction skipped: accuracy {_number(accuracy)} is below the required {_number(args['min_accuracy'])}."
         else:
-            prediction = self._invoke("predict_single", {"file_id": args["prediction_file_id"], "row_index": args["row_index"]}, state, files, activity, results, budget)
+            prediction = yield from self._invoke("predict_single", {"file_id": args["prediction_file_id"], "row_index": args["row_index"]}, state, files, activity, results, budget)
             return {"evaluation_result_id": evaluation["result_id"], "prediction_result_id": prediction["result_id"], "prediction_performed": True}, None
         activity.append({"tool": "predict_single", "arguments": {"file_id": args["prediction_file_id"], "row_index": args["row_index"]}, "status": "skipped", "reason": reason})
+        yield self._activity_event(activity)
         return {"evaluation_result_id": evaluation["result_id"], "prediction_performed": False}, reason
 
     @staticmethod
@@ -504,6 +516,18 @@ class Agent:
         return "\n\n".join(self._render(r, focus) for r in selected) or "No model result is available. Upload a CSV and request a classification or evaluation."
 
     def chat(self, message: str, state: dict, files: dict) -> dict:
+        """Keep the JSON interface while the browser consumes incremental events."""
+        events = self.chat_events(message, state, files)
+        try:
+            while True:
+                next(events)
+        except StopIteration as finished:
+            return finished.value
+        finally:
+            events.close()
+
+    def chat_events(self, message: str, state: dict, files: dict):
+        """Yield real execution milestones; return the grounded final response."""
         activity, results, budget = [], [], [0]
         state.setdefault("results", [])
         state.setdefault("downloads", {})
@@ -531,6 +555,8 @@ class Agent:
         inputs.extend(state.get("history", [])[-12:])
         inputs.append({"role": "user", "content": message})
         for _ in range(self.max_tool_calls + 2):
+            yield {"type": "progress", "stage": "responding" if results else "planning",
+                   "message": "Preparing the answer from verified results…" if results else "OpenAI is choosing a tool…"}
             try:
                 response = self._create(
                     client, model=self.model, instructions=SYSTEM_INSTRUCTIONS, input=inputs,
@@ -548,6 +574,7 @@ class Agent:
                 if conditional and not results:
                     reason = "The conditional task was not executed: the evaluation tool was not called. No new prediction was made."
                     activity.append({"tool": "evaluate_then_predict", "status": "error", "error": reason})
+                    yield self._activity_event(activity)
                     return self._finish(reason, state, message, activity, results, "tool")
                 reply = self._render_response(_get(response, "output_text", ""), state, results)
                 return self._finish(reply, state, message, activity, results)
@@ -556,6 +583,7 @@ class Agent:
                 return self._finish("The model requested multiple tools at once. Retry with one task.", state, message, activity, results, "tool")
             call = calls[0]
             name = _get(call, "name")
+            yield {"type": "progress", "stage": "validating", "message": "Checking the requested function and arguments…"}
             try:
                 args = json.loads(_get(call, "arguments", ""))
                 self._validate(name, args, files)
@@ -568,14 +596,16 @@ class Agent:
                     # The independently parsed user value owns the gate, even
                     # when the provider supplied a neighboring float.
                     args["min_accuracy"] = requested_threshold
-                result, skipped = self._dispatch(name, args, state, files, activity, results, budget)
+                result, skipped = yield from self._dispatch(name, args, state, files, activity, results, budget)
             except (ValueError, TypeError):
                 reason = "The model supplied malformed tool arguments. Retry the request."
                 activity.append({"tool": name if name in {t["name"] for t in TOOLS} else "unsupported", "status": "error", "error": reason})
+                yield self._activity_event(activity)
                 return self._finish(reason, state, message, activity, results, "tool")
             except AgentError as exc:
                 if not activity or activity[-1].get("status") != "error":
                     activity.append({"tool": name if name in {t["name"] for t in TOOLS} else "unsupported", "status": "error", "error": str(exc)})
+                    yield self._activity_event(activity)
                 reply = str(exc)
                 if results:
                     reply += "\n\n" + "\n\n".join(self._render(r) for r in results)

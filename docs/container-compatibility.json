@@ -59,12 +59,12 @@
     "walkthrough_css": 200
   },
   "image": "ml-project-web",
-  "image_id": "sha256:2d0a4049d7ca9b6b0417b9dd3d15138511c753d9f9b5962d74efe05b95e33c35",
+  "image_id": "sha256:84b7327fea9e80ef0c1a5ce00063cdfe646de150d50a18d435f7fd7adcce6899",
   "large_batch_upload_bytes": 2619213,
   "memory_limit_bytes": 536870912,
   "memory_observation": {
-    "MemPerc": "38.31%",
-    "MemUsage": "196.2MiB / 512MiB",
+    "MemPerc": "36.87%",
+    "MemUsage": "188.8MiB / 512MiB",
     "PIDs": "7"
   },
   "memory_observation_note": "One post-request Docker sample; this is not a peak-memory measurement.",
@@ -87,5 +87,10 @@
   "model_version": "d13e54cf1970-1791236375742615262",
   "provider": "mocked",
   "status": "ok",
+  "streamed_chat_checks": [
+    "single_prediction",
+    "conditional_pass",
+    "conditional_skip"
+  ],
   "swap_limit_bytes": 536870912
 }

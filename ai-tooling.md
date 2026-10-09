@@ -43,7 +43,7 @@ documentation and its Blueprint schema. It rebuilt both Docker images, verified
 authenticated Jupyter access, and added a reproducible production HTTP probe
 using an actual memory-limited Gunicorn container. The probe's provider is a
 local stub, while model predictions, metrics and downloads use production code.
-The latest local full and lean suites pass 290 and 279 tests respectively.
+The latest local full and lean suites pass 308 and 297 tests respectively.
 
 Claude Code (Anthropic) performed that review and checked its findings with
 read-only experiments: phrasing checks against the conditional detector and an
@@ -106,3 +106,20 @@ chat sits beside the files and stays in view, and no text is smaller than 11px.
 Phones show the chat straight after the file list. Chrome checks drove every
 demo step through the page against a local stand-in for the OpenAI API at
 1440 and 390 pixels.
+
+Codex added upload-prepared questions and incremental chat progress, following
+the user's instruction that they alone send requests. The conditional form now
+prepares a question too. The browser shows function names and actual status
+events streamed by the same agent implementation used by the JSON API. Mocked
+provider tests cover event ordering, inclusive accuracy gates, failures,
+interrupted streams, storage rollback and session cleanup. Local Chrome checks
+use the frozen model with a fake provider; these checks do not count as the
+required real-LLM evaluation.
+
+Claude Code then fitted the chat page to the first screen at the user's
+request: the live site placed the chat input below the fold. The header and
+title now take one compact band, and the file and conditional panels share a
+column that scrolls on its own beside the chat. Chrome checks confirmed a
+visible chat input without scrolling at sizes from 1024×700 to 1920×1080, and
+the full demo flow with five uploaded files, against a local stand-in for the
+OpenAI API.

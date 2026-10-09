@@ -14,20 +14,20 @@ under `docs/`, so a clean checkout can run the app without retraining.
 
 ## Current status
 
-The ML milestone (`7a8279c`), application milestone (`8ca98b8`) and review fixes
-(`1c5f4bb`) are committed and pushed to `main`. The tools, OpenAI agent, Flask
-app, sample CSVs and deployment workflow are implemented. Plain `pytest` passes
-all 290 tests locally; the lean environment passes 279 tests. The previously observed
-[full CI job](https://github.com/mehdihamid1/ML-Project/actions/runs/37396524639/job/112053720455)
-passed 222 tests, and the separate
-[runtime CI job](https://github.com/mehdihamid1/ML-Project/actions/runs/37396524639/job/112053720662)
-passed 211 tests without training-only libraries. Both verified the frozen model.
+The tools, OpenAI agent, Flask app, sample CSVs and deployment workflow are
+implemented. Plain `pytest` passes all 308 tests locally; the lean environment
+passes 297 tests. The upload-prepared questions and incremental chat progress
+in this checkout are verified locally and await commit, push and deployment.
 
-The full workflow finished with a failure because its deploy job had no
-`RENDER_DEPLOY_HOOK` secret or `RENDER_HEALTH_URL` variable. Live deployment and
-its live health check remain pending. The real-LLM scenarios also remain pending
-because `OPENAI_API_KEY` is not configured. See [deployed.md](deployed.md) and
-[agent-evaluation.md](agent-evaluation.md) for the evidence and remaining setup.
+The deployed commit is
+[`341448f`](https://github.com/mehdihamid1/ML-Project/commit/341448f).
+Its [GitHub Actions run](https://github.com/mehdihamid1/ML-Project/actions/runs/37862078681)
+passed the full, runtime and container tests, then deployed and passed the live
+health check. On 2026-10-08,
+[live health](https://quantic-malware-agent.onrender.com/health) reported that
+commit, `status: ok`, LightGBM and `openai_configured: true`. The real-LLM
+scenario report remains pending; health does not execute provider requests.
+See [deployed.md](deployed.md) and [agent-evaluation.md](agent-evaluation.md).
 
 ## Run the application
 
@@ -62,16 +62,25 @@ uses the same lean requirements and binds to its assigned port. The Blueprint
 sets Gunicorn options explicitly and keeps one worker for session isolation.
 
 Choose or drop one or more CSVs from [samples/](samples/README.md) on the
-upload area; each is validated as soon as it is added. Every file card offers
+upload area; each is checked for CSV format, size and required columns as soon
+as it is added. A successful upload fills an editable question using the new
+file ID: predict row 0 for a one-row CSV, or classify all rows otherwise.
+Review or edit the question, then click **Send**. Every file card offers
 **Predict row 0**, **Classify all** and, for files with a `Label` column,
 **Evaluate**; each button writes the request for that file into the chat box.
 The **Copy** button copies the opaque file ID for requests you type yourself.
 Batch results include source row IDs, probabilities, invalid row status and
 errors, and a download link. The conditional form lets you choose an
-evaluation file, a prediction file, a row and an accuracy threshold. Each
+evaluation file, a prediction file, a row and an accuracy threshold. Its
+**Prepare question** button fills the chat box and waits for your Send action.
+During the request, live progress shows the current stage and actual function
+names with running, finished, failed or skipped states, plus elapsed time. Each
 answer lists the tools that produced it, or says that none was called, and the
 activity record lists every call in the session with its arguments and its
-evaluation, prediction, failure or skip.
+evaluation, prediction, failure or skip. On screens at least 721 pixels wide
+and 560 tall, the page fits the first screen: the chat and its input stay
+visible while the file column scrolls on its own. Phones show the chat after
+the file list.
 Follow-up questions use stored session results.
 Confusion-matrix follow-ups name false negatives, false positives, true negatives
 and true positives, with counts and rates calculated in code. Ordinary “tell me
@@ -143,7 +152,7 @@ Round 1 remain available when JavaScript is disabled or interactive controls
 cannot load. Charts use local scripts and SVG and
 add no runtime dependencies.
 
-Routes are `/`, `/analytics`, `/health`, `/api/model-comparison`, `/api/session`, `/api/upload`, `/api/chat`,
+Routes are `/`, `/analytics`, `/health`, `/api/model-comparison`, `/api/session`, `/api/upload`, `/api/chat`, `/api/chat/stream`,
 `/api/download/<id>` and `/api/reset`. Mutation requests require the CSRF token
 from `/api/session` in `X-CSRF-Token`. The UI handles that automatically.
 
@@ -188,7 +197,8 @@ stops development services. The dataset is not included in the image.
 ## Verification and deployment
 
 The test suite covers training, tool validation, the Flask routes and isolation,
-mocked OpenAI routing, conditional ordering and failures. Plain `pytest` works
+mocked OpenAI routing, conditional ordering and failures, plus incremental
+tool events, interrupted streams, session lease cleanup and storage rollback. Plain `pytest` works
 through the repository's `pytest.ini` setting. The runtime environment can run
 the tools/web/agent tests, while the full suite needs training dependencies:
 
@@ -213,7 +223,7 @@ python3 scripts/check_container.py --image ml-project-web --cpus 0.1 --output ar
 ```
 
 It starts the actual Gunicorn command with a custom port, secure cookies and
-proxy handling, then verifies the dashboard's bundled results and exercises uploads, frozen-model tools, conditional tasks,
+proxy handling, then verifies the dashboard's bundled results and exercises uploads, frozen-model tools, streamed function progress, conditional tasks,
 isolated downloads and the maximum-row batch under the configured resource
 limits. Only the OpenAI HTTP provider is mocked. It removes its own temporary
 container. The [observed report](docs/container-compatibility.json) records the

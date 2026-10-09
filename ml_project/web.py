@@ -10,13 +10,14 @@ from pathlib import Path
 from threading import Lock, RLock
 from urllib.parse import urlsplit
 import os
+import json
 import secrets
 import shutil
 import tempfile
 import time
 import uuid
 
-from flask import Flask, g, jsonify, render_template, request, send_file, session
+from flask import Flask, Response, g, jsonify, render_template, request, send_file, session
 from werkzeug.exceptions import HTTPException
 from werkzeug.utils import secure_filename
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -95,6 +96,11 @@ class SessionStore:
         with self.lock:
             record.active_requests -= 1
             record.touched = time.monotonic()
+
+    def retain(self, record):
+        """Keep a stream's session alive after the HTTP request context ends."""
+        with self.lock:
+            record.active_requests += 1
 
 
 class RequestLimiter:
@@ -324,8 +330,7 @@ def create_app(config=None, *, service=None, agent=None):
             record.files[identifier] = {"path": path, "name": name, **details}
             return jsonify(file={"id": identifier, "name": name, **details}), 201
 
-    @app.post("/api/chat")
-    def chat():
+    def chat_request():
         if agent is None:
             raise RequestError("The production model is unavailable. Chat is temporarily unavailable.", 503)
         payload = request.get_json(silent=True)
@@ -336,11 +341,17 @@ def create_app(config=None, *, service=None, agent=None):
             raise RequestError(f"Message must contain 1–{app.config['MAX_MESSAGE_LENGTH']} characters.")
         identifier, record = current_session()
         limiter.check(("chat", identifier), app.config["CHAT_REQUESTS_PER_MINUTE"])
+        return message, record
+
+    def chat_transaction(message, record):
+        """One locked transaction shared by JSON and streaming transports."""
         with record.lock:
             if _disk_usage(record.directory) >= app.config["MAX_SESSION_BYTES"]:
                 raise RequestError("The session storage limit is reached. Reset the session to continue.", 413)
             previous_paths = set(record.directory.iterdir())
             previous_state = deepcopy(record.state)
+            committed = False
+            events = None
 
             def rollback():
                 for path in set(record.directory.iterdir()) - previous_paths:
@@ -350,25 +361,102 @@ def create_app(config=None, *, service=None, agent=None):
                 record.state.update(previous_state)
 
             try:
-                response = agent.chat(message, record.state, record.files)
+                if hasattr(agent, "chat_events"):
+                    events = agent.chat_events(message, record.state, record.files)
+                    while True:
+                        try:
+                            event = next(events)
+                        except StopIteration as finished:
+                            response = finished.value
+                            break
+                        yield event
+                else:
+                    response = agent.chat(message, record.state, record.files)
                 if _disk_usage(record.directory) > app.config["MAX_SESSION_BYTES"]:
                     raise RequestError("The results exceed the session storage limit. Use a smaller file.", 413)
+                # Verify transport encoding before committing any state.
+                json.dumps(response, allow_nan=False)
+                # Retention becomes destructive only after the turn passes quotas.
+                # Until then rollback can restore every prior download and its file.
+                retained_downloads = {Path(path) for path in record.state.get("downloads", {}).values()}
+                upload_paths = {Path(file["path"]) for file in record.files.values()}
+                old_downloads = {Path(path) for path in previous_state.get("downloads", {}).values()}
+                committed = True
+                for path in old_downloads - retained_downloads - upload_paths:
+                    if path.parent.resolve() == record.directory.resolve() and path.is_file():
+                        try:
+                            path.unlink(missing_ok=True)
+                        except OSError:
+                            app.logger.warning("An evicted result file could not be removed", exc_info=True)
+                return response
             except RequestError:
-                rollback()
                 raise
             except Exception:
-                rollback()
                 app.logger.exception("Chat failed")
                 raise RequestError("The chat service failed. Your files are still available; try again.", 502)
-            # Retention becomes destructive only after the turn passes quotas.
-            # Until then rollback can restore every prior download and its file.
-            retained_downloads = {Path(path) for path in record.state.get("downloads", {}).values()}
-            upload_paths = {Path(file["path"]) for file in record.files.values()}
-            old_downloads = {Path(path) for path in previous_state.get("downloads", {}).values()}
-            for path in old_downloads - retained_downloads - upload_paths:
-                if path.parent.resolve() == record.directory.resolve() and path.is_file():
-                    path.unlink(missing_ok=True)
-            return jsonify(response)
+            finally:
+                try:
+                    if events is not None:
+                        events.close()
+                finally:
+                    if not committed:
+                        # This also runs on GeneratorExit (a disconnected client).
+                        rollback()
+
+    @app.post("/api/chat")
+    def chat():
+        message, record = chat_request()
+        events = chat_transaction(message, record)
+        try:
+            while True:
+                next(events)
+        except StopIteration as finished:
+            return jsonify(finished.value)
+        finally:
+            events.close()
+
+    @app.post("/api/chat/stream")
+    def chat_stream():
+        message, record = chat_request()
+        store.retain(record)
+        released = False
+
+        def release():
+            nonlocal released
+            if not released:
+                released = True
+                store.release(record)
+
+        def encode(event):
+            return json.dumps(event, allow_nan=False) + "\n"
+
+        def stream():
+            events = chat_transaction(message, record)
+            try:
+                yield encode({"type": "progress", "stage": "accepted", "message": "Request received…"})
+                while True:
+                    try:
+                        event = next(events)
+                    except StopIteration as finished:
+                        yield encode({"type": "result", "response": finished.value})
+                        break
+                    yield encode(event)
+            except RequestError as exc:
+                yield encode({"type": "error", "error": str(exc), "status": exc.status})
+            except Exception:
+                app.logger.exception("Chat progress stream failed")
+                yield encode({"type": "error", "error": "The chat service failed. Your files are still available; try again.", "status": 502})
+            finally:
+                try:
+                    events.close()
+                finally:
+                    release()
+
+        response = Response(stream(), mimetype="application/x-ndjson")
+        response.headers["X-Accel-Buffering"] = "no"
+        # An unstarted generator's finally does not execute when it is closed.
+        response.call_on_close(release)
+        return response
 
     @app.get("/api/download/<identifier>")
     def download(identifier):

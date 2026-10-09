@@ -11,8 +11,8 @@ const TOOL_NAMES = {
   predict_single: "Single prediction", predict_batch: "Batch prediction",
   evaluate: "Evaluation", evaluate_then_predict: "Evaluate, then predict",
 };
-const STATUS_WORDS = { success: "ran", error: "failed", skipped: "skipped", recorded: "recorded" };
-const STATUS_MARKS = { success: "✓", error: "✕", skipped: "–", recorded: "•" };
+const STATUS_WORDS = { started: "running", success: "finished", error: "failed", skipped: "skipped", recorded: "recorded" };
+const STATUS_MARKS = { started: "…", success: "✓", error: "✕", skipped: "–", recorded: "•" };
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 let csrfToken = "";
 let files = [];
@@ -64,7 +64,8 @@ async function api(path, options = {}) {
 
 function setBusy(value) {
   busy = value;
-  for (const id of ["send-button", "conditional-button", "reset-button"]) byId(id).disabled = value;
+  for (const id of ["send-button", "conditional-button", "reset-button"]) byId(id).disabled = value || uploading;
+  ui.fileInput.disabled = value || uploading;
   byId("send-button").firstChild.textContent = value ? "Working " : "Send ";
 }
 
@@ -109,7 +110,7 @@ function describeArguments(args = {}) {
 }
 
 function statusOf(entry) {
-  return ["success", "error", "skipped"].includes(entry.status) ? entry.status : "recorded";
+  return ["started", "success", "error", "skipped"].includes(entry.status) ? entry.status : "recorded";
 }
 
 // The tools behind one answer, in the order they ran.
@@ -126,7 +127,8 @@ function toolTrail(activity) {
     const mark = element("span", "tool-mark", STATUS_MARKS[status]);
     mark.setAttribute("aria-hidden", "true");
     const target = describeArguments(entry.arguments);
-    step.append(mark, `${TOOL_NAMES[entry.tool] || "Tool"}${target ? ` · ${target}` : ""} · ${STATUS_WORDS[status]}`);
+    step.append(mark, element("code", "", `${entry.tool}()`), `${target ? ` · ${target}` : ""} · ${STATUS_WORDS[status]}`);
+    if (entry.reason || entry.error) step.title = entry.reason || entry.error;
     trail.append(step);
   }
   return trail;
@@ -312,7 +314,7 @@ function renderActivities(items) {
     const status = statusOf(entry);
     const item = element("div", "activity-item");
     const heading = element("div", "activity-heading");
-    heading.append(element("span", "activity-number", index + 1), element("span", "activity-tool", TOOL_NAMES[entry.tool] || "Tool"));
+    heading.append(element("span", "activity-number", index + 1), element("code", "activity-tool", `${entry.tool}()`));
     heading.append(element("span", `activity-status ${status}`, STATUS_WORDS[status]));
     item.append(heading);
     const args = entry.arguments || {};
@@ -334,16 +336,84 @@ async function refreshSession() {
   return state;
 }
 
+async function streamChat(text, onEvent) {
+  const interrupted = "Progress was interrupted. Check your session results before sending again.";
+  let response;
+  try {
+    response = await fetch("/api/chat/stream", {
+      method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+      body: JSON.stringify({ message: text }),
+    });
+  } catch (_) {
+    throw new Error("The service could not be reached. Check your connection and try again.");
+  }
+  if (!response.ok) {
+    let data;
+    try { data = await response.json(); } catch (_) { throw new Error("The service returned an unexpected response. Check your session before trying again."); }
+    throw new Error(data.error || "The request could not be completed.");
+  }
+  if (!response.body) throw new Error("Live progress is unavailable in this browser.");
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let result;
+  function consume(line) {
+    if (!line.trim()) return;
+    let event;
+    try { event = JSON.parse(line); } catch (_) { throw new Error(interrupted); }
+    if (event.type === "error") throw new Error(event.error);
+    if (event.type === "result") result = event.response;
+    else onEvent(event);
+  }
+  try {
+    while (true) {
+      let chunk;
+      try { chunk = await reader.read(); } catch (_) { throw new Error(interrupted); }
+      const { value, done } = chunk;
+      buffer += decoder.decode(value, { stream: !done });
+      let end;
+      while ((end = buffer.indexOf("\n")) !== -1) {
+        consume(buffer.slice(0, end));
+        buffer = buffer.slice(end + 1);
+      }
+      if (done) break;
+    }
+    consume(buffer);
+    if (!result) throw new Error(interrupted);
+    return result;
+  } finally {
+    await reader.cancel().catch(() => {});
+    reader.releaseLock();
+  }
+}
+
 async function sendChat(text) {
-  if (busy) return;
+  if (busy || uploading) return;
   notice("");
   setBusy(true);
   const question = message("user", text);
   ui.input.value = "";
-  const pending = message("assistant", "Choosing tools and running the model…", true);
+  const pending = message("assistant", "Sending your request…", true);
+  const phase = pending.querySelector(".message-text");
+  phase.setAttribute("role", "status");
+  const elapsed = element("div", "progress-time", "Elapsed: 0s");
+  elapsed.setAttribute("aria-hidden", "true");
+  pending.append(elapsed);
+  const started = Date.now();
+  const timer = setInterval(() => { elapsed.textContent = `Elapsed: ${Math.floor((Date.now() - started) / 1000)}s`; }, 1000);
+  const activity = [];
   try {
-    const response = await api("/api/chat", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: text }),
+    const response = await streamChat(text, (event) => {
+      if (event.type === "progress") phase.textContent = event.message;
+      if (event.type === "tool" && Number.isInteger(event.index) && event.index >= 0 && event.index < 100) {
+        activity[event.index] = event.activity;
+        pending.querySelector(".tool-trail")?.remove();
+        pending.append(toolTrail(activity.filter(Boolean)));
+        const entry = event.activity;
+        phase.textContent = `${entry.tool}() ${STATUS_WORDS[statusOf(entry)]}${entry.reason || entry.error ? `: ${entry.reason || entry.error}` : "…"}`;
+      }
+      ui.messages.scrollTop = ui.messages.scrollHeight;
     });
     pending.remove();
     const answer = message("assistant", response.reply || "The request completed.");
@@ -355,9 +425,11 @@ async function sendChat(text) {
     ui.messages.scrollTop = Math.max(0, question.offsetTop - 12);
   } catch (error) {
     pending.remove();
-    message("assistant", error.message);
+    const answer = message("assistant", error.message || "The connection was interrupted. Check your session results before sending again.");
+    if (activity.length) answer.append(toolTrail(activity.filter(Boolean)));
     notice(error.message);
   } finally {
+    clearInterval(timer);
     setBusy(false);
     ui.input.focus({ preventScroll: true });
   }
@@ -384,11 +456,11 @@ function setUploadText(title, hint) {
 // Uploads start as soon as files are chosen or dropped, one at a time.
 async function uploadFiles(list) {
   const chosen = Array.from(list || []);
-  if (!chosen.length || uploading) return;
+  if (!chosen.length || uploading || busy) return;
   uploading = true;
-  ui.fileInput.disabled = true;
+  setBusy(busy);
   ui.uploadZone.classList.add("busy");
-  const uploaded = [];
+  let prepared;
   let problem = "";
   try {
     for (const file of chosen) {
@@ -398,8 +470,8 @@ async function uploadFiles(list) {
       const data = new FormData();
       data.append("file", file);
       try {
-        await api("/api/upload", { method: "POST", body: data });
-        uploaded.push(file.name);
+        const response = await api("/api/upload", { method: "POST", body: data });
+        prepared = response.file;
       } catch (error) {
         problem = `${file.name}: ${error.message}`;
         break;
@@ -410,13 +482,15 @@ async function uploadFiles(list) {
     problem = error.message;
   } finally {
     uploading = false;
-    ui.fileInput.disabled = false;
+    setBusy(busy);
     ui.fileInput.value = "";
     ui.uploadZone.classList.remove("busy");
     setUploadText("Choose or drop CSV files", "Up to 5 MiB · 10,000 rows each");
   }
-  if (problem) notice(uploaded.length ? `${uploaded.join(", ")} uploaded. ${problem}` : problem);
-  else notice(`${uploaded.join(", ")} uploaded. Use the buttons on ${uploaded.length === 1 ? "its card" : "each card"} or ask in the chat.`, true);
+  if (prepared) usePrompt(prepared.rows === 1 ? `Predict row 0 of file ${prepared.id}.` : `Classify all rows in file ${prepared.id}.`);
+  const ready = prepared ? `${prepared.name} uploaded. Review or edit the question, then click Send.` : "";
+  if (problem) notice(`${ready} ${problem}`.trim());
+  else notice(ready, true);
 }
 
 ui.fileInput.addEventListener("change", () => uploadFiles(ui.fileInput.files));
@@ -448,7 +522,8 @@ byId("conditional-form").addEventListener("submit", (event) => {
   const index = Number(byId("row-index").value);
   if (!ui.evaluation.value || !ui.prediction.value) return notice("Choose evaluation and prediction files.");
   if (!Number.isFinite(threshold) || threshold < 0 || threshold > 1 || !Number.isInteger(index) || index < 0) return notice("Use an accuracy between 0 and 1 and a whole row number starting at 0.");
-  sendChat(`Evaluate file ${ui.evaluation.value}; only if accuracy >= ${threshold}, predict row ${index} of file ${ui.prediction.value}.`);
+  usePrompt(`Evaluate file ${ui.evaluation.value}; only if accuracy >= ${threshold}, predict row ${index} of file ${ui.prediction.value}.`);
+  notice("Conditional question prepared. Review or edit it, then click Send.", true);
 });
 
 // The welcome suggestions use the most recent upload; evaluation needs one with labels.
@@ -494,5 +569,19 @@ async function initialize() {
     notice("The production model is unavailable. Try again after it is configured.");
   }
 }
+
+// Wide screens size the workspace to the rest of the first screen (see style.css),
+// so the chat and its input are visible without scrolling.
+function fitWorkbench() {
+  const top = document.querySelector(".workbench").getBoundingClientRect().top + window.scrollY;
+  document.documentElement.style.setProperty("--workbench-top", `${Math.round(top)}px`);
+}
+let fitFrame;
+window.addEventListener("resize", () => {
+  cancelAnimationFrame(fitFrame);
+  fitFrame = requestAnimationFrame(fitWorkbench);
+});
+fitWorkbench();
+document.fonts?.ready.then(fitWorkbench);
 
 initialize();

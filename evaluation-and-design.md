@@ -249,6 +249,19 @@ Sessions are created through `/api/session`; at capacity the
 oldest empty inactive record can be reclaimed, while active requests and
 records containing user data remain protected until expiration. Its in-process
 state requires one Gunicorn worker and is ephemeral across restarts.
+
+Successful uploads prepare editable questions using the newly returned file ID.
+Uploads, per-file actions and the conditional form never submit chat requests;
+the user reviews the question and sends it. The browser consumes incremental
+NDJSON from `/api/chat/stream`, showing real provider stages and function-start,
+success, failure or skip events. The existing `/api/chat` JSON interface shares
+the same execution and transaction checks. Events contain bounded tool
+arguments and status, not feature rows or provider reasoning. Final results and
+download links are delivered only after storage quota checks pass. A stream
+keeps an explicit session lease and holds its session lock during execution.
+Disconnecting before completion rolls back new state and files; a completed
+turn remains available in session results. Execution stays synchronous within
+the existing Gunicorn thread limit, without background jobs or new dependencies.
 Runtime dependencies are separate from the training environment. See
 [deployed.md](deployed.md) for operational setup and
 [agent-evaluation.md](agent-evaluation.md) for the pending real-LLM evidence.
