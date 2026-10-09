@@ -300,6 +300,8 @@ counts and rates computed from stored results. Stored-result questions disable
 tools for that turn; a provider function call is intercepted before execution.
 Explicit fresh evaluation/classification commands remain available, and
 explicit session references restrict which stored results may be rendered.
+After results exist, unrecognized follow-up wording also defaults to stored
+evidence; it cannot re-enable tools merely by missing a metric keyword.
 Known tool validation errors explain the
 problem; unexpected exceptions remain sanitized.
 

@@ -704,6 +704,12 @@ def test_followup_uses_existing_evidence_and_session_isolation(files):
     "Do not evaluate again. How many false negatives were there in that evaluation?",
     "How many false negatives were there? Don't predict another row.",
     "Don't predict or classify. How many false negatives were there?",
+    "How many malware samples did it miss?",
+    "Explain what the evaluation found.",
+    "What did the classifier miss?",
+    "Did it correctly identify all malware?",
+    "What did the model predict in that evaluation?",
+    "What does the evaluate function return?",
 ])
 def test_followup_cannot_execute_provider_tools_after_withheld_prediction(files, name, args, message):
     state, service = {}, FakeService(accuracy=0, confusion_matrix=[[0, 0], [1, 0]])
@@ -721,7 +727,7 @@ def test_followup_cannot_execute_provider_tools_after_withheld_prediction(files,
             output = finished.value
             break
     assert [call[0] for call in service.calls] == ["evaluate"]
-    assert "False negatives: 1" in output["reply"]
+    assert "false negatives: 1" in output["reply"].lower()
     assert output["activity"] == [] and output["results"] == []
     assert state["results"] == saved_results and state["downloads"] == saved_downloads
     assert all(event["type"] == "progress" for event in observed)
@@ -733,6 +739,8 @@ def test_followup_cannot_execute_provider_tools_after_withheld_prediction(files,
     ("Predict row 0 of file-b", "predict_single", {"file_id": "file-b", "row_index": 0}),
     ("Classify every row of file-b", "predict_batch", {"file_id": "file-b"}),
     ("Run a new evaluation of file-a", "evaluate", {"file_id": "file-a"}),
+    ("Could you please evaluate file-a again?", "evaluate", {"file_id": "file-a"}),
+    ("I want you to predict row 0 of file-b", "predict_single", {"file_id": "file-b", "row_index": 0}),
 ])
 def test_explicit_fresh_commands_still_execute_after_stored_evaluation(files, message, name, args):
     state, service = {}, FakeService()

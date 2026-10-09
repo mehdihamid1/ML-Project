@@ -350,7 +350,9 @@ the correct false-negative count and the new classification. The failure was
 an unrequested tool execution on a later turn; the original threshold check
 worked correctly.
 
-The fix makes stored-result questions a server-enforced mode. Tools are
+The fix defaults subsequent turns to stored-result mode, including unfamiliar
+follow-up paraphrases. New work requires an affirmative request or an explicit
+file without compatible stored evidence. Tools are
 disabled for that turn, compatible session evidence is scoped to explicit
 references, and a provider function call is intercepted before validation or
 execution. Explicit requests to evaluate or classify again still run tools.

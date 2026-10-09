@@ -15,8 +15,8 @@ under `docs/`, so a clean checkout can run the app without retraining.
 ## Current status
 
 The tools, OpenAI agent, Flask app, sample CSVs and deployment workflow are
-implemented. Plain `pytest` passes all 427 tests locally; the lean runtime
-suite passes 416 tests.
+implemented. Plain `pytest` passes all 447 tests locally; the lean runtime
+suite passes 436 tests.
 
 Commit [`2bf449b`](https://github.com/mehdihamid1/ML-Project/commit/2bf449b) was
 deployed by [GitHub Actions run 37957260512](https://github.com/mehdihamid1/ML-Project/actions/runs/37957260512):

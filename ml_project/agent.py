@@ -373,10 +373,13 @@ def _stored_followup(message, stored, files):
         r"\b(?:do\s+not|don't|never)\s+" + command + r"\b(?:\s+(?:or|and)\s+" + command + r"\b)*",
         "", text,
     )
+    action = (r"(?:evaluate|re[- ]?evaluate|classify|predict)\b"
+              r"|(?:run|repeat|rerun|recompute)\b.{0,40}\b(?:evaluation|classification|prediction)\b")
     fresh = re.search(
-        r"\b(?:evaluate|re[- ]?evaluate|classify|predict)\b"
-        r"|\b(?:run|repeat|rerun|recompute)\b.{0,40}\b(?:evaluation|classification|prediction)\b",
-        affirmative,
+        r"(?:^|[.;!?\n]\s*|\b(?:then|and|but|please)\s+)(?:please\s+)?(?:" + action + r")"
+        r"|\b(?:can|could|would|will)\s+you\s+(?:please\s+)?(?:" + action + r")"
+        r"|\b(?:want|need)(?:\s+you)?\s+to\s+(?:" + action + r")",
+        affirmative.strip(),
     )
     if fresh:
         return None
@@ -400,7 +403,9 @@ def _stored_followup(message, stored, files):
         compatible.update({"predict_single"} if focus == "prediction" else
                           {"predict_batch", "evaluate"} if focus == "counts" else {"evaluate"})
     candidates = [r for r in stored if not focuses or r.get("tool") in compatible]
-    if not prior and not (focuses and candidates):
+    # Unknown paraphrases must not regain tool access after a stored result.
+    # New work needs an affirmative request or an explicit unevaluated file.
+    if not stored and not prior:
         return None
     # Explicit references never fall back to a different session result.
     result_refs = re.findall(r"\bresult(?:_id| id)\s*(?:[=:]\s*)?[`\"']?([\w-]+)", message, re.I)
