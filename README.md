@@ -16,19 +16,20 @@ under `docs/`, so a clean checkout can run the app without retraining.
 
 The tools, OpenAI agent, Flask app, sample CSVs and deployment workflow are
 implemented. Plain `pytest` passes all 396 tests locally; the lean runtime
-suite passes 385 tests. The latest changes bind conditional requests to their
-explicit threshold, files and row, and strengthen evaluation-runner checks.
+suite passes 385 tests.
 
-The previous verified code deployment, commit
-[`db49bfe`](https://github.com/mehdihamid1/ML-Project/commit/db49bfe), was
-deployed by [GitHub Actions run 37940826452](https://github.com/mehdihamid1/ML-Project/actions/runs/37940826452):
+Commit [`e203583`](https://github.com/mehdihamid1/ML-Project/commit/e203583),
+which binds conditional requests to their explicit threshold, files and row,
+was deployed by [GitHub Actions run 37951887557](https://github.com/mehdihamid1/ML-Project/actions/runs/37951887557):
 the full, runtime and container tests passed, then the deploy job ran and its
 live health check passed. On 2026-10-09,
 [live health](https://quantic-malware-agent.onrender.com/health) reported that
 commit, `status: ok`, LightGBM, `openai_configured: true` and the model
-`gpt-4.1-mini`. The latest real-LLM run against that deployment passed all 15
-evaluation scenarios. See [deployed.md](deployed.md) and
-[agent-evaluation.md](agent-evaluation.md).
+`gpt-4.1-mini`. The real-LLM run against that deployment (Run 4) passed 14 of
+15 scenarios. The false-negative follow-up got the right answer but re-ran the
+evaluation instead of using the stored result. The agent's instructions now
+say that such a follow-up calls no tool; that change needs its own live run.
+See [deployed.md](deployed.md) and [agent-evaluation.md](agent-evaluation.md).
 
 ## Run the application
 
@@ -92,6 +93,43 @@ and true positives, with counts and rates calculated in code. Ordinary “tell m
 if it is malware” requests work, and evaluation and classification can be
 independent tasks in the same message. Percentage accuracy thresholds are
 bound to the user's stated value.
+
+## Sample requests
+
+Load a sample with its button under the upload area, or upload the CSV from
+[samples/](samples/README.md), then send requests like these. Replace
+`<file-id>` with the ID on the file's card (**Copy** copies it). The card
+buttons and the conditional form write the same requests for you.
+
+| Task | Sample button (file) | Request | Expected result |
+| --- | --- | --- | --- |
+| Single prediction | **One row** (`single.csv`) | `Predict row 0 of file <file-id>.` | `predict_single`: the row's class and malware probability |
+| Batch prediction | **Batch of 4** (`batch.csv`) | `Classify all rows in file <file-id>.` | `predict_batch`: class counts for the 4 rows and a download link |
+| Labeled evaluation | **Labeled** (`labeled.csv`) | `Evaluate file <file-id> using its labels.` | `evaluate`: AUC, accuracy and confusion matrix |
+| Conditional, met | **Labeled**, then **One row** | `Evaluate file <labeled-id>; only if accuracy >= 0.95, predict row 0 of file <single-id>.` | `evaluate`, then the AI model calls `predict_single` |
+| Conditional, not met | **Low accuracy**, then **One row** | `Evaluate file <low-accuracy-id>; only if accuracy >= 0.9, predict row 0 of file <single-id>.` | `evaluate`; the prediction is withheld |
+| Follow-up | after the request above | `How many false negatives were there in that evaluation?` | No tool call; answered from the stored result |
+| Invalid input | **Invalid row** (`invalid-rows.csv`) | `Classify all rows in file <file-id>.` | The invalid row is counted, explained and kept in the download |
+| Missing labels | **Missing label** (`missing-labels.csv`) | `Evaluate file <file-id> using its labels.` | Metrics over the 3 labeled rows; the unlabeled row is reported |
+| Single class | **One class** (`single-class.csv`) | `Evaluate file <file-id> using its labels.` | Accuracy, with AUC reported as unavailable |
+| Feature explanation | none | `Explain which individual features caused the prediction. Do not run a classifier.` | No tool call; no explanation tool exists |
+
+The same requests work over HTTP. Mutation requests need the session cookie
+and the CSRF token from `/api/session`:
+
+```bash
+BASE=https://quantic-malware-agent.onrender.com
+TOKEN=$(curl -s -c jar -b jar "$BASE/api/session" | python3 -c 'import json,sys; print(json.load(sys.stdin)["csrf_token"])')
+FILE=$(curl -s -c jar -b jar -X POST -H "X-CSRF-Token: $TOKEN" "$BASE/api/samples/single" | python3 -c 'import json,sys; print(json.load(sys.stdin)["file"]["id"])')
+curl -s -c jar -b jar -X POST -H "X-CSRF-Token: $TOKEN" -H "Content-Type: application/json" \
+  -d "{\"message\": \"Predict row 0 of file $FILE.\"}" "$BASE/api/chat"
+```
+
+The JSON answer holds `reply` (the text Python renders), `activity` (each tool
+call with its arguments and status) and `results` (the tool outputs). Run
+against commit `e203583` on 2026-10-09, it returned the reply "Row 0: the
+saved ML model predicts goodware (malware probability 0.001241; threshold
+0.500000)." with one successful `predict_single` call.
 
 ## Tool and upload behavior
 

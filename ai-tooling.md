@@ -164,3 +164,10 @@ independent frozen-model reference for single and batch classifications,
 including downloaded row identities and probabilities. Mocked regression tests
 exercise substitutions and malformed requests; they are not a new real-LLM
 run. Existing live reports and the production model are unchanged.
+
+Claude Code then ran the fourth live run with that runner against the
+deployed change: 14 of 15 scenarios passed. The false-negative follow-up was
+answered correctly but re-ran the evaluation, because two routing instructions
+overlapped; Claude Code clarified them. It also added the README's sample
+requests and the design document's tool schemas and AI model choice, checking
+each field against the code and the HTTP example against the live site.

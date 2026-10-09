@@ -209,10 +209,10 @@ training outputs are excluded from Git. A byte-for-byte copy of the small
 trusted production model is
 bundled under `models/` for the app. The tools, OpenAI agent and Flask application
 are implemented and deployed. In
-[CI run 37940826452](https://github.com/mehdihamid1/ML-Project/actions/runs/37940826452),
+[CI run 37951887557](https://github.com/mehdihamid1/ML-Project/actions/runs/37951887557),
 the test, runtime-test and container-test jobs passed, then the
-[deploy job](https://github.com/mehdihamid1/ML-Project/actions/runs/37940826452/job/113855099737)
-deployed commit `db49bfe` and its live `/health` check passed. Real-provider
+[deploy job](https://github.com/mehdihamid1/ML-Project/actions/runs/37951887557/job/113893096159)
+deployed commit `e203583` and its live `/health` check passed. Real-provider
 evidence is in [agent-evaluation.md](agent-evaluation.md).
 
 ## Agent and runtime design
@@ -257,7 +257,8 @@ rows with error status; user-provided IDs are neutralized for spreadsheet formul
 interpretation. Evaluation reports missing/invalid labels and coverage, and
 returns unavailable AUC for a single-class file.
 
-The three model tools are `predict_single`, `predict_batch` and `evaluate`.
+The three model tools are `predict_single`, `predict_batch` and `evaluate`;
+their arguments and outputs are listed under [Tool schemas](#tool-schemas).
 A conditional request, such as "evaluate file A; only if accuracy is at least
 0.95, predict row 0 of file B", runs in two steps:
 
@@ -337,3 +338,93 @@ the existing Gunicorn thread limit, without background jobs or new dependencies.
 Runtime dependencies are separate from the training environment. See
 [deployed.md](deployed.md) for operational setup and
 [agent-evaluation.md](agent-evaluation.md) for the real-LLM evidence.
+
+## Tool schemas
+
+The agent offers the AI model three strict OpenAI functions, defined as `TOOLS`
+in [ml_project/agent.py](ml_project/agent.py). Every argument is required and
+no other argument is accepted. Python checks the arguments again before a tool
+runs, and a file ID must belong to the caller's session. This is the full
+schema of `predict_single` as sent to OpenAI:
+
+```json
+{
+  "type": "function",
+  "name": "predict_single",
+  "description": "Classify one row of a registered CSV with the saved ML model.",
+  "strict": true,
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "file_id": {
+        "type": "string",
+        "description": "An opaque registered upload ID."
+      },
+      "row_index": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "Zero-based CSV data row index."
+      }
+    },
+    "required": [
+      "file_id",
+      "row_index"
+    ],
+    "additionalProperties": false
+  }
+}
+```
+
+| Tool | Description sent to the model | Arguments | Main output fields |
+| --- | --- | --- | --- |
+| `predict_single` | "Classify one row of a registered CSV with the saved ML model." | `file_id` (string: an opaque registered upload ID); `row_index` (integer, minimum 0: a zero-based data row) | `prediction` (0 or 1) and its `label` (goodware or malware), `malware_probability`, `threshold` (0.5), `model_version`, `row_index`, `source_row`, `row_id` |
+| `predict_batch` | "Classify a registered CSV; report invalid rows and downloadable results." | `file_id` (string) | `total_count`, `valid_count`, `invalid_count`, `malware_count`, `goodware_count`, the first 10 `invalid_rows` with their errors, `threshold`, `model_version`, and a download link that lists every row |
+| `evaluate` | "Evaluate a registered labeled CSV using model probabilities; report coverage." | `file_id` (string; the CSV needs a `Label` column) | `auc` (null, with `auc_reason`, when the labels hold one class), `accuracy`, `confusion_matrix` in label order [0, 1], `class_counts`, coverage (`total_count`, `evaluated_count`, `invalid_count`, `missing_label_count`, `invalid_label_count`, `evaluation_coverage`) and the first 10 `invalid_rows` |
+
+For a conditional request, the server narrows these schemas for that turn. A
+one-value `enum` limits `evaluate` to the evaluation file named in the request,
+and `predict_single` to the named prediction file and row (here row 0):
+
+```json
+"file_id": {"type": "string", "description": "An opaque registered upload ID.", "enum": ["<prediction-file-id>"]},
+"row_index": {"type": "integer", "minimum": 0, "description": "Zero-based CSV data row index.", "enum": [0]}
+```
+
+The model therefore decides only whether to call `predict_single`, not what it
+classifies, and the server blocks any other argument before running the tool.
+
+The model sees each result's summary fields with its `result_id`, `tool`,
+`file_id` and `download_id`, never feature values, file paths or row IDs. It
+ends each turn with a strict JSON object, `grounded_response`: `kind`
+(`results`, `help`, `need_upload` or `explanation_unavailable`), `result_ids`
+(up to three stored results) and `focus` (the metric to show, such as
+`summary`, `accuracy`, `auc`, `confusion_matrix` or `false_negatives`). Python
+writes the reply from that object and the stored results.
+
+## AI model choice
+
+The agent uses OpenAI's `gpt-4.1-mini` through the Responses API. It is the
+code's default; the `OPENAI_MODEL` setting can change it, and `/health`
+reports the model in use.
+
+The model's job is narrow. It chooses a tool and its arguments, decides the
+conditional prediction from the returned accuracy, and picks which stored
+result to show. It never classifies a file or computes a metric. That job
+needs dependable strict function calling and structured JSON output, which
+OpenAI lists for this model, and it needs speed: each step is a separate
+provider call with a 30-second timeout, and most tool requests make two
+calls. OpenAI describes `gpt-4.1-mini` as a "smaller, faster version of
+GPT-4.1" with "low latency without a reasoning step"
+([model page](https://developers.openai.com/api/docs/models/gpt-4.1-mini)),
+at a lower per-token price than
+[GPT-4.1](https://developers.openai.com/api/docs/models/gpt-4.1). A larger
+model would add cost and latency without changing any number in a reply,
+because Python computes them all.
+
+The live runs measure the choice: with `gpt-4.1-mini`, Run 3 passed all 15
+scenarios and Run 4 passed 14 ([agent-evaluation.md](agent-evaluation.md)).
+Run 4's miss was an unneeded tool call with a correct answer. Whatever the
+model, the server checks its conditional decision and blocks a disallowed
+prediction. The agent also accepts reasoning models through `OPENAI_MODEL`,
+replaying their encrypted reasoning between tool calls, but only
+`gpt-4.1-mini` has been evaluated live.

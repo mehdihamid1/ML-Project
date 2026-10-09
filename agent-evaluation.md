@@ -5,9 +5,12 @@ push and check routing, failures and safety rules deterministically. Separately,
 scenario runs use the real OpenAI model through the deployed app; those are the
 real-LLM evidence below.
 
-**Latest result:** Run 3, on 2026-10-09 against the live site at commit
-`db49bfe` with `gpt-4.1-mini`, passed **15 of 15** scenarios. Runs 1 and 2
-are kept below with their failures and the fixes that followed.
+**Latest result:** Run 4, on 2026-10-09 against the live site at commit
+`e203583` with `gpt-4.1-mini` and the stronger runner, passed **14 of 15**
+scenarios. The false-negative follow-up was answered correctly but re-ran the
+evaluation; the instruction change that followed awaits its own run. Run 3
+passed 15 of 15. Earlier runs are kept below with their failures and the
+fixes that followed.
 
 ## How a real-LLM run works
 
@@ -236,6 +239,57 @@ unavailable and still gave accuracy. In the conditional scenarios, the model
 read the returned accuracy and made the correct call each time. One run per
 version cannot measure how often the model's choices vary; the mocked tests
 and the server's checks cover the cases where a model chooses wrongly.
+
+## Run 4: live site at commit `e203583`, 2026-10-09
+
+This run tests the request binding of evaluation file, prediction file and
+row, using the stronger runner described above.
+
+- Where: <https://quantic-malware-agent.onrender.com>, deployed commit
+  `e20358346a238908ca7650d20937ac794b272f96`.
+- AI model: `gpt-4.1-mini`, as reported by `/health`.
+- ML model version: `d13e54cf1970-1791236375742615262`. The runner's local
+  reference model has SHA-256
+  `e98b09552e0d77dd5abc070189e452e1084594a379e6849faba7b3385b94c677`.
+- Run (UTC): 2026-10-09T15:57:10+00:00.
+- Result: **14 of 15 scenarios passed**. All 27 six-decimal numbers in the
+  replies matched the tool outputs. Every single and batch classification
+  matched the frozen model run locally on the same sample. In every passing
+  scenario, each tool call used the file and row the request named.
+- Full report with every reply:
+  [docs/agent-evaluation-live-e203583.md](docs/agent-evaluation-live-e203583.md).
+
+| # | Scenario | Tools called | Result |
+| --- | --- | --- | --- |
+| 1 | Single prediction | `predict_single` (success) | PASS |
+| 2 | Batch prediction | `predict_batch` (success) | PASS |
+| 3 | Labeled evaluation | `evaluate` (success) | PASS |
+| 4 | Conditional: prediction permitted | `evaluate` (success), `predict_single` (success) | PASS |
+| 5 | Conditional: prediction withheld | `evaluate` (success), `predict_single` (skipped) | PASS |
+| 6 | False-negative follow-up | `evaluate` (success) | FAIL |
+| 7 | Condition without "if" | `evaluate` (success), `predict_single` (success) | PASS |
+| 8 | Earlier accuracy figure ignored | `evaluate` (success), `predict_single` (skipped) | PASS |
+| 9 | Invalid input row | `predict_batch` (success) | PASS |
+| 10 | Missing labels | `evaluate` (success) | PASS |
+| 11 | No Label column | `evaluate` (error) | PASS |
+| 12 | Single-class evaluation | `evaluate` (success) | PASS |
+| 13 | Tool failure | `predict_single` (error) | PASS |
+| 14 | Feature explanation refused | none | PASS |
+| 15 | Ambiguous condition | none | PASS |
+
+**Findings.** The four conditional scenarios passed with the exact file and
+row arguments each request named. Scenario 6 failed. Asked "How many false
+negatives were there in that evaluation?", the model called `evaluate` again on
+the same file instead of choosing the stored result. The reply was correct
+(1 false negative, rate 1.000000), but the scenario expects no new tool call.
+The same scenario passed in Run 3 with the same instructions, so the model's
+choice varies. Two instructions pointed different ways: "call evaluate only
+when the user asks … for its accuracy, AUC or confusion matrix" also matched a
+follow-up about false negatives, against "for follow-ups choose existing
+result_ids". The instructions now limit `evaluate` to explicit evaluation
+requests and to files no session result has evaluated, and say that a
+follow-up about an earlier result calls no tool. Run 5 will test that change
+after it is deployed.
 
 ## Mocked tests in CI
 
