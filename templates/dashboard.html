@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='walkthrough.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='theme.css') }}">
   {% if comparison %}<script src="{{ url_for('static', filename='dashboard.js') }}" defer></script>{% endif %}
 </head>
 <body>
@@ -19,14 +20,20 @@
     </header>
     <main>
       <section class="dashboard-intro">
-        <div><p class="eyebrow">MODEL PERFORMANCE · WINDOWS PE FILES</p><h1>From data to a production model.</h1><p class="intro-copy">Follow the experiment: reserve a test set, compare seven algorithms on the same folds, then check the selected model on unseen files.</p></div>
-        {% if comparison %}<a class="download-report" href="/api/model-comparison" download="model-comparison.json"><span aria-hidden="true">↓</span> Download results</a>{% endif %}
+        <div><p class="eyebrow">MODEL PERFORMANCE · WINDOWS PE FILES</p><h1>Compare model performance.</h1><p class="intro-copy">Compare seven algorithms on the same ten folds. See the scores, explore each round, and check the production model on unseen files.</p></div>
+        {% if comparison %}<div class="dashboard-actions"><a class="compare-link" href="#model-comparison">Compare models <span aria-hidden="true">↓</span></a><a class="download-report" href="/api/model-comparison" download="model-comparison.json"><span aria-hidden="true">↓</span> Download results</a></div>{% endif %}
       </section>
       {% if not comparison %}
       <section class="panel comparison-unavailable" aria-labelledby="unavailable-heading"><span class="welcome-symbol" aria-hidden="true">↗</span><h2 id="unavailable-heading">Model comparison is unavailable</h2><p>{{ comparison_error or 'Recorded model results could not be loaded.' }}</p><a href="/">Return to the chat</a></section>
       {% else %}
       {% set winner = comparison.models | selectattr('model', 'equalto', comparison.selected_model) | first %}
       {% set holdout = comparison.holdout_metrics %}
+      <section class="dashboard-metrics" aria-label="Selected model cross-validation highlights">
+        <article class="panel metric-tile production-tile"><p class="tile-label">Production model</p><p class="tile-value model-name">{{ comparison.selected_model }}</p><p class="tile-detail"><span class="selection-dot" aria-hidden="true"></span> Selected by cross-validation AUC</p></article>
+        <article class="panel metric-tile"><p class="tile-label">Highest mean CV AUC</p><p class="tile-value">{{ '%.6f' | format(winner.auc_mean) }}</p><p class="tile-detail">± {{ '%.6f' | format(winner.auc_std) }} across {{ comparison.folds }} folds</p></article>
+        <article class="panel metric-tile"><p class="tile-label">Mean CV accuracy</p><p class="tile-value">{{ '%.3f' | format(winner.accuracy_mean * 100) }}<span class="value-unit">%</span></p><p class="tile-detail">± {{ '%.3f' | format(winner.accuracy_std * 100) }} percentage points across folds</p></article>
+        <article class="panel metric-tile"><p class="tile-label">Mean fit time per fold</p><p class="tile-value">{{ '%.3f' | format(winner.fit_seconds_mean) }}<span class="value-unit">s</span></p><p class="tile-detail">Recorded on the training machine</p></article>
+      </section>
       <nav class="experiment-nav" aria-label="Experiment sections">
         <a href="#data-split"><span>01</span> Data split</a>
         <a href="#cv-walkthrough"><span>02</span> Cross-validation</a>
@@ -37,23 +44,17 @@
 
       <section class="panel comparison-panel" id="model-comparison" aria-labelledby="comparison-heading">
         <div class="dashboard-panel-heading"><div><p class="panel-kicker">03 · COMPARE THE RECORDED RESULTS</p><h2 id="comparison-heading">{{ comparison.models | length }} models, the same {{ comparison.folds }} folds</h2><p>Training-only stratified cross-validation · mean and fold standard deviation</p></div><span class="training-label">Cross-validation</span></div>
-      <section class="dashboard-metrics" aria-label="Selected model cross-validation highlights">
-        <article class="panel metric-tile production-tile"><p class="tile-label">Production model</p><p class="tile-value model-name">{{ comparison.selected_model }}</p><p class="tile-detail"><span class="selection-dot" aria-hidden="true"></span> Selected by cross-validation AUC</p></article>
-        <article class="panel metric-tile"><p class="tile-label">Highest mean CV AUC</p><p class="tile-value">{{ '%.6f' | format(winner.auc_mean) }}</p><p class="tile-detail">± {{ '%.6f' | format(winner.auc_std) }} across {{ comparison.folds }} folds</p></article>
-        <article class="panel metric-tile"><p class="tile-label">Mean CV accuracy</p><p class="tile-value">{{ '%.3f' | format(winner.accuracy_mean * 100) }}<span class="value-unit">%</span></p><p class="tile-detail">± {{ '%.3f' | format(winner.accuracy_std * 100) }} percentage points across folds</p></article>
-        <article class="panel metric-tile"><p class="tile-label">Mean fit time per fold</p><p class="tile-value">{{ '%.3f' | format(winner.fit_seconds_mean) }}<span class="value-unit">s</span></p><p class="tile-detail">Recorded on the training machine</p></article>
-      </section>
         <div class="chart-toolbar"><div class="metric-switch" role="group" aria-label="Chart metric"><button type="button" data-metric="auc" class="active" aria-pressed="true" disabled>AUC</button><button type="button" data-metric="accuracy" aria-pressed="false" disabled>Accuracy</button><button type="button" data-metric="fit" aria-pressed="false" disabled>Fit time</button></div></div>
         <p class="chart-explanation" id="chart-explanation">Dots show each model's mean cross-validation AUC; whiskers show ±1 fold standard deviation. Higher is better.</p>
         <div class="comparison-chart" id="comparison-chart" role="group" aria-label="Cross-validation AUC comparison. Use the arrow keys to step through the models." aria-describedby="chart-explanation"><p class="chart-fallback">The chart needs JavaScript. Every value is in the table below.</p></div>
         <p class="chart-legend" id="chart-legend"><span class="legend-marker production-marker" aria-hidden="true"></span>Production model <span class="legend-marker" aria-hidden="true"></span>Other models</p>
         <p class="dashboard-notice" id="dashboard-notice" role="status" aria-live="polite"></p>
         <div class="comparison-table-wrap" tabindex="0" role="region" aria-label="All recorded cross-validation results; scroll horizontally on small screens">
-          <table class="comparison-table" id="comparison-table"><caption class="sr-only">Best recorded configuration of each model, sorted by mean cross-validation AUC. Standard deviation is across folds, not a confidence interval.</caption><thead><tr><th scope="col">AUC rank</th><th scope="col">Model</th><th scope="col" aria-sort="descending"><button type="button" data-sort="auc_mean" disabled>CV AUC <span aria-hidden="true" class="sort-indicator">↓</span></button><span class="column-note">mean ± std</span></th><th scope="col" aria-sort="none"><button type="button" data-sort="accuracy_mean" disabled>CV accuracy <span aria-hidden="true" class="sort-indicator"></span></button><span class="column-note">% ± percentage points</span></th><th scope="col" aria-sort="none"><button type="button" data-sort="fit_seconds_mean" disabled>Fit time <span aria-hidden="true" class="sort-indicator"></span></button><span class="column-note">mean seconds / fold</span></th></tr></thead><tbody>
-          {% for model in comparison.models %}<tr data-model="{{ model.model }}"{% if model.model == comparison.selected_model %} class="production-row"{% endif %}><td><span class="rank-number">{{ loop.index }}</span></td><th scope="row">{{ model.model }}{% if model.model == comparison.selected_model %}<span class="production-pill">Production</span>{% endif %}</th><td>{{ '%.6f' | format(model.auc_mean) }} <span class="table-deviation">± {{ '%.6f' | format(model.auc_std) }}</span></td><td>{{ '%.3f' | format(model.accuracy_mean * 100) }}% <span class="table-deviation">± {{ '%.3f' | format(model.accuracy_std * 100) }} pp</span></td><td>{{ '%.3f' | format(model.fit_seconds_mean) }} <span class="table-deviation">s</span></td></tr>{% endfor %}
+          <table class="comparison-table" id="comparison-table"><caption class="sr-only">Best recorded configuration of each model, sorted by mean cross-validation AUC. Standard deviation is across folds, not a confidence interval.</caption><thead><tr><th scope="col">AUC rank</th><th scope="col">Model</th><th scope="col" aria-sort="descending"><button type="button" data-sort="auc_mean" disabled>CV AUC <span aria-hidden="true" class="sort-indicator">↓</span></button><span class="column-note">mean ± std</span></th><th scope="col" class="auc-gap-heading">Δ AUC<span class="column-note">vs {{ comparison.selected_model }}</span></th><th scope="col" aria-sort="none"><button type="button" data-sort="accuracy_mean" disabled>CV accuracy <span aria-hidden="true" class="sort-indicator"></span></button><span class="column-note">% ± percentage points</span></th><th scope="col" aria-sort="none"><button type="button" data-sort="fit_seconds_mean" disabled>Fit time <span aria-hidden="true" class="sort-indicator"></span></button><span class="column-note">mean seconds / fold</span></th></tr></thead><tbody>
+          {% for model in comparison.models %}<tr data-model="{{ model.model }}"{% if model.model == comparison.selected_model %} class="production-row"{% endif %}><td><span class="rank-number">{{ loop.index }}</span></td><th scope="row">{{ model.model }}{% if model.model == comparison.selected_model %}<span class="production-pill">Production</span>{% endif %}</th><td>{{ '%.6f' | format(model.auc_mean) }} <span class="table-deviation">± {{ '%.6f' | format(model.auc_std) }}</span></td><td class="auc-gap">{{ '%+.6f' | format(model.auc_mean - winner.auc_mean) }}</td><td>{{ '%.3f' | format(model.accuracy_mean * 100) }}% <span class="table-deviation">± {{ '%.3f' | format(model.accuracy_std * 100) }} pp</span></td><td>{{ '%.3f' | format(model.fit_seconds_mean) }} <span class="table-deviation">s</span></td></tr>{% endfor %}
           </tbody></table>
         </div>
-        <p class="table-footnote">Each model's best recorded configuration is shown. Fold variability is a standard deviation, not a confidence interval. Fit times describe this training run and depend on the machine.</p>
+        <p class="table-footnote">Each model's best recorded configuration is shown. Δ AUC is the model's mean AUC minus {{ comparison.selected_model }}'s; negative values are lower. Fold variability is a standard deviation, not a confidence interval. Fit times describe this training run and depend on the machine.</p>
         <details class="metric-help"><summary>What do AUC, accuracy and ± mean?</summary><dl><dt>AUC</dt><dd>How well malware probabilities rank malware above goodware. Higher is better; 1 means perfect ranking and 0.5 means chance-level ranking.</dd><dt>Accuracy</dt><dd>The share of files classified correctly at the fixed decision threshold of {{ comparison.threshold }}.</dd><dt>± standard deviation</dt><dd>Variation across the validation folds. Accuracy variation is shown in percentage points. These whiskers are not confidence intervals.</dd></dl></details>
       </section>
 

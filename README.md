@@ -179,7 +179,10 @@ Behind Render's proxy, the deployment enables secure cookies and trusted
 forwarded protocol/client-IP handling; keep `TRUST_PROXY` off locally.
 
 Open **Model dashboard** in the header, or visit `/analytics`, to compare the
-recorded models. Follow its four steps: data split, cross-validation, model
+recorded models. The dark theme keeps key figures at the top; **Compare models**
+jumps directly to the sortable results. The Δ AUC column shows each model's
+mean AUC minus the production model's mean AUC, so a negative value is lower.
+Follow its four steps: data split, cross-validation, model
 comparison and final test. The first step shows the duplicate removal
 (50,181 rows to 43,393 unique files) and separates the training files from
 the reserved test set. Choose any model and move through the ten saved
