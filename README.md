@@ -15,10 +15,11 @@ under `docs/`, so a clean checkout can run the app without retraining.
 ## Current status
 
 The tools, OpenAI agent, Flask app, sample CSVs and deployment workflow are
-implemented. Plain `pytest` passes all 337 tests locally; the lean environment
-passes 326 tests.
+implemented. Plain `pytest` passes all 396 tests locally; the lean runtime
+suite passes 385 tests. The latest changes bind conditional requests to their
+explicit threshold, files and row, and strengthen evaluation-runner checks.
 
-The last code change, commit
+The previous verified code deployment, commit
 [`db49bfe`](https://github.com/mehdihamid1/ML-Project/commit/db49bfe), was
 deployed by [GitHub Actions run 37940826452](https://github.com/mehdihamid1/ML-Project/actions/runs/37940826452):
 the full, runtime and container tests passed, then the deploy job ran and its
@@ -111,7 +112,12 @@ bound to the user's stated value.
   skipped (withheld) or blocked. Conditions worded without "if" ("when accuracy
   is 0.95 or higher") count too. The threshold is read from the condition
   itself, so an earlier figure such as "previous accuracy of 0.80" is not used;
-  two different values prompt a clarification question.
+  two different values prompt a clarification question. The evaluation file,
+  prediction file and zero-based row are bound to the submitted question.
+  Substituted tool arguments are blocked before execution. With several
+  uploads, an unspecified file asks for clarification; with one upload, only
+  file identity can be inferred. A threshold and row must still be explicit.
+  "When you are finished, show accuracy" remains an independent request.
 
 Only UTF-8 CSV data is accepted. Uploads and tools share schema validation and
 file limits. Oversized individual cells are retained and reported as invalid

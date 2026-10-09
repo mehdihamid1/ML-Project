@@ -8,6 +8,7 @@ reply, tool call and result) and report.md.
 """
 import argparse
 import csv
+import hashlib
 from datetime import datetime, timezone
 from http.cookiejar import CookieJar
 import io
@@ -133,6 +134,109 @@ def turn(name, requirement, prompt, expected_tools, expected, check, threshold=N
             'expected': expected, 'check': check, 'threshold': threshold}
 
 
+# Expected arguments are independent of the provider's selected arguments.
+# Sample keys resolve to that session's real upload IDs in either mode.
+EXPECTED_ARGUMENTS = {
+    'Single prediction': [('single', 0)],
+    'Batch prediction': [('batch', None)],
+    'Labeled evaluation': [('labeled', None)],
+    'Conditional: prediction permitted': [('labeled', None), ('single', 0)],
+    'Conditional: prediction withheld': [('fail', None), ('single', 0)],
+    'False-negative follow-up': [],
+    'Condition without "if"': [('labeled', None), ('single', 0)],
+    'Earlier accuracy figure ignored': [('fail', None), ('single', 0)],
+    'Invalid input row': [('invalid', None)],
+    'Missing labels': [('missing', None)],
+    'No Label column': [('batch', None)],
+    'Single-class evaluation': [('oneclass', None)],
+    'Tool failure': [('single', 7)],
+    'Feature explanation refused': [],
+    'Ambiguous condition': [],
+}
+
+
+def expected_calls(step, ids):
+    arguments = EXPECTED_ARGUMENTS[step['name']]
+    expect(len(arguments) == len(step['expected_tools']), 'scenario expectations are incomplete')
+    calls = []
+    for (tool, status), (key, row) in zip(step['expected_tools'], arguments):
+        args = {'file_id': ids[key]}
+        if row is not None:
+            args['row_index'] = row
+        calls.append({'tool': tool, 'status': status, 'arguments': args})
+    return calls
+
+
+def check_targets(response, calls):
+    """Verify actual calls and result identities against the requested uploads."""
+    activity = response.get('activity') or []
+    expect(len(activity) == len(calls), 'the activity count differs from the expected calls')
+    for actual, expected in zip(activity, calls):
+        expect(actual.get('tool') == expected['tool'] and actual.get('status') == expected['status'],
+               'the tools called differ from the expected tools')
+        args = actual.get('arguments')
+        expect(args == expected['arguments'], 'tool arguments do not match the requested file or row')
+        if 'row_index' in expected['arguments']:
+            expect(type(args.get('row_index')) is int, 'tool row_index must be an integer')
+    successes = [(call, entry) for call, entry in zip(calls, activity) if call['status'] == 'success']
+    results = response.get('results') or []
+    expect(len(results) == len(successes), 'the result count differs from successful calls')
+    for result, (call, entry) in zip(results, successes):
+        expect(bool(result.get('result_id')) and result['result_id'] == entry.get('result_id'),
+               'a result does not match the successful activity entry')
+        expect(result.get('tool') == call['tool'], 'a result belongs to a different tool')
+        expect(result.get('file_id') == call['arguments']['file_id'], 'a result belongs to a different file')
+        if call['tool'] == 'predict_single':
+            expect(type(result.get('row_index')) is int and result['row_index'] == call['arguments']['row_index'],
+                   'a result belongs to a different row')
+
+
+def check_reference_predictions(response, calls, ids, reference, session=None):
+    """Classifications must match the frozen model on the requested sample."""
+    results = iter(response.get('results') or [])
+    for call in calls:
+        if call['status'] != 'success':
+            continue
+        result = next(results)
+        if call['tool'] not in {'predict_single', 'predict_batch'}:
+            continue
+        key = next(key for key, identifier in ids.items() if identifier == call['arguments']['file_id'])
+        if call['tool'] == 'predict_batch':
+            try:
+                with tempfile.TemporaryDirectory(prefix='agent-reference-') as directory:
+                    output = Path(directory) / 'expected.csv'
+                    expected = reference.predict_batch(ROOT / 'samples' / SAMPLES[key], output)
+                    rows = read_csv(output.read_text())
+            except Exception:
+                raise CheckFailed('the frozen-model reference could not score the requested batch') from None
+            for field in ('model_version', 'threshold', 'total_count', 'valid_count', 'invalid_count', 'malware_count', 'goodware_count'):
+                expect(result.get(field) == expected.get(field), f'batch {field} differs from the frozen-model reference')
+            observed = session.download(result)
+            expect(len(observed) == len(rows), 'batch download differs from the frozen-model reference')
+            for actual, row in zip(observed, rows):
+                expect(set(actual) == set(row), 'batch download columns differ from the reference')
+                for field, value in row.items():
+                    if field == 'malware_probability' and value:
+                        probability = float(actual[field])
+                        expect(finite(probability) and 0 <= probability <= 1
+                               and math.isclose(probability, float(value), rel_tol=1e-9, abs_tol=1e-10),
+                               'batch malware_probability differs from the frozen-model reference')
+                    else:
+                        expect(actual[field] == value, f'batch {field} differs from the frozen-model reference')
+            continue
+        try:
+            expected = reference.predict_single(ROOT / 'samples' / SAMPLES[key], call['arguments']['row_index'])
+        except Exception:
+            raise CheckFailed('the frozen-model reference could not score the requested sample') from None
+        for field in ('prediction', 'label', 'row_id', 'row_index', 'source_row', 'model_version', 'threshold'):
+            expect(result.get(field) == expected.get(field), f'{field} differs from the frozen-model reference')
+        expect(type(result.get('prediction')) is int, 'prediction must be an integer')
+        probability = result.get('malware_probability')
+        expect(finite(probability) and 0 <= probability <= 1
+               and math.isclose(probability, expected['malware_probability'], rel_tol=1e-9, abs_tol=1e-10),
+               'malware_probability differs from the frozen-model reference')
+
+
 # Each scenario is (sample files to upload, turns sent in one session).
 SCENARIOS = [
     (['single'], [turn('Single prediction', 'Single prediction', 'Classify row 0 of file {single}.',
@@ -194,7 +298,7 @@ def numbers_in_reply(reply, results, thresholds):
             for count, total in ((fn, fn + tp), (tp, fn + tp), (fp, fp + tn), (tn, fp + tn)):
                 if total:
                     allowed.add(f'{count / total:.6f}')
-    found = re.findall(r'\d+\.\d{6}\b', reply or '')
+    found = re.findall(r'[-+]?\d+\.\d{6}\b', reply or '')
     return {'checked': len(found), 'unmatched': [number for number in found if number not in allowed]}
 
 
@@ -306,6 +410,18 @@ def run(output, base_url=None):
         environment = {'mode': 'local'}
         temporary = tempfile.TemporaryDirectory(prefix='agent-evaluation-')
         new_session = lambda: LocalSession(agent, Path(temporary.name))
+    if base_url:
+        import joblib
+        from ml_project.tools import ToolService
+        bundle = joblib.load(ROOT / 'models/production.joblib')
+        if model_version != bundle['metadata']['model_version']:
+            raise ValueError('The live model version differs from the frozen reference; no real-LLM evaluation was run')
+    reference = ToolService(bundle)
+    environment['reference_model_sha256'] = hashlib.sha256((ROOT / 'models/production.joblib').read_bytes()).hexdigest()
+    environment['sample_sha256'] = {
+        filename: hashlib.sha256((ROOT / 'samples' / filename).read_bytes()).hexdigest()
+        for filename in SAMPLES.values()
+    }
     records = []
     try:
         for keys, turns in SCENARIOS:
@@ -320,12 +436,15 @@ def run(output, base_url=None):
                         ids = {key: session.upload(key) for key in keys}
                     record['files'] = {SAMPLES[key]: identifier for key, identifier in ids.items()}
                     record['prompt'] = step['prompt'].format(**ids)
+                    record['expected_calls'] = expected_calls(step, ids)
                     response = session.chat(record['prompt'])
                     record['observed'] = response
                     record['observed_tools'] = [[entry.get('tool'), entry.get('status')] for entry in response.get('activity', [])]
                     results += response.get('results') or []
                     record['numbers'] = numbers_in_reply(response.get('reply'), results, [step['threshold']] if step['threshold'] else [])
                     expect(record['observed_tools'] == record['expected_tools'], 'the tools called differ from the expected tools')
+                    check_targets(response, record['expected_calls'])
+                    check_reference_predictions(response, record['expected_calls'], ids, reference, session)
                     step['check'](response, session, previous)
                     expect(not record['numbers']['unmatched'], 'a number in the reply does not match the tool output')
                     record['passed'] = True

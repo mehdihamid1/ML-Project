@@ -11,6 +11,11 @@ are kept below with their failures and the fixes that followed.
 
 ## How a real-LLM run works
 
+Use Python 3.10 with `requirements-runtime.txt` installed (and the platform's
+LightGBM shared-library dependency), or run the command inside the project's
+ML Docker service. Both modes need the bundled frozen model locally so the
+runner can independently verify the requested classifications.
+
 ```bash
 python3 scripts/run_agent_evaluation.py --base-url https://quantic-malware-agent.onrender.com --output artifacts/agent-evaluation/<run-name>
 ```
@@ -24,16 +29,31 @@ instance to start.
 
 Each scenario passes only if all of these hold:
 
-- the tools called, and their outcomes, match the expected list;
+- the tools called, their outcomes and exact file/row arguments match the
+  expected list, including skipped predictions and intentionally failed calls;
+- each successful result matches its activity entry and requested file and row;
+- single predictions and every batch-download row match an independent run
+  of the frozen LightGBM model on the requested sample, including identity,
+  classification and probability;
 - the scenario's own check holds, for example that an invalid row is reported
   with its reason and kept in the download;
-- every six-decimal number in the reply equals a value in the tool output, or
-  a rate computed from its confusion matrix.
+- every six-decimal number in the reply equals a value in the tool output,
+  the user’s explicit threshold, or a rate computed from the confusion matrix,
+  preserving numeric signs.
 
-The runner writes every request, reply, tool call and result to `results.json`,
+Live `/health` must report the same ML model version as the local reference.
+The runner records model and sample SHA-256 values, resolved expected calls,
+every request, reply, tool call and result in `results.json`,
 and a summary to `report.md`. It exits unsuccessfully when any scenario fails.
 Without `--base-url` it runs the agent in-process instead, which needs
 `OPENAI_API_KEY` in the shell; `scripts/check_openai.py` checks that key first.
+
+These stronger checks and the request-binding fixes were added after Runs
+1–3 below. Those runs used the earlier runner and remain unchanged historical
+evidence.
+A new real-LLM run is required after these changes are deployed. Mocked tests
+also deliberately substitute file IDs, row indexes, result IDs, classifications,
+probabilities and batch rows to verify that the current runner rejects them.
 
 ## Scenarios
 

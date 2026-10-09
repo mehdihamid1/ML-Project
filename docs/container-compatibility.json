@@ -59,13 +59,13 @@
     "upload_single.csv": 201,
     "walkthrough_css": 200
   },
-  "image": "ml-project-web",
-  "image_id": "sha256:bd03c03cb739b7363ba189a59c68121cfcf814013cd3a5085cb83a9453c8a9bf",
+  "image": "ml-project:conditional-check",
+  "image_id": "sha256:d558a1ffbffc1576506f6e2215dac30ff00640e4c35cdceb8f7ccf95f03f9e49",
   "large_batch_upload_bytes": 2619213,
   "memory_limit_bytes": 536870912,
   "memory_observation": {
-    "MemPerc": "36.87%",
-    "MemUsage": "188.8MiB / 512MiB",
+    "MemPerc": "36.39%",
+    "MemUsage": "186.3MiB / 512MiB",
     "PIDs": "7"
   },
   "memory_observation_note": "One post-request Docker sample; this is not a peak-memory measurement.",

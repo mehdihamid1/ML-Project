@@ -43,7 +43,7 @@ documentation and its Blueprint schema. It rebuilt both Docker images, verified
 authenticated Jupyter access, and added a reproducible production HTTP probe
 using an actual memory-limited Gunicorn container. The probe's provider is a
 local stub, while model predictions, metrics and downloads use production code.
-The latest local full and lean suites pass 337 and 326 tests respectively.
+The latest local full and lean runtime suites pass 396 and 385 tests respectively.
 
 Claude Code (Anthropic) performed that review and checked its findings with
 read-only experiments: phrasing checks against the conditional detector and an
@@ -150,3 +150,17 @@ matching live scenarios. The second live run then failed 2 of 15 scenarios:
 the model routed a plain prediction to evaluation, and a reply depended on
 the metric focus the model chose. Routing instructions were tightened and new
 evaluations now always report every metric. The third live run passed all 15.
+
+Codex followed up on conditional-request validation. It removed the fallback
+from an unnumbered condition to an earlier accuracy figure, separated sequencing
+and descriptive comparisons from accuracy gates, and bound conditional tool
+arguments to the submitted evaluation file, prediction file and row. Unclear
+requests ask for clarification; model-selected substitutions are blocked
+before execution. OpenAI still decides whether to call the prediction tool
+from the returned evaluation result.
+
+It strengthened the real-LLM runner with explicit expected arguments and an
+independent frozen-model reference for single and batch classifications,
+including downloaded row identities and probabilities. Mocked regression tests
+exercise substitutions and malformed requests; they are not a new real-LLM
+run. Existing live reports and the production model are unchanged.

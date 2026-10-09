@@ -278,13 +278,22 @@ then `predict_single` as finished, skipped (withheld) or blocked.
 Thresholds are bound to explicit user input; an ambiguous condition requests
 clarification instead of guessing. Conditions worded without "if", such as
 "predict when accuracy is 0.95 or higher", are recognized too. The threshold is
-read from the condition itself, from its first condition word on, so a figure
-mentioned earlier ("the previous accuracy of 0.80") cannot become the
-threshold; two different values in the condition prompt a clarification
-question. Follow-ups select stored result references.
+read only from the active condition, so a figure mentioned earlier ("the
+previous accuracy of 0.80") cannot become the threshold, including when the
+active condition has no numeric minimum. Two different minima prompt a
+clarification question. The same request binds the evaluation file ID,
+prediction file ID and explicit zero-based row. Tool schemas name those
+permitted arguments, and the server blocks a model-selected substitution
+before executing the tool. Several uploads require an explicit ID for each
+role; one upload permits file-identity inference, but an unknown supplied ID
+is never replaced. Unclear roles or noninteger rows ask for clarification.
+Historical accuracy statements cannot select the evaluation dataset.
+Follow-ups select stored result references.
 Pasted CSVs are directed to the upload route before a provider call.
 Descriptive requests such as “tell me if it is malware” are ordinary prediction
-requests. Independent evaluation and classification can run in the same turn.
+requests. Independent evaluation and classification can run in the same turn;
+sequencing ("when finished") and requests to report an accuracy comparison do
+not turn them into conditional predictions.
 Confusion-matrix follow-ups name true/false positives and negatives, with
 rates computed from stored counts. Known tool validation errors explain the
 problem; unexpected exceptions remain sanitized.

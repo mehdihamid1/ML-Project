@@ -3,10 +3,12 @@
 These are mocked-provider tests. Their temporary reports are never evidence of
 a real OpenAI run and are never written into the project's documentation.
 """
+import copy
 import json
 from pathlib import Path
 import re
 import threading
+from types import SimpleNamespace
 
 import httpx
 import joblib
@@ -16,7 +18,9 @@ from werkzeug.serving import make_server
 
 from ml_project.tools import ToolService
 from ml_project.web import create_app
-from scripts.run_agent_evaluation import run
+from scripts.run_agent_evaluation import (
+    CheckFailed, check_reference_predictions, check_targets, expected_calls, numbers_in_reply, read_csv, run,
+)
 
 
 class ScriptedBackend:
@@ -243,3 +247,108 @@ def test_runner_preserves_existing_reports(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="empty evaluation output directory"):
         run(output)
     assert previous.read_text() == "old report"
+
+
+@pytest.mark.parametrize("ids", [
+    {"labeled": "labeled", "single": "single"},
+    {"labeled": "a" * 32, "single": "b" * 32},
+])
+@pytest.mark.parametrize("substitution", ["activity_file", "activity_row", "result_file", "result_row", "boolean_row", "result_id"])
+def test_runner_rejects_substituted_calls_and_results_in_either_id_format(ids, substitution):
+    step = {"name": "Conditional: prediction permitted", "expected_tools": [("evaluate", "success"), ("predict_single", "success")]}
+    calls = expected_calls(step, ids)
+    response = {"activity": [dict(call, result_id=str(i)) for i, call in enumerate(copy.deepcopy(calls))],
+                "results": [{"tool": "evaluate", "file_id": ids["labeled"], "result_id": "0"},
+                            {"tool": "predict_single", "file_id": ids["single"], "row_index": 0, "result_id": "1"}]}
+    check_targets(response, calls)
+    if substitution == "activity_file":
+        response["activity"][1]["arguments"]["file_id"] = ids["labeled"]
+    elif substitution == "activity_row":
+        response["activity"][1]["arguments"]["row_index"] = 7
+    elif substitution == "result_file":
+        response["results"][1]["file_id"] = ids["labeled"]
+    elif substitution == "result_row":
+        response["results"][1]["row_index"] = 7
+    elif substitution == "boolean_row":
+        response["results"][1]["row_index"] = False
+    else:
+        response["results"][1]["result_id"] = "a-stale-result"
+    with pytest.raises(CheckFailed):
+        check_targets(response, calls)
+
+
+@pytest.mark.parametrize("name,status", [
+    ("Conditional: prediction withheld", "skipped"), ("Tool failure", "error"),
+])
+def test_runner_checks_arguments_even_when_no_prediction_result_exists(name, status):
+    ids = {"fail": "failure-file", "single": "prediction-file"}
+    step = {"name": name, "expected_tools": [("evaluate", "success"), ("predict_single", status)]
+            if status == "skipped" else [("predict_single", status)]}
+    calls = expected_calls(step, ids)
+    response = {"activity": copy.deepcopy(calls), "results": []}
+    if status == "skipped":
+        response["activity"][0]["result_id"] = "evaluation"
+        response["results"].append({"tool": "evaluate", "file_id": ids["fail"], "result_id": "evaluation"})
+    check_targets(response, calls)
+    response["activity"][-1]["arguments"]["row_index"] = 3
+    with pytest.raises(CheckFailed, match="arguments"):
+        check_targets(response, calls)
+
+
+@pytest.mark.parametrize("field", ["prediction", "label", "malware_probability", "model_version", "threshold", "row_id"])
+def test_runner_checks_prediction_against_an_independent_frozen_model(field):
+    reference = ToolService(joblib.load("models/production.joblib"))
+    result = reference.predict_single(Path("samples/single.csv"), 0)
+    response = {"results": [copy.deepcopy(result)]}
+    calls = [{"tool": "predict_single", "status": "success", "arguments": {"file_id": "uploaded-single", "row_index": 0}}]
+    ids = {"single": "uploaded-single"}
+    check_reference_predictions(response, calls, ids, reference)
+    wrong = response["results"][0]
+    if field == "prediction":
+        wrong[field] = 1 - wrong[field]
+    elif field == "label":
+        wrong[field] = "malware" if wrong[field] == "goodware" else "goodware"
+    elif field == "malware_probability":
+        wrong[field] = wrong[field] + 0.01 if wrong[field] < 0.5 else wrong[field] - 0.01
+    elif field == "threshold":
+        wrong[field] = 0.6
+    else:
+        wrong[field] = "substituted-value"
+    with pytest.raises(CheckFailed, match=field):
+        check_reference_predictions(response, calls, ids, reference)
+
+
+def test_runner_preserves_numeric_sign_when_checking_replies():
+    comparison = numbers_in_reply("Probability: -0.001241", [{"malware_probability": 0.001241}], [])
+    assert comparison == {"checked": 1, "unmatched": ["-0.001241"]}
+
+
+def test_live_mode_rejects_a_different_model_before_chat(tmp_path, monkeypatch):
+    monkeypatch.setattr("scripts.run_agent_evaluation.wake", lambda base: {
+        "openai_configured": True, "model_version": "another-model", "openai_model": "mock-provider"})
+    with pytest.raises(ValueError, match="differs from the frozen reference"):
+        run(tmp_path / "report", base_url="https://example.invalid")
+    assert not (tmp_path / "report").exists()
+
+
+@pytest.mark.parametrize("substitution", ["swapped_rows", "duplicate_row", "class", "probability"])
+def test_runner_rejects_substituted_batch_rows_even_when_counts_match(tmp_path, substitution):
+    reference = ToolService(joblib.load("models/production.joblib"))
+    output = tmp_path / "expected.csv"
+    result = reference.predict_batch(Path("samples/batch.csv"), output)
+    rows = read_csv(output.read_text())
+    observed = copy.deepcopy(rows)
+    session = SimpleNamespace(download=lambda result: observed)
+    calls = [{"tool": "predict_batch", "status": "success", "arguments": {"file_id": "uploaded-batch"}}]
+    ids = {"batch": "uploaded-batch"}
+    check_reference_predictions({"results": [result]}, calls, ids, reference, session)
+    if substitution == "swapped_rows":
+        observed[0], observed[1] = observed[1], observed[0]
+    elif substitution == "duplicate_row":
+        observed[1] = copy.deepcopy(observed[0])
+    elif substitution == "class":
+        observed[0]["prediction"] = "1" if observed[0]["prediction"] == "0" else "0"
+    else:
+        observed[0]["malware_probability"] = "0.25"
+    with pytest.raises(CheckFailed, match="differs from the frozen-model reference"):
+        check_reference_predictions({"results": [result]}, calls, ids, reference, session)

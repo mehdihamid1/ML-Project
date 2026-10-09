@@ -155,7 +155,7 @@ def test_conditional_evaluates_first_then_model_decides_from_returned_accuracy(f
 def test_server_blocks_a_prediction_the_condition_does_not_allow(files, coverage):
     service = FakeService(**coverage)
     client = FakeClient(tool("evaluate", file_id="file-a"), tool("predict_single", file_id="file-b", row_index=0))
-    response = Agent(service, client).chat("Evaluate and predict if accuracy >= 0.9", {}, files)
+    response = Agent(service, client).chat("Evaluate file-a; predict row 0 of file-b if accuracy >= 0.9", {}, files)
     assert [c[0] for c in service.calls] == ["evaluate"]
     assert [(a["tool"], a["status"]) for a in response["activity"]] == [("evaluate", "success"), ("predict_single", "blocked")]
     assert response["activity"][-1]["arguments"] == {"file_id": "file-b", "row_index": 0}
@@ -170,7 +170,7 @@ def test_server_blocks_a_prediction_the_condition_does_not_allow(files, coverage
 ])
 def test_withholding_for_incomplete_or_undefined_results_is_accepted(files, coverage):
     service = FakeService(**coverage)
-    response = Agent(service, FakeClient(tool("evaluate", file_id="file-a"), final())).chat("Evaluate and predict if accuracy >= 0.8", {}, files)
+    response = Agent(service, FakeClient(tool("evaluate", file_id="file-a"), final())).chat("Evaluate file-a; predict row 0 of file-b if accuracy >= 0.8", {}, files)
     assert [c[0] for c in service.calls] == ["evaluate"]
     assert response["activity"][-1]["status"] == "skipped"
     assert "error" not in response
@@ -180,7 +180,7 @@ def test_withholding_for_incomplete_or_undefined_results_is_accepted(files, cove
 def test_model_withholding_a_permitted_prediction_is_reported_not_overridden(files):
     service = FakeService(accuracy=0.95)
     response = Agent(service, FakeClient(tool("evaluate", file_id="file-a"), final())).chat(
-        "Only predict row 0 of file-b if accuracy >= 0.9", {}, files)
+        "Evaluate file-a; only predict row 0 of file-b if accuracy >= 0.9", {}, files)
     # The server checks the model's decision; it never predicts on the model's behalf.
     assert [c[0] for c in service.calls] == ["evaluate"]
     assert response["error"] == "tool"
@@ -194,7 +194,7 @@ def test_model_withholding_a_permitted_prediction_is_reported_not_overridden(fil
 ])
 def test_conditional_turn_cannot_skip_the_evaluation(files, selected):
     service = FakeService()
-    response = Agent(service, FakeClient(selected)).chat("Only predict if accuracy >= 0.95", {}, files)
+    response = Agent(service, FakeClient(selected)).chat("Evaluate file-a; only predict row 0 of file-b if accuracy >= 0.95", {}, files)
     assert response["error"] == "tool"
     assert "must call evaluate first" in response["reply"]
     assert service.calls == []
@@ -203,7 +203,7 @@ def test_conditional_turn_cannot_skip_the_evaluation(files, selected):
 def test_after_the_evaluation_only_predict_single_can_follow(files):
     service = FakeService()
     client = FakeClient(tool("evaluate", file_id="file-a"), tool("predict_batch", file_id="file-b"))
-    response = Agent(service, client).chat("Only predict if accuracy >= 0.5", {}, files)
+    response = Agent(service, client).chat("Evaluate file-a; only predict row 0 of file-b if accuracy >= 0.5", {}, files)
     assert response["error"] == "tool"
     assert [c[0] for c in service.calls] == ["evaluate"]
     assert "No prediction was made." in response["reply"]
@@ -215,7 +215,7 @@ def test_failed_evaluation_stops_the_conditional_task(files):
             self.calls.append(("evaluate", Path(path)))
             raise ValueError("Evaluation requires a Label column containing 0 or 1")
     service, client = NoLabels(), FakeClient(tool("evaluate", file_id="file-a"))
-    output = Agent(service, client).chat("Only predict row 0 of file-b if accuracy >= 0.9", {}, files)
+    output = Agent(service, client).chat("Evaluate file-a; only predict row 0 of file-b if accuracy >= 0.9", {}, files)
     assert output["error"] == "tool"
     assert output["reply"] == "Evaluation requires a Label column containing 0 or 1. No prediction was made."
     assert [(a["tool"], a["status"]) for a in output["activity"]] == [("evaluate", "error")]
@@ -226,7 +226,7 @@ def test_conditional_cannot_answer_with_stale_prediction_without_evaluating(file
     service, state = FakeService(), {}
     Agent(service, FakeClient(tool("predict_single", file_id="file-a", row_index=0), final())).chat("Predict", state, files)
     old_id = state["results"][0]["result_id"]
-    output = Agent(service, FakeClient(final(result_ids=[old_id]))).chat("Predict only if accuracy >= 0.95", state, files)
+    output = Agent(service, FakeClient(final(result_ids=[old_id]))).chat("Evaluate file-a; predict row 0 of file-b only if accuracy >= 0.95", state, files)
     assert output["error"] == "tool"
     assert "evaluation tool was not called" in output["reply"]
     assert "predicts malware" not in output["reply"]
@@ -236,7 +236,7 @@ def test_conditional_cannot_answer_with_stale_prediction_without_evaluating(file
 def test_percentage_threshold_and_negative_input(files):
     service = FakeService()
     client = FakeClient(tool("evaluate", file_id="file-a"), tool("predict_single", file_id="file-b", row_index=0))
-    response = Agent(service, client).chat("Predict only if accuracy is at least 90%", {}, files)
+    response = Agent(service, client).chat("Evaluate file-a; predict row 0 of file-b only if accuracy is at least 90%", {}, files)
     assert len(service.calls) == 2 and "meets the required 0.900000" in response["reply"]
     assert "minimum accuracy is 0.9 " in brief(client.requests[0])
     bad = Agent(service, FakeClient()).chat("Predict if accuracy >= -0.1", {}, files)
@@ -252,14 +252,16 @@ def test_extreme_user_threshold_is_rejected_before_provider_call(files, threshol
 
 
 @pytest.mark.parametrize("message", [
-    "Only predict if accuracy for file abc123 is at least 0.95",
-    "Only predict if we reach 95% accuracy",
-    "Predict if accuracy >= .95",
-    "Predict if accuracy is at least 95 percent",
+    "Predict row 0 of file-b only if accuracy for file abc123 is at least 0.95",
+    "Evaluate file-a; only predict row 0 of file-b if we reach 95% accuracy",
+    "Evaluate file-a; predict row 0 of file-b if accuracy >= .95",
+    "Evaluate file-a; predict row 0 of file-b if accuracy is at least 95 percent",
 ])
 def test_numeric_threshold_binding_does_not_consume_upload_id_digits(files, message):
+    files = {**files, "abc123": files["file-a"]}
+    evaluation_id = "abc123" if "abc123" in message else "file-a"
     service = FakeService(accuracy=0.94)
-    client = FakeClient(tool("evaluate", file_id="file-a"), tool("predict_single", file_id="file-b", row_index=0))
+    client = FakeClient(tool("evaluate", file_id=evaluation_id), tool("predict_single", file_id="file-b", row_index=0))
     output = Agent(service, client).chat(message, {}, files)
     assert "minimum accuracy is 0.95 " in brief(client.requests[0])
     assert output["activity"][-1]["status"] == "blocked"
@@ -279,12 +281,12 @@ def test_classify_word_is_not_a_conditional_trigger(files, message):
 
 
 @pytest.mark.parametrize("message", [
-    "Predict when accuracy is 0.95 or higher",
+    "Evaluate file-a; predict row 0 of file-b when accuracy is 0.95 or higher",
     "Predict row 0 of file-b when the accuracy of file-a is 0.95 or higher",
-    "Predict row 0 of file-b once the evaluation accuracy reaches 95%",
-    "Predict row 0 of file-b as long as accuracy is above 0.95",
-    "Predict row 0 of file-b whenever accuracy is greater than 0.95",
-    "Accuracy must reach 0.95 before you predict row 0 of file-b",
+    "Evaluate file-a; predict row 0 of file-b once the evaluation accuracy reaches 95%",
+    "Evaluate file-a; predict row 0 of file-b as long as accuracy is above 0.95",
+    "Evaluate file-a; predict row 0 of file-b whenever accuracy is greater than 0.95",
+    "Evaluate file-a; accuracy must reach 0.95 before you predict row 0 of file-b",
 ])
 def test_conditions_worded_without_if_still_evaluate_first(files, message):
     # Regression: these were treated as plain predictions, so a model could predict without evaluating.
@@ -299,8 +301,8 @@ def test_conditions_worded_without_if_still_evaluate_first(files, message):
 
 @pytest.mark.parametrize("message", [
     "The previous accuracy of 0.80 was too low. Evaluate file-a; only if accuracy is at least 0.95, predict row 0 of file-b.",
-    "Previous accuracy is 0.80. Predict row 0 of file-b only if accuracy >= 0.95",
-    "Tell me if the previous accuracy of 0.80 was good, and predict row 0 of file-b only if accuracy is at least 0.95",
+    "Previous accuracy is 0.80. Evaluate file-a; predict row 0 of file-b only if accuracy >= 0.95",
+    "Tell me if the previous accuracy of 0.80 was good. Evaluate file-a; predict row 0 of file-b only if accuracy is at least 0.95",
 ])
 def test_an_earlier_accuracy_figure_does_not_become_the_threshold(files, message):
     # Regression: the parser bound 0.80, so an evaluation of 0.90 permitted the prediction.
@@ -316,7 +318,7 @@ def test_an_earlier_accuracy_figure_does_not_become_the_threshold(files, message
 def test_two_accuracy_values_in_the_condition_ask_which_one(files):
     service, client = FakeService(), FakeClient()
     output = Agent(service, client).chat(
-        "Only predict row 0 if accuracy is at least 0.95, up from the previous accuracy of 0.80", {}, files)
+        "Only predict row 0 if accuracy is at least 0.95 or at least 0.80 accuracy", {}, files)
     assert output["error"] == "input"
     assert "more than one accuracy value" in output["reply"] and "0.95" in output["reply"] and "0.8" in output["reply"]
     assert service.calls == [] and client.requests == []
@@ -359,7 +361,7 @@ def test_independent_evaluation_and_batch_in_one_turn_are_allowed(files):
     "If accuracy on file-a is greater than or equal to 0.95, predict row 0 of file-b",
     "Predict row 0 of file-b provided the accuracy on file-a is no less than 0.95",
     "Predict row 0 of file-b if the accuracy of file-a is over 95%",
-    "Only predict row 0 if the accuracy of file-a is 0.95 or higher",
+    "Only predict row 0 of file-b if the accuracy of file-a is 0.95 or higher",
 ])
 def test_comparison_wordings_bind_the_stated_threshold(files, message):
     service = FakeService(accuracy=0.9)
@@ -372,8 +374,8 @@ def test_comparison_wordings_bind_the_stated_threshold(files, message):
 
 
 @pytest.mark.parametrize("message", [
-    "Only predict if accuracy >= 33.3%",
-    "Evaluate first and classify only when accuracy is at least 33.3 percent",
+    "Evaluate file-a; only predict row 0 of file-b if accuracy >= 33.3%",
+    "Evaluate file-a first and classify row 0 of file-b only when accuracy is at least 33.3 percent",
 ])
 def test_decimal_percentage_uses_canonical_user_threshold(files, message):
     service = FakeService(accuracy=0.333)
@@ -389,7 +391,7 @@ def test_prediction_just_below_the_user_threshold_is_blocked(files, accuracy):
     service = FakeService(accuracy=accuracy)
     output = Agent(service, FakeClient(tool("evaluate", file_id="file-a"),
                                        tool("predict_single", file_id="file-b", row_index=0))).chat(
-        "Only predict if accuracy >= 33.3%", {}, files)
+        "Evaluate file-a; only predict row 0 of file-b if accuracy >= 33.3%", {}, files)
     assert [call[0] for call in service.calls] == ["evaluate"]
     assert output["activity"][-1]["status"] == "blocked"
     assert "Prediction withheld" in output["reply"]
@@ -397,9 +399,9 @@ def test_prediction_just_below_the_user_threshold_is_blocked(files, accuracy):
 
 @pytest.mark.parametrize("message", [
     "Evaluate file-a; if at least 95% are classified correctly, predict row 0 of file-b",
-    "If evaluation >= 0.95 then predict row 0 of file-b",
-    "Only when 95 percent correct predictions are obtained, classify row 0",
-    "Evaluate file-a, check if it reaches 95% accuracy, and if so predict row 0 of file-b",
+    "Evaluate file-a; if evaluation >= 0.95 then predict row 0 of file-b",
+    "Evaluate file-a; only when 95 percent correct predictions are obtained, classify row 0 of file-b",
+    "Evaluate file-a; if it reaches 95% accuracy, predict row 0 of file-b",
 ])
 def test_conditional_paraphrases_cannot_bypass_evaluation(files, message):
     service = FakeService()
@@ -429,6 +431,146 @@ def test_if_available_metric_followup_is_not_conditional_prediction(files):
     output = Agent(FakeService(), client).chat("Show accuracy if available", {}, files)
     assert "error" not in output
     assert len(client.requests[0]["tools"]) == 3
+
+
+@pytest.mark.parametrize("message", [
+    "Previous accuracy was 0.8. Evaluate file-a; predict row 0 of file-b only if accuracy is good enough.",
+    "Evaluate file-a; predict row 0 of file-b only if accuracy is good enough (previous accuracy of 0.8).",
+    "Evaluate file-a; predict row 0 of file-b only if accuracy is good enough (yesterday accuracy of 0.8).",
+    "Evaluate file-a; predict row 0 of file-b only if accuracy is good enough, for context accuracy of 0.8.",
+    "Evaluate file-a; if Size > 0.5 classify row 0 of file-b and report accuracy.",
+])
+def test_unstated_accuracy_minimum_never_uses_history_or_feature_conditions(files, message):
+    service, client = FakeService(accuracy=0.9), FakeClient()
+    response = Agent(service, client).chat(message, {}, files)
+    assert response["error"] == "input"
+    assert "numeric accuracy threshold" in response["reply"]
+    assert not service.calls and not client.requests
+
+
+def test_when_finished_is_sequencing_not_an_accuracy_condition(files):
+    service = FakeService()
+    client = FakeClient(tool("evaluate", file_id="file-a"),
+                        tool("predict_single", file_id="file-b", row_index=0), final())
+    response = Agent(service, client).chat(
+        "Evaluate file-a and classify row 0 of file-b; when you are finished, show both results and the accuracy.", {}, files)
+    assert "error" not in response
+    assert [call[0] for call in service.calls] == ["evaluate", "predict_single"]
+    assert client.requests[0]["tool_choice"] == "auto"
+
+
+@pytest.mark.parametrize("wrong_call", [
+    ("evaluate", {"file_id": "file-c"}),
+    ("predict_single", {"file_id": "file-a", "row_index": 0}),
+    ("predict_single", {"file_id": "file-b", "row_index": 7}),
+])
+def test_conditional_contract_blocks_substituted_file_or_row(files, wrong_call):
+    files = {**files, "file-c": {**files["file-a"], "path": Path("/different-evaluation.csv")}}
+    name, args = wrong_call
+    responses = ([tool("evaluate", file_id="file-a")] if name != "evaluate" else []) + [tool(name, **args)]
+    service, client = FakeService(accuracy=0.99), FakeClient(*responses)
+    response = Agent(service, client).chat(
+        "Evaluate file file-a; only if accuracy >= 0.95, predict row 0 of file file-b.", {}, files)
+    assert response["error"] == "tool"
+    assert response["activity"][-1]["status"] == "blocked"
+    assert response["activity"][-1]["arguments"] == args
+    assert "do not match" in response["reply"] and "No prediction was made" in response["reply"]
+    assert [call[0] for call in service.calls] == ([] if name == "evaluate" else ["evaluate"])
+
+
+@pytest.mark.parametrize("message", [
+    "Previous accuracy on file-a was 0.8. Predict row 0 of file-b only if accuracy >= 0.95.",
+    "Evaluate file-a; predict row 0 only if accuracy >= 0.95.",
+    "Evaluate file-a; predict file-b only if accuracy >= 0.95.",
+    "Evaluate file-a and file-b; predict row 0 of file-b only if accuracy >= 0.95.",
+    "Evaluate file file-unknown; predict row 0 of file-b only if accuracy >= 0.95.",
+    "Evaluate file-a; predict row 0 of file-a2 only if accuracy >= 0.95.",
+    "Evaluate file-a; predict row 1.5 of file-b only if accuracy >= 0.95.",
+    "Evaluate file-a; predict row -0.5 of file-b only if accuracy >= 0.95.",
+    "Evaluate file-a; predict row 0/1 of file-b only if accuracy >= 0.95.",
+    "Evaluate file-a; predict row 0 or 1 of file-b only if accuracy >= 0.95.",
+])
+def test_unclear_conditional_targets_need_clarification_before_provider(files, message):
+    service, client = FakeService(), FakeClient()
+    response = Agent(service, client).chat(message, {}, files)
+    assert response["error"] == "input"
+    assert not response["activity"] and not service.calls and not client.requests
+
+
+@pytest.mark.parametrize("message", [
+    "Evaluate file-a; accuracy must be >= 0.95 to predict row 0 of file-b.",
+    "Require at least 0.95 accuracy, then predict row 0 of file-b after evaluating file-a.",
+    "Use a minimum accuracy of 0.95 to classify row 0 of file-b; evaluate file-a first.",
+])
+def test_accuracy_requirements_without_condition_words_still_gate_prediction(files, message):
+    service, client = FakeService(accuracy=0.9), FakeClient(tool("evaluate", file_id="file-a"), final())
+    response = Agent(service, client).chat(message, {}, files)
+    assert "error" not in response
+    assert [call[0] for call in service.calls] == ["evaluate"]
+    assert response["activity"][-1]["status"] == "skipped"
+
+
+def test_one_upload_infers_only_file_identity_and_exposes_bound_tool_schema(files):
+    files = {"file-a": files["file-a"]}
+    service = FakeService(accuracy=0.99)
+    client = FakeClient(tool("evaluate", file_id="file-a"), tool("predict_single", file_id="file-a", row_index=2))
+    response = Agent(service, client).chat("Predict row 2 only if accuracy >= 0.95", {}, files)
+    assert "error" not in response
+    assert service.calls[-1][2] == 2
+    assert client.requests[0]["tools"][0]["parameters"]["properties"]["file_id"]["enum"] == ["file-a"]
+    assert client.requests[1]["tools"][0]["parameters"]["properties"]["row_index"]["enum"] == [2]
+    assert "row_index 2" in brief(client.requests[0])
+
+
+@pytest.mark.parametrize("target", ["file-b", "f" * 32, "01234567890123456789012345678901"])
+def test_one_upload_never_replaces_an_explicit_unknown_target(files, target):
+    files = {"file-a": files["file-a"]}
+    client = FakeClient()
+    response = Agent(FakeService(), client).chat(
+        f"Evaluate file-a; predict row 0 of {target} only if accuracy >= 0.95", {}, files)
+    assert response["error"] == "input"
+    assert "Unknown upload ID" in response["reply"]
+    assert not client.requests
+
+
+@pytest.mark.parametrize("threshold", ["0.95abc", "0e456abc"])
+def test_accuracy_threshold_requires_a_complete_numeric_token(files, threshold):
+    client = FakeClient()
+    response = Agent(FakeService(), client).chat(
+        f"Evaluate file-a; predict row 0 of file-b only if accuracy >= {threshold}", {}, files)
+    assert response["error"] == "input" and not client.requests
+
+
+@pytest.mark.parametrize("history", [
+    "Yesterday accuracy on file-a was 0.8. ",
+    "For context, accuracy on file-a is 0.8. ",
+])
+def test_historical_accuracy_files_cannot_supply_missing_evaluation_target(files, history):
+    client = FakeClient()
+    response = Agent(FakeService(), client).chat(
+        history + "Predict row 0 of file-b only if accuracy >= 0.95", {}, files)
+    assert response["error"] == "input" and "evaluation file ID" in response["reply"]
+    assert not client.requests
+
+
+def test_explicit_new_evaluation_is_not_hidden_by_a_historical_sentence(files):
+    client = FakeClient(tool("evaluate", file_id="file-a"), final())
+    response = Agent(FakeService(), client).chat(
+        "Previous accuracy was 0.8, but now evaluate file-a; predict row 0 of file-b only if accuracy >= 0.95", {}, files)
+    assert "error" not in response
+    assert response["activity"][-1]["status"] == "skipped"
+
+
+@pytest.mark.parametrize("report", [
+    "report whether accuracy is at least 0.95",
+    "tell me if the accuracy is >= 0.95",
+])
+def test_reporting_an_accuracy_comparison_does_not_gate_independent_prediction(files, report):
+    service = FakeService()
+    client = FakeClient(tool("evaluate", file_id="file-a"), tool("predict_single", file_id="file-b", row_index=0), final())
+    response = Agent(service, client).chat("Evaluate file-a and classify row 0 of file-b; " + report, {}, files)
+    assert "error" not in response
+    assert [call[0] for call in service.calls] == ["evaluate", "predict_single"]
 
 
 @pytest.mark.parametrize("name,args", [
@@ -699,7 +841,7 @@ def test_incremental_conditional_events_preserve_order_and_gate(files, accuracy,
     service = FakeService(accuracy)
     client = FakeClient(tool("evaluate", file_id="file-a"),
                         tool("predict_single", file_id="file-b", row_index=0) if status == "success" else final())
-    events = list(Agent(service, client).chat_events("Predict only if accuracy >= 0.9", {}, files))
+    events = list(Agent(service, client).chat_events("Evaluate file-a; predict row 0 of file-b only if accuracy >= 0.9", {}, files))
     trail = [event["activity"] for event in events if event["type"] == "tool"]
     assert [(entry["tool"], entry["status"]) for entry in trail] == (
         [("evaluate", "started"), ("evaluate", "success"), ("predict_single", "skipped")]
