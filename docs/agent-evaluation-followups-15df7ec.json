@@ -1,0 +1,132 @@
+{
+  "run_at_utc": "2026-10-09T16:53:48.156806+00:00",
+  "health": {
+    "commit": "15df7ecbb531394adcc12c4c44a397b7c07d667d",
+    "model_version": "d13e54cf1970-1791236375742615262",
+    "openai_configured": true,
+    "openai_model": "gpt-4.1-mini",
+    "selected_model": "LightGBM",
+    "status": "ok"
+  },
+  "provider": "OpenAI",
+  "model": "gpt-4.1-mini",
+  "setup_prompt": "Evaluate file 0a1d2e5ad5b44aeb9ece3b2bc67b217e; only if accuracy is at least 0.9, predict row 0 of file b24e33937a364cc1bf2d5658441e707e.",
+  "setup": {
+    "activity": [
+      {
+        "arguments": {
+          "file_id": "0a1d2e5ad5b44aeb9ece3b2bc67b217e"
+        },
+        "result_id": "ecd2e4a501fa45818ef6c8ff9e6979e4",
+        "status": "success",
+        "tool": "evaluate"
+      },
+      {
+        "arguments": {
+          "file_id": "b24e33937a364cc1bf2d5658441e707e",
+          "row_index": 0
+        },
+        "reason": "Prediction withheld: accuracy 0.000000 is below the required 0.900000.",
+        "status": "skipped",
+        "tool": "predict_single"
+      }
+    ],
+    "reply": "Prediction withheld: accuracy 0.000000 is below the required 0.900000, so the agent did not call predict_single.\n\nAccuracy: 0.000000. AUC: unavailable (evaluation requires both classes for AUC). Confusion matrix (true rows / predicted columns, goodware then malware): [[0, 0], [1, 0]]. True negatives: 0 goodware files predicted as goodware; false positives: 0 goodware files predicted as malware; false negatives: 1 malware files predicted as goodware; true positives: 0 malware files predicted as malware. Evaluated 1 of 1 rows; 0 excluded (missing labels 0, invalid labels 0). Labeled class counts: goodware 0, malware 1.",
+    "results": [
+      {
+        "accuracy": 0.0,
+        "auc": null,
+        "auc_reason": "AUC requires both classes among the evaluated labels",
+        "class_counts": {
+          "0": 0,
+          "1": 1
+        },
+        "confusion_matrix": [
+          [
+            0,
+            0
+          ],
+          [
+            1,
+            0
+          ]
+        ],
+        "confusion_matrix_order": [
+          0,
+          1
+        ],
+        "evaluated_count": 1,
+        "evaluation_coverage": 1.0,
+        "feature_valid_count": 1,
+        "file_id": "0a1d2e5ad5b44aeb9ece3b2bc67b217e",
+        "invalid_count": 0,
+        "invalid_label_count": 0,
+        "invalid_rows": [],
+        "invalid_rows_truncated": false,
+        "missing_label_count": 0,
+        "model_version": "d13e54cf1970-1791236375742615262",
+        "result_id": "ecd2e4a501fa45818ef6c8ff9e6979e4",
+        "threshold": 0.5,
+        "tool": "evaluate",
+        "total_count": 1,
+        "valid_count": 1
+      }
+    ]
+  },
+  "scenario_count": 4,
+  "passed_count": 2,
+  "records": [
+    {
+      "prompt": "How many malware samples did it miss?",
+      "observed": {
+        "activity": [],
+        "reply": "Accuracy: 0.000000. AUC: unavailable (evaluation requires both classes for AUC). False negatives: 1 malware files predicted as goodware. The false negative rate is 1.000000 (1 / 1 evaluated malware files). Evaluated 1 of 1 rows; 0 excluded (missing labels 0, invalid labels 0).",
+        "results": []
+      },
+      "numbers": {
+        "checked": 2,
+        "unmatched": []
+      },
+      "passed": true
+    },
+    {
+      "prompt": "Explain what the evaluation found.",
+      "observed": {
+        "activity": [],
+        "reply": "Feature-level explanations are unavailable: this app has no explanation tool. Only the saved ML model produces classifications.",
+        "results": []
+      },
+      "numbers": {
+        "checked": 0,
+        "unmatched": []
+      },
+      "passed": false
+    },
+    {
+      "prompt": "What did the classifier miss?",
+      "observed": {
+        "activity": [],
+        "reply": "Accuracy: 0.000000. AUC: unavailable (evaluation requires both classes for AUC). False negatives: 1 malware files predicted as goodware. The false negative rate is 1.000000 (1 / 1 evaluated malware files). Evaluated 1 of 1 rows; 0 excluded (missing labels 0, invalid labels 0).",
+        "results": []
+      },
+      "numbers": {
+        "checked": 2,
+        "unmatched": []
+      },
+      "passed": true
+    },
+    {
+      "prompt": "Did it correctly identify all malware?",
+      "observed": {
+        "activity": [],
+        "reply": "Accuracy: 0.000000. AUC: unavailable (evaluation requires both classes for AUC). True positives: 0 malware files predicted as malware. The true positive rate is 0.000000 (0 / 1 evaluated malware files). Evaluated 1 of 1 rows; 0 excluded (missing labels 0, invalid labels 0).",
+        "results": []
+      },
+      "numbers": {
+        "checked": 2,
+        "unmatched": []
+      },
+      "passed": false
+    }
+  ]
+}

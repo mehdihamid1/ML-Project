@@ -1,0 +1,173 @@
+{
+  "recorded_at_utc": "2026-10-09T17:02:41.051208+00:00",
+  "team_approval_confirmed": true,
+  "temporary_test": {
+    "path": "tests/test_deploy_gate_proof.py",
+    "name": "test_intentional_deploy_gate_proof",
+    "assertion": "Intentional approved deploy-gate proof; revert this commit."
+  },
+  "phases": {
+    "baseline": {
+      "commit": "15df7ecbb531394adcc12c4c44a397b7c07d667d",
+      "run_id": 37961560594,
+      "run_url": "https://github.com/mehdihamid1/ML-Project/actions/runs/37961560594",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "test",
+          "databaseId": 113925396199,
+          "url": "https://github.com/mehdihamid1/ML-Project/actions/runs/37961560594/job/113925396199",
+          "conclusion": "success"
+        },
+        {
+          "name": "container-test",
+          "databaseId": 113925396558,
+          "url": "https://github.com/mehdihamid1/ML-Project/actions/runs/37961560594/job/113925396558",
+          "conclusion": "success"
+        },
+        {
+          "name": "runtime-test",
+          "databaseId": 113925396797,
+          "url": "https://github.com/mehdihamid1/ML-Project/actions/runs/37961560594/job/113925396797",
+          "conclusion": "success"
+        },
+        {
+          "name": "deploy",
+          "databaseId": 113926049251,
+          "url": "https://github.com/mehdihamid1/ML-Project/actions/runs/37961560594/job/113926049251",
+          "conclusion": "success"
+        }
+      ],
+      "health_observation": {
+        "observed_at_utc": "2026-10-09T16:53:10.825160+00:00",
+        "url": "https://quantic-malware-agent.onrender.com/health",
+        "http_status": 200,
+        "health": {
+          "commit": "15df7ecbb531394adcc12c4c44a397b7c07d667d",
+          "model_version": "d13e54cf1970-1791236375742615262",
+          "openai_configured": true,
+          "openai_model": "gpt-4.1-mini",
+          "selected_model": "LightGBM",
+          "status": "ok"
+        }
+      }
+    },
+    "blocked": {
+      "commit": "aa10de384855fc2c947795cca5653099b18138fa",
+      "run_id": 37962332078,
+      "run_url": "https://github.com/mehdihamid1/ML-Project/actions/runs/37962332078",
+      "conclusion": "failure",
+      "jobs": [
+        {
+          "name": "test",
+          "databaseId": 113928022755,
+          "url": "https://github.com/mehdihamid1/ML-Project/actions/runs/37962332078/job/113928022755",
+          "conclusion": "failure"
+        },
+        {
+          "name": "runtime-test",
+          "databaseId": 113928023119,
+          "url": "https://github.com/mehdihamid1/ML-Project/actions/runs/37962332078/job/113928023119",
+          "conclusion": "failure"
+        },
+        {
+          "name": "container-test",
+          "databaseId": 113928023132,
+          "url": "https://github.com/mehdihamid1/ML-Project/actions/runs/37962332078/job/113928023132",
+          "conclusion": "success"
+        },
+        {
+          "name": "deploy",
+          "databaseId": 113928556684,
+          "url": "https://github.com/mehdihamid1/ML-Project/actions/runs/37962332078/job/113928556684",
+          "conclusion": "skipped"
+        }
+      ],
+      "health_observation": {
+        "observed_at_utc": "2026-10-09T16:56:03.298350+00:00",
+        "url": "https://quantic-malware-agent.onrender.com/health",
+        "http_status": 200,
+        "health": {
+          "commit": "15df7ecbb531394adcc12c4c44a397b7c07d667d",
+          "model_version": "d13e54cf1970-1791236375742615262",
+          "openai_configured": true,
+          "openai_model": "gpt-4.1-mini",
+          "selected_model": "LightGBM",
+          "status": "ok"
+        }
+      }
+    },
+    "restored": {
+      "commit": "03efab737086d8811920cdb50df4d49dad6c1dcd",
+      "run_id": 37962725985,
+      "run_url": "https://github.com/mehdihamid1/ML-Project/actions/runs/37962725985",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "container-test",
+          "databaseId": 113929361741,
+          "url": "https://github.com/mehdihamid1/ML-Project/actions/runs/37962725985/job/113929361741",
+          "conclusion": "success"
+        },
+        {
+          "name": "test",
+          "databaseId": 113929361953,
+          "url": "https://github.com/mehdihamid1/ML-Project/actions/runs/37962725985/job/113929361953",
+          "conclusion": "success"
+        },
+        {
+          "name": "runtime-test",
+          "databaseId": 113929361995,
+          "url": "https://github.com/mehdihamid1/ML-Project/actions/runs/37962725985/job/113929361995",
+          "conclusion": "success"
+        },
+        {
+          "name": "deploy",
+          "databaseId": 113929871106,
+          "url": "https://github.com/mehdihamid1/ML-Project/actions/runs/37962725985/job/113929871106",
+          "conclusion": "success"
+        }
+      ],
+      "health_observation": {
+        "observed_at_utc": "2026-10-09T17:01:17.522834+00:00",
+        "url": "https://quantic-malware-agent.onrender.com/health",
+        "http_status": 200,
+        "health": {
+          "commit": "03efab737086d8811920cdb50df4d49dad6c1dcd",
+          "model_version": "d13e54cf1970-1791236375742615262",
+          "openai_configured": true,
+          "openai_model": "gpt-4.1-mini",
+          "selected_model": "LightGBM",
+          "status": "ok"
+        }
+      }
+    }
+  },
+  "failure_evidence": {
+    "test": {
+      "job_url": "https://github.com/mehdihamid1/ML-Project/actions/runs/37962332078/job/113928022755",
+      "log_excerpt": [
+        "test\tUnit, integration and mocked-agent tests\t2026-10-09T16:54:31.7840103Z E       AssertionError: Intentional approved deploy-gate proof; revert this commit.",
+        "test\tUnit, integration and mocked-agent tests\t2026-10-09T16:54:31.7851510Z FAILED tests/test_deploy_gate_proof.py::test_intentional_deploy_gate_proof - AssertionError: Intentional approved deploy-gate proof; revert this commit.",
+        "test\tUnit, integration and mocked-agent tests\t2026-10-09T16:54:31.7851882Z 1 failed, 447 passed, 13 warnings in 8.84s"
+      ]
+    },
+    "runtime-test": {
+      "job_url": "https://github.com/mehdihamid1/ML-Project/actions/runs/37962332078/job/113928023119",
+      "log_excerpt": [
+        "runtime-test\tRuntime unit, integration and mocked-agent tests\t2026-10-09T16:54:07.2936890Z E       AssertionError: Intentional approved deploy-gate proof; revert this commit.",
+        "runtime-test\tRuntime unit, integration and mocked-agent tests\t2026-10-09T16:54:07.2939630Z FAILED tests/test_deploy_gate_proof.py::test_intentional_deploy_gate_proof - AssertionError: Intentional approved deploy-gate proof; revert this commit.",
+        "runtime-test\tRuntime unit, integration and mocked-agent tests\t2026-10-09T16:54:07.2940668Z 1 failed, 436 passed in 7.85s"
+      ]
+    }
+  },
+  "checks": {
+    "only_temporary_test_changed": true,
+    "deploy_job_skipped_without_steps": true,
+    "live_commit_unchanged_after_failed_run": true,
+    "temporary_test_removed": true,
+    "canonical_git_revert": true,
+    "restored_tree_matches_baseline": true,
+    "restored_ci_and_exact_commit_health_passed": true
+  }
+}

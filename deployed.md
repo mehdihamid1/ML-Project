@@ -6,9 +6,10 @@ The app is live at <https://quantic-malware-agent.onrender.com/>. On
 2026-10-09, its [/health](https://quantic-malware-agent.onrender.com/health)
 reported `status: ok`, `selected_model: LightGBM`, `openai_configured: true`,
 `openai_model: gpt-4.1-mini`, model version `d13e54cf1970-1791236375742615262`
-and commit [`2bf449b`](https://github.com/mehdihamid1/ML-Project/commit/2bf449b).
+and commit [`03efab7`](https://github.com/mehdihamid1/ML-Project/commit/03efab7)
+at `2026-10-09T17:01:17+00:00`, after the controlled failure was reverted.
 
-Observed [GitHub Actions run 37957260512](https://github.com/mehdihamid1/ML-Project/actions/runs/37957260512)
+Observed [GitHub Actions run 37962725985](https://github.com/mehdihamid1/ML-Project/actions/runs/37962725985)
 for that commit:
 
 | Check | Observed result |
@@ -20,10 +21,47 @@ for that commit:
 | Live `/health` smoke test | Passed. |
 | Overall workflow | Passed. |
 
-The real-LLM run of the 15 evaluation scenarios against that deployment
-(Run 6) passed 14 of 15; a stored-result follow-up triggered an unrequested
-prediction. The server guard is tested locally and will be evaluated again
-after deployment; see [agent-evaluation.md](agent-evaluation.md).
+The final code commit `15df7ec` passed all 15 real-LLM scenarios (Run 7),
+with all 27 numeric checks matching. The revert restores exactly that file
+tree. Additional paraphrases are recorded with their limitations in
+[agent-evaluation.md](agent-evaluation.md).
+
+## Observed blocked deployment
+
+The user confirmed team approval before the controlled push to `main` on
+2026-10-09. Commit
+[`aa10de3`](https://github.com/mehdihamid1/ML-Project/commit/aa10de384855fc2c947795cca5653099b18138fa)
+added only `tests/test_deploy_gate_proof.py`, containing an assertion that
+deliberately fails with:
+
+```text
+Intentional approved deploy-gate proof; revert this commit.
+```
+
+| Phase | Commit | CI run | Test jobs | Deploy | Live health |
+| --- | --- | --- | --- | --- | --- |
+| Healthy baseline | `15df7ec` | [37961560594](https://github.com/mehdihamid1/ML-Project/actions/runs/37961560594) | Passed | Passed | `ok`, commit `15df7ec` |
+| Intentional failure | `aa10de3` | [37962332078](https://github.com/mehdihamid1/ML-Project/actions/runs/37962332078) | Failed on the temporary test | Skipped | `ok`, still commit `15df7ec` |
+| Revert and recovery | `03efab7` | [37962725985](https://github.com/mehdihamid1/ML-Project/actions/runs/37962725985) | Passed | Passed | `ok`, commit `03efab7` |
+
+The [full test job](https://github.com/mehdihamid1/ML-Project/actions/runs/37962332078/job/113928022755)
+reported 1 deliberate failure and 447 passes; the
+[runtime test job](https://github.com/mehdihamid1/ML-Project/actions/runs/37962332078/job/113928023119)
+reported 1 deliberate failure and 436 passes. The production-container job
+passed. The [deploy job](https://github.com/mehdihamid1/ML-Project/actions/runs/37962332078/job/113928556684)
+was skipped with no steps started, so its deploy hook was never invoked.
+After the failed workflow completed, live health at
+`2026-10-09T16:56:03+00:00` still reported the baseline commit.
+
+`git revert --no-edit aa10de384855fc2c947795cca5653099b18138fa` created
+[`03efab7`](https://github.com/mehdihamid1/ML-Project/commit/03efab737086d8811920cdb50df4d49dad6c1dcd).
+The temporary test is removed; the restored tree exactly matches the baseline.
+Local `pytest` passed 447 tests, the recovery workflow passed all jobs, and
+the subsequent live health check reported the exact revert commit.
+
+[Recorded evidence](docs/deploy-gate-proof.json) includes full commit IDs,
+workflow and job URLs, sanitized failure excerpts, and timestamped health
+responses before failure, after the skipped deploy, and after recovery.
 
 ## Render setup
 

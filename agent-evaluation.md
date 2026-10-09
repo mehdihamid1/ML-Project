@@ -5,9 +5,10 @@ push and check routing, failures and safety rules deterministically. Separately,
 scenario runs use the real OpenAI model through the deployed app; those are the
 real-LLM evidence below.
 
-**Latest result:** Run 6, on 2026-10-09 against the live site at commit
-`2bf449b` with `gpt-4.1-mini` and the stronger runner, passed **14 of 15**
-scenarios. A stored-result follow-up triggered an unrequested prediction.
+**Latest result:** Run 7, on 2026-10-09 against the live site at commit
+`15df7ec` with `gpt-4.1-mini` and the stronger runner, passed **15 of 15**
+scenarios; all **27 numeric checks** matched. Four supplemental follow-up
+paraphrases ran no tools, though one summary request was unnecessarily refused.
 Earlier runs are kept below, including passing runs and failures.
 
 ## How a real-LLM run works
@@ -357,8 +358,38 @@ disabled for that turn, compatible session evidence is scoped to explicit
 references, and a provider function call is intercepted before validation or
 execution. Explicit requests to evaluate or classify again still run tools.
 Adversarial mocked-provider tests cover attempts to run all three tools after
-a withheld prediction. A fresh real-provider run must verify this change after
-deployment.
+a withheld prediction. Run 7 below verifies the deployed change.
+
+## Run 7: live site at commit `15df7ec`, 2026-10-09
+
+The runner used the deployed app at `2026-10-09T16:51:55+00:00`, after
+[CI run 37961560594](https://github.com/mehdihamid1/ML-Project/actions/runs/37961560594)
+passed and deployed `15df7ecbb531394adcc12c4c44a397b7c07d667d`.
+The [generated report](docs/agent-evaluation-live-15df7ec.md) records
+**15 of 15 scenarios passed** and **27 of 27 numeric checks matched**.
+Classifications and batch downloads matched the independent frozen LightGBM
+reference; model and sample checksums were unchanged. The false-negative
+follow-up used the stored evaluation, with no activity or new results.
+
+Four additional real-provider questions followed an accuracy-0 evaluation
+whose requested prediction was withheld against a minimum accuracy of 0.9.
+The [raw supplemental observations](docs/agent-evaluation-followups-15df7ec.json)
+are preserved separately from the standard runner:
+
+| Question | Tool execution | Observed answer |
+| --- | --- | --- |
+| How many malware samples did it miss? | None | Correct false-negative count and rate. |
+| Explain what the evaluation found. | None | Unnecessary refusal about feature explanations; did not summarize the evaluation. |
+| What did the classifier miss? | None | Correct false-negative count and rate. |
+| Did it correctly identify all malware? | None | Correct true-positive count and rate: 0 of 1 evaluated malware files. |
+
+All four preserved the no-new-tools boundary. The supplemental script's strict
+check required the false-negative text for every question and recorded 2 of 4
+passing that check. The last answer instead supplied the correct true-positive
+statistic, which answers its question; the second answer remains a usability
+failure. These observations are not counted as extra passes in Run 7.
+Small scenario runs demonstrate the recorded cases, not universal language
+understanding.
 
 ## Mocked tests in CI
 

@@ -43,7 +43,7 @@ documentation and its Blueprint schema. It rebuilt both Docker images, verified
 authenticated Jupyter access, and added a reproducible production HTTP probe
 using an actual memory-limited Gunicorn container. The probe's provider is a
 local stub, while model predictions, metrics and downloads use production code.
-The latest local full and lean runtime suites pass 426 and 436 tests respectively.
+The latest local full and lean runtime suites pass 447 and 436 tests respectively.
 
 Claude Code (Anthropic) performed that review and checked its findings with
 read-only experiments: phrasing checks against the conditional detector and an
@@ -180,4 +180,9 @@ insufficient. Codex disabled tools for stored-result questions and added a
 server guard before any execution, with adversarial tests for all three tools,
 explicit fresh requests and scoped session references. Team approval was
 confirmed for a controlled failing-test commit to demonstrate the deployment
-gate; its observed runs will be recorded in `deployed.md`.
+gate. The final guard requires an affirmative new request before enabling
+tools after stored results exist, covering paraphrases without named metrics.
+Live Run 7 passed all 15 scenarios and all 27 numeric checks; four additional
+follow-ups ran no tools, with one unnecessary refusal and one correct
+true-positive answer rejected by the supplemental script's narrower text check.
+The blocked-deploy experiment and its revert are recorded in `deployed.md`.

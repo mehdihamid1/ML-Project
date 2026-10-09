@@ -209,10 +209,10 @@ training outputs are excluded from Git. A byte-for-byte copy of the small
 trusted production model is
 bundled under `models/` for the app. The tools, OpenAI agent and Flask application
 are implemented and deployed. In
-[CI run 37956413667](https://github.com/mehdihamid1/ML-Project/actions/runs/37956413667),
+[CI run 37961560594](https://github.com/mehdihamid1/ML-Project/actions/runs/37961560594),
 the test, runtime-test and container-test jobs passed, then the
-[deploy job](https://github.com/mehdihamid1/ML-Project/actions/runs/37956413667/job/113908724809)
-deployed commit `d9ecab7` and its live `/health` check passed. Real-provider
+[deploy job](https://github.com/mehdihamid1/ML-Project/actions/runs/37961560594/job/113926049251)
+deployed commit `15df7ec` and its live `/health` check passed. Real-provider
 evidence is in [agent-evaluation.md](agent-evaluation.md).
 
 ## Agent and runtime design
@@ -428,11 +428,13 @@ model would add cost and latency without changing any number in a reply,
 because Python computes them all.
 
 The live runs measure the choice: with `gpt-4.1-mini`, Runs 3 and 5 passed
-all 15 scenarios and Run 4 passed 14 ([agent-evaluation.md](agent-evaluation.md)).
+all 15 scenarios and Runs 4 and 6 passed 14 ([agent-evaluation.md](agent-evaluation.md)).
 Run 4's miss was an unneeded tool call with a correct answer. Clearer
 instructions passed Run 5, but the independent Run 6 again made an unrequested
 tool call, this time a prediction after an earlier withheld prediction. The
-server now enforces stored-result follow-ups with tools disabled. Whatever the
+server now enforces stored-result follow-ups with tools disabled. Run 7 passed
+all 15 standard scenarios; four extra paraphrases ran no tools, with one
+unnecessary refusal of an evaluation-summary question. Whatever the
 model, the server checks its conditional decision and blocks a disallowed
 prediction. The agent also accepts reasoning models through `OPENAI_MODEL`,
 replaying their encrypted reasoning between tool calls, but only
