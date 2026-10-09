@@ -15,8 +15,8 @@ under `docs/`, so a clean checkout can run the app without retraining.
 ## Current status
 
 The tools, OpenAI agent, Flask app, sample CSVs and deployment workflow are
-implemented. Plain `pytest` passes all 460 tests locally; the lean runtime
-suite passes 449 tests.
+implemented. Plain `pytest` passes all 463 tests locally; the lean runtime
+suite passes 452 tests.
 
 The final code change, [`15df7ec`](https://github.com/mehdihamid1/ML-Project/commit/15df7ec), was
 deployed by [GitHub Actions run 37961560594](https://github.com/mehdihamid1/ML-Project/actions/runs/37961560594):
@@ -94,7 +94,9 @@ visible while the file column scrolls on its own. Phones show the chat after
 the file list.
 Follow-up questions use stored session results. A question about specific
 rows, such as “Is row 2 malware?” after a batch, classifies those rows with
-`predict_single` unless a stored prediction already answers it.
+`predict_single` unless a stored prediction already answers it. Asked about a
+row whose prediction was withheld, the agent says no prediction was made and
+why, without running one.
 Confusion-matrix follow-ups name false negatives, false positives, true negatives
 and true positives, with counts and rates calculated in code. Ordinary “tell me
 if it is malware” requests work, and evaluation and classification can be

@@ -307,8 +307,11 @@ classification: a stored prediction of those rows answers it, and otherwise
 `predict_single` may run, so per-record questions after a batch work. Asked in
 the past tense ("What was the prediction for row 0?"), it gets a tool only for
 rows a stored batch already classified, so a follow-up cannot carry out a
-prediction that a condition withheld. If the model declines a stored-result
-question as a feature explanation, the reply still shows the stored result.
+prediction that a condition withheld. Asked about a row whose prediction was
+withheld or blocked, the reply says no prediction was made and gives the
+recorded reason. If the model declines a stored-result question as a feature
+explanation or answers it with usage help, the reply still shows the stored
+result.
 Known tool validation errors explain the
 problem; unexpected exceptions remain sanitized.
 

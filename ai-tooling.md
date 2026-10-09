@@ -43,7 +43,7 @@ documentation and its Blueprint schema. It rebuilt both Docker images, verified
 authenticated Jupyter access, and added a reproducible production HTTP probe
 using an actual memory-limited Gunicorn container. The probe's provider is a
 local stub, while model predictions, metrics and downloads use production code.
-The latest local full and lean runtime suites pass 460 and 449 tests respectively.
+The latest local full and lean runtime suites pass 463 and 452 tests respectively.
 
 Claude Code (Anthropic) performed that review and checked its findings with
 read-only experiments: phrasing checks against the conditional detector and an
@@ -194,5 +194,7 @@ any question after a stored result disabled tools. Claude Code kept the guard
 but let a question naming specific rows classify them unless a stored
 prediction already answers it; past-tense row questions get a tool only for
 rows a stored batch classified, so a withheld prediction stays withheld. A
-stored-result question the model declines as a feature explanation now also
-shows the stored result. Regression tests cover both cases.
+stored-result question the model declines as a feature explanation, or
+answers with usage help, now also shows the stored result, and a question about
+a withheld row says no prediction was made and why. Regression tests cover
+these cases.

@@ -428,9 +428,7 @@ def _stored_followup(message, stored, files):
     # predict_single. Past-tense row questions ("What was the prediction for
     # row 0?") get a tool only for rows a stored batch already classified, so
     # they cannot run a prediction that a condition withheld.
-    rows = {int(number) for match in re.finditer(
-        r"\brow(?:s|_index)?\s*[=:]?\s*((?:\d+\s*(?:,|and|or|&)?\s*)+)", affirmative)
-        for number in re.findall(r"\d+", match.group(1))}
+    rows = _named_rows(affirmative)
     if rows and not unknown_file and not result_refs and set(focuses) <= {"prediction"}:
         in_scope = [r for r in stored if not file_refs or r.get("file_id") in file_refs]
         answered = [r for r in in_scope if r.get("tool") == "predict_single" and r.get("row_index") in rows]
@@ -439,6 +437,28 @@ def _stored_followup(message, stored, files):
         if not prior or any(r.get("tool") == "predict_batch" for r in in_scope):
             return None
     return {"results": candidates, "focus": focuses[0] if len(focuses) == 1 else "summary"}
+
+
+def _named_rows(text):
+    """Row indexes a message names, as in "row 2", "rows 1 and 3" or "row_index: 0"."""
+    return {int(number) for match in re.finditer(
+        r"\brow(?:s|_index)?\s*[=:]?\s*((?:\d+\s*(?:,|and|or|&)?\s*)+)", text.lower())
+        for number in re.findall(r"\d+", match.group(1))}
+
+
+def _withheld_rows(message, activity):
+    """Say so when a named row's latest prediction request was withheld or blocked.
+
+    Upload names stay out of the reply; the activity record identifies the file.
+    """
+    rows, latest = _named_rows(message), {}
+    for entry in activity:
+        args = entry.get("arguments") or {}
+        if entry.get("tool") == "predict_single" and args.get("row_index") in rows:
+            latest[args["row_index"]] = entry
+    return [f"Row {row}: no prediction was made. {entry['reason']}"
+            for row, entry in sorted(latest.items())
+            if entry.get("status") in ("skipped", "blocked") and entry.get("reason")]
 
 
 class Agent:
@@ -773,8 +793,11 @@ class Agent:
                 return self._finish(str(exc), state, message, activity, results, "input")
         followup = None if conditional else _stored_followup(message, state["results"], files)
         evidence = followup["results"] if followup is not None else state["results"]
+        # "What was the prediction for row 0?" after a withheld prediction is
+        # answered from the activity record: no prediction was made, and why.
+        notes = "\n".join(_withheld_rows(message, state.get("activity", []))) if followup is not None else ""
         if followup is not None and not evidence:
-            return self._finish("That result reference is unavailable in this session. Identify a stored result, or explicitly request a new evaluation or classification.", state, message, activity, results)
+            return self._finish(notes or "That result reference is unavailable in this session. Identify a stored result, or explicitly request a new evaluation or classification.", state, message, activity, results)
         context = {
             "registered_files": [{"file_id": file_id, "name": str(entry.get("name", "upload.csv"))[:120]} for file_id, entry in list(files.items())[:20]],
             "session_results": [self._summary(r) for r in evidence[-20:]],
@@ -824,7 +847,7 @@ class Agent:
                     reply = self._render(evidence[0], followup["focus"])
                 else:
                     reply = "Choose the stored result you mean. No new evaluation or prediction was run."
-                return self._finish(reply, state, message, activity, results)
+                return self._finish(notes + "\n\n" + reply if notes else reply, state, message, activity, results)
             if not calls:
                 if conditional and evaluation is None:
                     reason = "The conditional task was not executed: the evaluation tool was not called. No new prediction was made."
@@ -849,6 +872,9 @@ class Agent:
                 if followup is not None:
                     try:
                         selection = json.loads(response_text)
+                        if isinstance(selection, dict) and selection.get("kind") in ("help", "need_upload"):
+                            # The question is about stored results, so usage help is no answer.
+                            selection = {"kind": "results", "result_ids": [evidence[-1]["result_id"]], "focus": followup["focus"]}
                         if isinstance(selection, dict) and selection.get("kind") == "results":
                             if selection.get("result_ids") == [] and len(evidence) == 1:
                                 selection["result_ids"] = [evidence[0]["result_id"]]
@@ -865,6 +891,8 @@ class Agent:
                 reply = self._render_response(response_text, render_state, results)
                 if shown:
                     reply += "\n\n" + "\n\n".join(self._render(r, followup["focus"]) for r in shown)
+                if notes:
+                    reply = notes + "\n\n" + reply
                 return self._finish(reply, state, message, activity, results)
             # No parallel execution, so the activity record keeps the decision order.
             if len(calls) != 1:

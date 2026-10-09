@@ -865,6 +865,21 @@ def test_refused_summary_followup_still_shows_the_stored_result(files):
     assert client.requests[0]["tools"] == [] and client.requests[0]["tool_choice"] == "none"
 
 
+@pytest.mark.parametrize("kind", ["help", "need_upload", "results"])
+def test_past_question_about_a_withheld_row_says_no_prediction_was_made(files, kind):
+    # Live finding: the model answered "What was the prediction for row 0?" with usage help.
+    state, service = {}, FakeService(accuracy=0, confusion_matrix=[[0, 0], [1, 0]])
+    Agent(service, FakeClient(tool("evaluate", file_id="file-a"), final())).chat(
+        "Evaluate file-a; predict row 0 of file-b only if accuracy >= 0.9", state, files)
+    client = FakeClient(final(kind=kind))
+    output = Agent(service, client).chat("What was the prediction for row 0?", state, files)
+    assert output["reply"].startswith(
+        "Row 0: no prediction was made. Prediction withheld: accuracy 0.000000 is below the required 0.900000.")
+    assert "Accuracy: 0.000000" in output["reply"]
+    assert [call[0] for call in service.calls] == ["evaluate"] and not output["activity"]
+    assert client.requests[0]["tools"] == [] and client.requests[0]["tool_choice"] == "none"
+
+
 @pytest.mark.parametrize("focus", ["accuracy", "auc", "counts", "false_negatives"])
 def test_new_evaluation_reports_every_metric_whatever_the_focus(files, focus):
     # Run 2 regression: the model picked the accuracy focus, so AUC and the matrix went unreported.
