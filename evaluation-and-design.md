@@ -276,7 +276,12 @@ the server never predicts on the model's behalf. A failed evaluation stops the
 task without a prediction. The activity record shows each step: `evaluate`,
 then `predict_single` as finished, skipped (withheld) or blocked.
 Thresholds are bound to explicit user input; an ambiguous condition requests
-clarification instead of guessing. Follow-ups select stored result references.
+clarification instead of guessing. Conditions worded without "if", such as
+"predict when accuracy is 0.95 or higher", are recognized too. The threshold is
+read from the condition itself, from its first condition word on, so a figure
+mentioned earlier ("the previous accuracy of 0.80") cannot become the
+threshold; two different values in the condition prompt a clarification
+question. Follow-ups select stored result references.
 Pasted CSVs are directed to the upload route before a provider call.
 Descriptive requests such as “tell me if it is malware” are ordinary prediction
 requests. Independent evaluation and classification can run in the same turn.

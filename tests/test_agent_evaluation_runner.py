@@ -55,16 +55,21 @@ class ScriptedBackend:
             }})
         inputs = body["input"]
         prompt = [item["content"] for item in inputs if item.get("role") == "user"][-1]
-        condition = re.search(r"only if accuracy is at least ([0-9.]+), predict row (\d+) of file (\w+)", prompt)
+        brief = [item["content"] for item in inputs if item.get("role") == "developer" and "Conditional request" in item["content"]]
         if inputs[-1].get("type") == "function_call_output":
             result = json.loads(inputs[-1]["output"])
-            if condition and result["tool"] == "evaluate":
+            if brief and result["tool"] == "evaluate":
+                threshold = float(re.search(r"minimum accuracy is ([0-9.e-]+)", brief[-1]).group(1))
+                target = re.search(r"predict row (\d+) of file (\w+)", prompt, re.I)
                 complete = (result["evaluated_count"] == result["total_count"] and not any(
                     result[key] for key in ("invalid_count", "missing_label_count", "invalid_label_count")))
                 # A correct model reads the returned accuracy before deciding; a misrouted one predicts anyway.
-                if self.mode == "misrouted_conditional" or (complete and result["accuracy"] >= float(condition.group(1))):
-                    return self.function("predict_single", {"file_id": condition.group(3), "row_index": int(condition.group(2))})
+                if self.mode == "misrouted_conditional" or (complete and result["accuracy"] >= threshold):
+                    return self.function("predict_single", {"file_id": target.group(2), "row_index": int(target.group(1))})
             return self.final(ids=[result["result_id"]])
+        if body.get("tool_choice") != "auto":
+            # The server forces evaluate first for a conditional request.
+            return self.function("evaluate", {"file_id": re.search(r"(?:evaluate file|accuracy of file) (\w+)", prompt, re.I).group(1)})
         if "false negatives" in prompt:
             context = json.loads(inputs[0]["content"].partition(": ")[2])
             result_id = context["session_results"][-1]["result_id"] if context["session_results"] else "no-result"
@@ -117,11 +122,11 @@ def test_runner_exercises_sdk_function_calls_structured_responses_and_real_tools
     output = tmp_path / "report"
     assert run(output) is True
     report = read_report(output)
-    assert report["scenario_count"] == len(report["records"]) == 13
-    assert report["passed_count"] == 13
+    assert report["scenario_count"] == len(report["records"]) == 15
+    assert report["passed_count"] == 15
     assert all(item["passed"] for item in report["records"])
     assert (output / "report.md").is_file()
-    assert "13 of 13 scenarios passed" in (output / "report.md").read_text()
+    assert "15 of 15 scenarios passed" in (output / "report.md").read_text()
     # Each reply's six-decimal numbers were compared with the tool output.
     assert sum(item["numbers"]["checked"] for item in report["records"]) > 5
     assert record(report, "Conditional: prediction withheld")["observed_tools"] == [["evaluate", "success"], ["predict_single", "skipped"]]
@@ -144,7 +149,7 @@ def test_runner_marks_stale_followup_failed_even_when_other_scenarios_pass(tmp_p
     backend_factory("stale_followup")
     assert run(tmp_path / "report") is False
     report = read_report(tmp_path / "report")
-    assert report["passed_count"] == 12
+    assert report["passed_count"] == 14
     followup = record(report, "False-negative follow-up")
     assert not followup["passed"]
     assert "unavailable in this session" in followup["observed"]["reply"]
@@ -154,10 +159,11 @@ def test_runner_records_a_model_that_predicts_despite_the_condition(tmp_path, ba
     backend_factory("misrouted_conditional")
     assert run(tmp_path / "report") is False
     report = read_report(tmp_path / "report")
-    assert report["scenario_count"] == 13 and report["passed_count"] == 12
+    assert report["scenario_count"] == 15 and report["passed_count"] == 13
     withheld = record(report, "Conditional: prediction withheld")
     assert withheld["observed_tools"] == [["evaluate", "success"], ["predict_single", "blocked"]]
     assert not withheld["passed"] and "differ from the expected tools" in withheld["failure"]
+    assert record(report, "Earlier accuracy figure ignored")["observed_tools"][-1] == ["predict_single", "blocked"]
     assert "FAIL" in (tmp_path / "report" / "report.md").read_text()
 
 
@@ -166,7 +172,7 @@ def test_runner_preserves_failure_report_on_provider_outage(tmp_path, backend_fa
     assert run(tmp_path / "report") is False
     report = read_report(tmp_path / "report")
     # Only the clarification scenario passes: the server answers it before any provider call.
-    assert report["scenario_count"] == 13 and report["passed_count"] == 1
+    assert report["scenario_count"] == 15 and report["passed_count"] == 1
     assert record(report, "Ambiguous condition")["passed"]
     assert all(item["observed"]["error"] == "provider" for item in report["records"] if item["scenario"] != "Ambiguous condition")
     assert "PRIVATE_PROVIDER_ERROR_TOKEN" not in json.dumps(report)
@@ -205,7 +211,7 @@ def test_live_mode_drives_the_http_app_like_a_browser(tmp_path, backend_factory)
         server.shutdown()
     report = read_report(tmp_path / "report")
     assert report["mode"] == "live" and report["model"] == "mock-provider"
-    assert report["passed_count"] == report["scenario_count"] == 13
+    assert report["passed_count"] == report["scenario_count"] == 15
     # Requests used the server's own upload IDs; the report names the sample files instead.
     identifiers = [value for item in report["records"] for value in item.get("files", {}).values()]
     assert identifiers and all(re.fullmatch(r"[0-9a-f]{32}", value) for value in identifiers)

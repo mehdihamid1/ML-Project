@@ -111,63 +111,87 @@ def rejects_encrypted_reasoning(exc):
             or "reasoning.encrypted_content" in message)
 
 
-def _conditional_requested(message):
-    lower = message.lower()
-    if not re.search(r"\b(?:predict\w*|classif\w*)\b", lower):
-        return False
+# These words make any prediction request conditional. The weaker ones below
+# count only when the request also involves accuracy.
+_STRONG_CONDITION = r"\b(?:if|only when|provided(?: that)?|unless)\b"
+_WEAK_CONDITION = (r"\b(?:when|whenever|once|as long as|so long as|assuming|given that|in case"
+                   r"|on (?:the )?condition|contingent on|subject to|depending on)\b")
+_NUMBER = r"([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?)"
+_UNIT = r"\s*(%|percent\b)?"
+_COMPARATOR = (r"(?:>=|≥|=>|>|\bat least\b|\bat or above\b|\babove\b|\bover\b|\bexceeds?\b|\breach(?:es)?\b"
+               r"|\b(?:greater|higher|more|better) than(?: or equal to)?\b|\bequal to or (?:greater|higher|more) than\b"
+               r"|\bno (?:less|lower) than\b|\bnot (?:less than|below)\b|\bminimum(?: of)?\b"
+               r"|\bthreshold\b(?:\s+(?:is|of))?)")
+_OR_HIGHER = r"\s*or\s+(?:higher|more|above|better|greater)\b"
+# Numeric values must touch accuracy or a comparison, rather than any
+# upload identifier or row number which happens to contain digits.
+_THRESHOLD_PATTERNS = (
+    r"\baccuracy\s*(?:is|of|=|:|must be|should be|needs to be|has to be)?\s*" + _NUMBER + _UNIT,
+    r"\baccuracy\b.{0,500}?" + _COMPARATOR + r"\s*" + _NUMBER + _UNIT,
+    _NUMBER + _UNIT + r"\s+accuracy\b",
+    _COMPARATOR + r"\s*" + _NUMBER + _UNIT,
+    _NUMBER + _UNIT + r"\s+(?:of\s+\w+\s+)?(?:are\s+)?(?:classified correctly|correct predictions|correctly classified)\b",
+    r"\baccuracy\b.{0,500}?" + _NUMBER + _UNIT + _OR_HIGHER,
+)
+
+
+def _execution_text(message):
+    """Lowercase the request and drop phrasings that do not condition a model run."""
     # Describing a requested result ("tell me if it is malware") does not
-    # condition whether the model may run. A decision threshold or minimum row
-    # count likewise differs from a required evaluation accuracy.
-    execution = re.sub(
+    # condition whether the model may run.
+    text = re.sub(
         r"\b(?:tell(?:\s+me)?|show(?:\s+me)?|know|report|check|determine|see|say|find out|figure out"
         r"|explain|confirm|verify|indicate|state|ask|wonder)\s+if\b",
-        " whether", lower,
+        " whether", message.lower(),
     )
     # Courtesy idioms ("if so", "if possible") do not condition the model run,
     # unless the request also concerns evaluation or accuracy.
-    if not re.search(r"\b(?:accura\w*|evaluat\w*|correct\w*)\b", execution):
-        execution = re.sub(r"\bif\s+(?:so|possible|you\s+can|any|available|needed|necessary)\b", " ", execution)
-    explicit_condition = re.search(r"\b(?:if|only when|provided(?: that)?|unless)\b", execution)
-    accuracy_gate = (
-        re.search(r"\b(?:accuracy|correct\w*)\b|\bclassified correctly\b", execution)
-        and re.search(r"\b(?:threshold|minimum|at least|only|above|exceeds?|reaches)\b|>=|≥", execution)
-    )
-    return bool(explicit_condition or accuracy_gate)
+    if not re.search(r"\b(?:accura\w*|evaluat\w*|correct\w*)\b", text):
+        text = re.sub(r"\bif\s+(?:so|possible|you\s+can|any|available|needed|necessary)\b", " ", text)
+    return text
 
 
-def _requested_threshold(message):
-    """Independently bind explicit accuracy values, including the web form.
+def _conditional_requested(message):
+    if not re.search(r"\b(?:predict\w*|classif\w*)\b", message.lower()):
+        return False
+    execution = _execution_text(message)
+    if re.search(_STRONG_CONDITION, execution):
+        return True
+    # "Predict when accuracy is 0.95 or higher" is conditional too. A decision
+    # threshold or minimum row count alone is not an accuracy condition.
+    accuracy = re.search(r"\b(?:accuracy|correct\w*)\b|\bclassified correctly\b", execution)
+    return bool(accuracy and (
+        re.search(_WEAK_CONDITION, execution)
+        or re.search(r"\b(?:threshold|minimum|at least|only|above|exceeds?|reach(?:es)?)\b|>=|≥|=>", execution)
+        or re.search(_COMPARATOR + r"\s*" + _NUMBER, execution)
+        or re.search(_NUMBER + _UNIT + _OR_HIGHER, execution)))
 
-    The provider can interpret natural language, but cannot lower an explicit
-    numeric threshold when selecting the conditional tool's arguments.
+
+def _threshold_candidates(message):
+    """The distinct accuracy values a conditional request states for its condition.
+
+    Only the condition clause counts, from its first condition word on, so a
+    figure mentioned earlier ("the previous accuracy of 0.80") cannot become the
+    threshold. When the clause holds no value, the whole request is read. More
+    than one distinct value means the request is ambiguous.
     """
-    if not re.search(r"\b(?:accuracy|evaluat\w*|threshold|correct\w*)\b|\bclassified correctly\b", message, re.I):
-        return None
-    number = r"([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?)"
-    unit = r"\s*(%|percent\b)?"
-    comparator = (r"(?:>=|≥|>|\bat least\b|\bat or above\b|\babove\b|\bover\b|\bexceeds?\b|\breaches\b"
-                  r"|\b(?:greater|higher|more) than(?: or equal to)?\b|\bequal to or (?:greater|higher|more) than\b"
-                  r"|\bno (?:less|lower) than\b|\bnot (?:less than|below)\b|\bminimum(?: of)?\b"
-                  r"|\bthreshold\b(?:\s+(?:is|of))?)")
-    # Numeric values must touch accuracy or a comparator, rather than any
-    # intervening upload identifier which happens to contain digits.
-    patterns = (
-        r"\baccuracy\s*(?:is\s+|of\s+)?" + number + unit,
-        r"\baccuracy\b.{0,500}?" + comparator + r"\s*" + number + unit,
-        number + unit + r"\s+accuracy\b",
-        comparator + r"\s*" + number + unit,
-        number + unit + r"\s+(?:of\s+\w+\s+)?(?:are\s+)?(?:classified correctly|correct predictions|correctly classified)\b",
-        r"\baccuracy\b.{0,500}?" + number + unit + r"\s*or\s+(?:higher|more|above|better|greater)\b",
-    )
-    for pattern in patterns:
-        match = re.search(pattern, message, re.I)
-        if match:
-            try:
-                value = Decimal(match.group(1))
-                return float(value / Decimal(100) if match.group(2) else value)
-            except (DecimalException, OverflowError):
-                return float("nan")
-    return None
+    text = _execution_text(message)
+    if not re.search(r"\b(?:accuracy|evaluat\w*|threshold|correct\w*)\b|\bclassified correctly\b", text):
+        return []
+    start = re.search(_STRONG_CONDITION + "|" + _WEAK_CONDITION, text)
+    for part in ([text[start.start():]] if start else []) + [text]:
+        values = {}
+        for pattern in _THRESHOLD_PATTERNS:
+            for match in re.finditer(pattern, part):
+                try:
+                    value = Decimal(match.group(1))
+                    value = float(value / Decimal(100) if match.group(2) else value)
+                except (DecimalException, OverflowError):
+                    value = float("nan")
+                values.setdefault(repr(value), value)
+        if values:
+            return list(values.values())
+    return []
 
 
 def _finite(value):
@@ -539,9 +563,13 @@ class Agent:
         except AgentError as exc:
             return self._finish(str(exc), state, message, activity, results, "configuration")
         conditional = _conditional_requested(message)
-        requested_threshold = _requested_threshold(message) if conditional else None
-        if conditional and requested_threshold is None:
+        thresholds = _threshold_candidates(message) if conditional else []
+        if conditional and not thresholds:
             return self._finish("For a conditional prediction, state a numeric accuracy threshold between 0 and 1 (or a percentage), plus the evaluation and prediction files.", state, message, activity, results, "input")
+        if len(thresholds) > 1:
+            stated = " and ".join(f"{value:g}" for value in thresholds)
+            return self._finish(f"Your condition mentions more than one accuracy value ({stated}). State the one minimum accuracy to use.", state, message, activity, results, "input")
+        requested_threshold = thresholds[0] if thresholds else None
         if requested_threshold is not None and not _fraction(requested_threshold):
             return self._finish("The accuracy threshold must be between 0 and 1, or explicitly written as a percentage.", state, message, activity, results, "input")
         if conditional and self.max_tool_calls < 2:

@@ -33,8 +33,9 @@ Without `--base-url` it runs the agent in-process instead, which needs
 
 ## Scenarios
 
-The 13 scenarios cover every case the assignment lists. The sample files are
-in [samples/](samples/README.md).
+The 15 scenarios cover every case the assignment lists. Scenarios 7 and 8 were
+added after Run 1 to check two condition bugs a review found (below). The
+sample files are in [samples/](samples/README.md).
 
 | # | Scenario | Assignment requirement | Expected behavior |
 | --- | --- | --- | --- |
@@ -44,13 +45,15 @@ in [samples/](samples/README.md).
 | 4 | Conditional: prediction permitted | Conditional task, both outcomes | `evaluate` first; accuracy meets 0.75, so `predict_single` is called. |
 | 5 | Conditional: prediction withheld | Conditional task, both outcomes | `evaluate` first; accuracy is below 0.9, so `predict_single` is not called. |
 | 6 | False-negative follow-up | False-negative follow-up | Answered from the stored evaluation in scenario 5's session, with no new tool call. |
-| 7 | Invalid input row | Invalid input | The invalid row is reported with its reason and kept in the download. |
-| 8 | Missing labels | Missing labels | The unlabeled row is reported; metrics use the 3 labeled rows. |
-| 9 | No Label column | Missing labels | `evaluate` fails visibly and asks for a Label column. |
-| 10 | Single-class evaluation | Single-class evaluation | AUC is reported as unavailable; accuracy is still given. |
-| 11 | Tool failure | Tool or service failure (controlled fault) | The one-row file has no row 7: the tool fails and no result is claimed. |
-| 12 | Feature explanation refused | No invented explanations | The agent says no explanation tool exists and runs no tool. |
-| 13 | Ambiguous condition | Clarification when ambiguous | The server asks for a numeric threshold before any AI call. |
+| 7 | Condition without "if" | Conditional task | "Predict … when the accuracy … is 0.75 or higher" is treated as conditional: `evaluate` first, then `predict_single`. |
+| 8 | Earlier accuracy figure ignored | Conditional task | "The previous accuracy of 0.0 was too low … only if accuracy is at least 0.9": the threshold is 0.9, so `predict_single` is not called. |
+| 9 | Invalid input row | Invalid input | The invalid row is reported with its reason and kept in the download. |
+| 10 | Missing labels | Missing labels | The unlabeled row is reported; metrics use the 3 labeled rows. |
+| 11 | No Label column | Missing labels | `evaluate` fails visibly and asks for a Label column. |
+| 12 | Single-class evaluation | Single-class evaluation | AUC is reported as unavailable; accuracy is still given. |
+| 13 | Tool failure | Tool or service failure (controlled fault) | The one-row file has no row 7: the tool fails and no result is claimed. |
+| 14 | Feature explanation refused | No invented explanations | The agent says no explanation tool exists and runs no tool. |
+| 15 | Ambiguous condition | Clarification when ambiguous | The server asks for a numeric threshold before any AI call. |
 
 `conditional-fail.csv` deliberately holds one malware-labeled row that the
 model classifies as goodware. It exercises the withheld branch and gives the
@@ -105,6 +108,18 @@ replies:
   which reads like two problem rows. Replies now say "1 excluded (missing
   labels 1, invalid labels 0)".
 
+A later review, using a mocked model, found two bugs in how requests were read.
+Both were in the version Run 1 tested, and both are fixed with regression tests:
+
+- A condition worded without "if", such as "predict when accuracy is 0.95 or
+  higher", was treated as a plain prediction, so a model could predict without
+  evaluating first. Such wordings now count as conditional.
+- The threshold parser took the first accuracy number anywhere in the message.
+  "The previous accuracy of 0.80 … only if accuracy is at least 0.95" bound
+  0.80, so an evaluation of 0.90 permitted the prediction. The threshold now
+  comes from the condition itself, and two different values in the condition
+  prompt a clarification question.
+
 ## Run 2: after the AI-decided conditional task
 
 Not run yet. It needs the change to be committed, pushed and deployed. The
@@ -123,7 +138,9 @@ These run on every push and are not real-LLM evidence:
   - the evaluation result reaches the model before its decision;
   - a prediction the threshold or label coverage does not allow is blocked;
   - a permitted prediction the model leaves out is reported, never made by
-    the server.
+    the server;
+  - conditions worded without "if" still force the evaluation, and an earlier
+    accuracy figure in the message never becomes the threshold.
 - Runner tests drive the same scenarios through the pinned OpenAI SDK with
   mocked HTTP responses and the frozen model. One runs the live mode against
   a local HTTP server.

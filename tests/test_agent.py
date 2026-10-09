@@ -267,11 +267,59 @@ def test_numeric_threshold_binding_does_not_consume_upload_id_digits(files, mess
     assert [call[0] for call in service.calls] == ["evaluate"]
 
 
-def test_classify_word_is_not_a_conditional_trigger(files):
+@pytest.mark.parametrize("message", [
+    "Classify every row and report accuracy",
+    "Classify every row and report the accuracy over all rows",
+])
+def test_classify_word_is_not_a_conditional_trigger(files, message):
     client = FakeClient(tool("predict_batch", file_id="file-a"), final())
-    output = Agent(FakeService(), client).chat("Classify every row and report accuracy", {}, files)
+    output = Agent(FakeService(), client).chat(message, {}, files)
     assert "error" not in output
     assert [t["name"] for t in client.requests[0]["tools"]] == ["predict_single", "predict_batch", "evaluate"]
+
+
+@pytest.mark.parametrize("message", [
+    "Predict when accuracy is 0.95 or higher",
+    "Predict row 0 of file-b when the accuracy of file-a is 0.95 or higher",
+    "Predict row 0 of file-b once the evaluation accuracy reaches 95%",
+    "Predict row 0 of file-b as long as accuracy is above 0.95",
+    "Predict row 0 of file-b whenever accuracy is greater than 0.95",
+    "Accuracy must reach 0.95 before you predict row 0 of file-b",
+])
+def test_conditions_worded_without_if_still_evaluate_first(files, message):
+    # Regression: these were treated as plain predictions, so a model could predict without evaluating.
+    service = FakeService()
+    client = FakeClient(tool("predict_single", file_id="file-b", row_index=0))
+    output = Agent(service, client).chat(message, {}, files)
+    assert output["error"] == "tool" and "must call evaluate first" in output["reply"]
+    assert service.calls == []
+    assert client.requests[0]["tool_choice"] == {"type": "function", "name": "evaluate"}
+    assert "minimum accuracy is 0.95 " in brief(client.requests[0])
+
+
+@pytest.mark.parametrize("message", [
+    "The previous accuracy of 0.80 was too low. Evaluate file-a; only if accuracy is at least 0.95, predict row 0 of file-b.",
+    "Previous accuracy is 0.80. Predict row 0 of file-b only if accuracy >= 0.95",
+    "Tell me if the previous accuracy of 0.80 was good, and predict row 0 of file-b only if accuracy is at least 0.95",
+])
+def test_an_earlier_accuracy_figure_does_not_become_the_threshold(files, message):
+    # Regression: the parser bound 0.80, so an evaluation of 0.90 permitted the prediction.
+    service = FakeService(accuracy=0.90)
+    client = FakeClient(tool("evaluate", file_id="file-a"), tool("predict_single", file_id="file-b", row_index=0))
+    output = Agent(service, client).chat(message, {}, files)
+    assert "minimum accuracy is 0.95 " in brief(client.requests[0])
+    assert [call[0] for call in service.calls] == ["evaluate"]
+    assert output["activity"][-1]["status"] == "blocked"
+    assert "accuracy 0.900000 is below the required 0.950000" in output["reply"]
+
+
+def test_two_accuracy_values_in_the_condition_ask_which_one(files):
+    service, client = FakeService(), FakeClient()
+    output = Agent(service, client).chat(
+        "Only predict row 0 if accuracy is at least 0.95, up from the previous accuracy of 0.80", {}, files)
+    assert output["error"] == "input"
+    assert "more than one accuracy value" in output["reply"] and "0.95" in output["reply"] and "0.8" in output["reply"]
+    assert service.calls == [] and client.requests == []
 
 
 @pytest.mark.parametrize("message", [

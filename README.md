@@ -15,8 +15,8 @@ under `docs/`, so a clean checkout can run the app without retraining.
 ## Current status
 
 The tools, OpenAI agent, Flask app, sample CSVs and deployment workflow are
-implemented. Plain `pytest` passes all 320 tests locally; the lean environment
-passes 309 tests. The AI-decided conditional task, the sample-file buttons and
+implemented. Plain `pytest` passes all 331 tests locally; the lean environment
+passes 320 tests. The AI-decided conditional task, the sample-file buttons and
 the live mode of the evaluation runner in this checkout are verified locally
 and await commit, push and deployment.
 
@@ -109,7 +109,10 @@ bound to the user's stated value.
   complete valid label coverage: it blocks a prediction the rule does not allow,
   and never predicts on the model's behalf. A failed evaluation stops the task.
   The activity record shows `evaluate`, then `predict_single` as finished,
-  skipped (withheld) or blocked.
+  skipped (withheld) or blocked. Conditions worded without "if" ("when accuracy
+  is 0.95 or higher") count too. The threshold is read from the condition
+  itself, so an earlier figure such as "previous accuracy of 0.80" is not used;
+  two different values prompt a clarification question.
 
 Only UTF-8 CSV data is accepted. Uploads and tools share schema validation and
 file limits. Oversized individual cells are retained and reported as invalid
