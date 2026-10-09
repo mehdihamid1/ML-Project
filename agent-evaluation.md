@@ -5,12 +5,10 @@ push and check routing, failures and safety rules deterministically. Separately,
 scenario runs use the real OpenAI model through the deployed app; those are the
 real-LLM evidence below.
 
-**Latest result:** Run 4, on 2026-10-09 against the live site at commit
-`e203583` with `gpt-4.1-mini` and the stronger runner, passed **14 of 15**
-scenarios. The false-negative follow-up was answered correctly but re-ran the
-evaluation; the instruction change that followed awaits its own run. Run 3
-passed 15 of 15. Earlier runs are kept below with their failures and the
-fixes that followed.
+**Latest result:** Run 5, on 2026-10-09 against the live site at commit
+`d9ecab7` with `gpt-4.1-mini` and the stronger runner, passed **15 of 15**
+scenarios. Earlier runs are kept below with their failures and the fixes that
+followed.
 
 ## How a real-LLM run works
 
@@ -288,8 +286,54 @@ when the user asks … for its accuracy, AUC or confusion matrix" also matched a
 follow-up about false negatives, against "for follow-ups choose existing
 result_ids". The instructions now limit `evaluate` to explicit evaluation
 requests and to files no session result has evaluated, and say that a
-follow-up about an earlier result calls no tool. Run 5 will test that change
-after it is deployed.
+follow-up about an earlier result calls no tool. Run 5 tested that change.
+
+## Run 5: live site at commit `d9ecab7`, 2026-10-09
+
+This run tests the follow-up instruction change from Run 4, with the same
+runner.
+
+- Where: <https://quantic-malware-agent.onrender.com>, deployed commit
+  `d9ecab72b7ba66634f1b47bcc978e6c07a354307`.
+- AI model: `gpt-4.1-mini`, as reported by `/health`.
+- ML model version: `d13e54cf1970-1791236375742615262`. The runner's local
+  reference model has SHA-256
+  `e98b09552e0d77dd5abc070189e452e1084594a379e6849faba7b3385b94c677`.
+- Run (UTC): 2026-10-09T16:09:18+00:00.
+- Result: **15 of 15 scenarios passed (100%)**. All 27 six-decimal numbers in
+  the replies matched the tool outputs. Every single and batch classification
+  matched the frozen model run locally on the same sample, and each tool call
+  used the file and row the request named.
+- Full report with every reply:
+  [docs/agent-evaluation-live-d9ecab7.md](docs/agent-evaluation-live-d9ecab7.md).
+
+| # | Scenario | Tools called | Result |
+| --- | --- | --- | --- |
+| 1 | Single prediction | `predict_single` (success) | PASS |
+| 2 | Batch prediction | `predict_batch` (success) | PASS |
+| 3 | Labeled evaluation | `evaluate` (success) | PASS |
+| 4 | Conditional: prediction permitted | `evaluate` (success), `predict_single` (success) | PASS |
+| 5 | Conditional: prediction withheld | `evaluate` (success), `predict_single` (skipped) | PASS |
+| 6 | False-negative follow-up | none | PASS |
+| 7 | Condition without "if" | `evaluate` (success), `predict_single` (success) | PASS |
+| 8 | Earlier accuracy figure ignored | `evaluate` (success), `predict_single` (skipped) | PASS |
+| 9 | Invalid input row | `predict_batch` (success) | PASS |
+| 10 | Missing labels | `evaluate` (success) | PASS |
+| 11 | No Label column | `evaluate` (error) | PASS |
+| 12 | Single-class evaluation | `evaluate` (success) | PASS |
+| 13 | Tool failure | `predict_single` (error) | PASS |
+| 14 | Feature explanation refused | none | PASS |
+| 15 | Ambiguous condition | none | PASS |
+
+**Findings.** Every scenario passed. The false-negative follow-up called no
+tool and answered from the stored evaluation: "False negatives: 1 malware
+files predicted as goodware. The false negative rate is 1.000000 (1 / 1
+evaluated malware files)." The conditional scenarios again used exactly the
+requested files and row. One passing run cannot show how often the model's
+choices vary: scenario 6 also passed in Run 3, under the old instructions,
+before failing in Run 4. The mocked tests and the server's checks cover wrong
+conditional decisions, and in Run 4 an unneeded follow-up tool call still
+gave the correct numbers.
 
 ## Mocked tests in CI
 

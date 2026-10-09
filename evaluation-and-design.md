@@ -209,10 +209,10 @@ training outputs are excluded from Git. A byte-for-byte copy of the small
 trusted production model is
 bundled under `models/` for the app. The tools, OpenAI agent and Flask application
 are implemented and deployed. In
-[CI run 37951887557](https://github.com/mehdihamid1/ML-Project/actions/runs/37951887557),
+[CI run 37956413667](https://github.com/mehdihamid1/ML-Project/actions/runs/37956413667),
 the test, runtime-test and container-test jobs passed, then the
-[deploy job](https://github.com/mehdihamid1/ML-Project/actions/runs/37951887557/job/113893096159)
-deployed commit `e203583` and its live `/health` check passed. Real-provider
+[deploy job](https://github.com/mehdihamid1/ML-Project/actions/runs/37956413667/job/113908724809)
+deployed commit `d9ecab7` and its live `/health` check passed. Real-provider
 evidence is in [agent-evaluation.md](agent-evaluation.md).
 
 ## Agent and runtime design
@@ -421,9 +421,10 @@ at a lower per-token price than
 model would add cost and latency without changing any number in a reply,
 because Python computes them all.
 
-The live runs measure the choice: with `gpt-4.1-mini`, Run 3 passed all 15
-scenarios and Run 4 passed 14 ([agent-evaluation.md](agent-evaluation.md)).
-Run 4's miss was an unneeded tool call with a correct answer. Whatever the
+The live runs measure the choice: with `gpt-4.1-mini`, Runs 3 and 5 passed
+all 15 scenarios and Run 4 passed 14 ([agent-evaluation.md](agent-evaluation.md)).
+Run 4's miss was an unneeded tool call with a correct answer, and clearer
+instructions fixed it for Run 5. Whatever the
 model, the server checks its conditional decision and blocks a disallowed
 prediction. The agent also accepts reasoning models through `OPENAI_MODEL`,
 replaying their encrypted reasoning between tool calls, but only
