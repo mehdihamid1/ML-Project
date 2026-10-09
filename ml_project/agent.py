@@ -290,11 +290,16 @@ def _conditional_targets(message, files):
     return resolved
 
 
-def _conditional_tool(name, targets):
+def _conditional_tool(name, targets, threshold=None):
     properties = {"file_id": {**_FILE, "enum": [targets[name]]}}
+    description = _TOOL[name]["description"]
     if name == "predict_single":
         properties["row_index"] = {**_ROW, "enum": [targets["row_index"]]}
-    return _function(name, _TOOL[name]["description"], properties)
+        # Restates the user's rule where the AI decides. The AI still compares
+        # the returned accuracy itself, and _condition checks its decision.
+        description += (f" This request is conditional: call it only if the evaluation's accuracy is at least "
+                        f"{threshold!r} and the evaluation covered every row; otherwise do not call it.")
+    return _function(name, description, properties)
 
 
 def _finite(value):
@@ -822,7 +827,7 @@ class Agent:
                 tools, choice = [_conditional_tool("evaluate", targets)], {"type": "function", "name": "evaluate"}
                 yield {"type": "progress", "stage": "planning", "message": "OpenAI is choosing the evaluation…"}
             elif conditional:
-                tools, choice = [_conditional_tool("predict_single", targets)], "auto"
+                tools, choice = [_conditional_tool("predict_single", targets, requested_threshold)], "auto"
                 yield {"type": "progress", "stage": "deciding", "message": "OpenAI is checking the accuracy condition…"}
             else:
                 tools, choice = TOOLS, "auto"

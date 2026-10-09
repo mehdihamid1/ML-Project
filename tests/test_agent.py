@@ -141,6 +141,8 @@ def test_conditional_evaluates_first_then_model_decides_from_returned_accuracy(f
     # The decision request carries the evaluation the model just received.
     assert second["tool_choice"] == "auto"
     assert [t["name"] for t in second["tools"]] == ["predict_single"]
+    # The rule is restated where the AI decides; the comparison is still the AI's.
+    assert "only if the evaluation's accuracy is at least 0.9 " in second["tools"][0]["description"]
     returned = second["input"][-1]
     assert returned["type"] == "function_call_output"
     assert json.loads(returned["output"])["accuracy"] == accuracy

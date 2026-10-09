@@ -408,6 +408,10 @@ and `predict_single` to the named prediction file and row (here row 0):
 
 The model therefore decides only whether to call `predict_single`, not what it
 classifies, and the server blocks any other argument before running the tool.
+That turn's `predict_single` description also restates the rule: "call it
+only if the evaluation's accuracy is at least" the user's minimum, with every
+row evaluated. The rule is then in front of the model when it decides; the
+comparison is still the model's, and the server still checks it.
 
 The model sees each result's summary fields with its `result_id`, `tool`,
 `file_id` and `download_id`, never feature values, file paths or row IDs. It
