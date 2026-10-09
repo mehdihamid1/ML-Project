@@ -209,10 +209,10 @@ training outputs are excluded from Git. A byte-for-byte copy of the small
 trusted production model is
 bundled under `models/` for the app. The tools, OpenAI agent and Flask application
 are implemented and deployed. In
-[CI run 37965571132](https://github.com/mehdihamid1/ML-Project/actions/runs/37965571132),
+[CI run 37980201759](https://github.com/mehdihamid1/ML-Project/actions/runs/37980201759),
 the test, runtime-test and container-test jobs passed, then the
-[deploy job](https://github.com/mehdihamid1/ML-Project/actions/runs/37965571132/job/113939517781)
-deployed commit `652bdf8` and its live `/health` check passed. Real-provider
+[deploy job](https://github.com/mehdihamid1/ML-Project/actions/runs/37980201759/job/113989057501)
+deployed commit `9d4dccb` and its live `/health` check passed. Real-provider
 evidence is in [agent-evaluation.md](agent-evaluation.md).
 
 ## Agent and runtime design
@@ -451,7 +451,10 @@ all 15 standard scenarios; four extra paraphrases ran no tools, with one
 unnecessary refusal of an evaluation-summary question. Python now shows the
 stored result in that case, and lets questions about specific rows classify
 them; Run 8 passed all 15 scenarios and all 9 supplemental follow-up checks.
-Whatever the
+In 2 of 13 tries of the withheld branch, the AI then still requested the
+prediction, and the server blocked it. With the rule restated in the decision
+turn's tool description, it decided correctly in all 22 repeated live
+conditional requests, and Run 9 passed all 15 scenarios. Whatever the
 model, the server checks its conditional decision and blocks a disallowed
 prediction. The agent also accepts reasoning models through `OPENAI_MODEL`,
 replaying their encrypted reasoning between tool calls, but only

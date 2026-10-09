@@ -1,0 +1,655 @@
+{
+  "purpose": "Repeated live conditional requests measuring the AI decision; not part of the 15-scenario runner.",
+  "run_at_utc": "2026-10-09T19:31:13+00:00",
+  "base_url": "https://quantic-malware-agent.onrender.com",
+  "health": {
+    "commit": "9d4dccbed8922d6395987b11b43c3d5dd1f288d7",
+    "model_version": "d13e54cf1970-1791236375742615262",
+    "openai_configured": true,
+    "openai_model": "gpt-4.1-mini",
+    "selected_model": "LightGBM",
+    "status": "ok"
+  },
+  "expected_decision": {
+    "withheld": "skipped",
+    "permitted": "success"
+  },
+  "summary": [
+    {
+      "branch": "permitted",
+      "wording": "only if accuracy >= 0.95",
+      "predict_single": "success",
+      "count": 6
+    },
+    {
+      "branch": "withheld",
+      "wording": "only if accuracy >= 0.95",
+      "predict_single": "skipped",
+      "count": 8
+    },
+    {
+      "branch": "withheld",
+      "wording": "only if accuracy is at least 0.95",
+      "predict_single": "skipped",
+      "count": 8
+    }
+  ],
+  "trials": [
+    {
+      "branch": "withheld",
+      "wording": "only if accuracy >= 0.95",
+      "trial": 1,
+      "prompt": "Evaluate file 583d94756ab443f1a9bc9ec82d413b9f; only if accuracy >= 0.95, predict row 0 of file 55cf5bda909b4056805c9bfbb6413edd.",
+      "predict_single": "skipped",
+      "model_decided_correctly": true,
+      "activity": [
+        {
+          "arguments": {
+            "file_id": "583d94756ab443f1a9bc9ec82d413b9f"
+          },
+          "result_id": "a9de0a71e58a48eb80a998234b9d69f4",
+          "status": "success",
+          "tool": "evaluate"
+        },
+        {
+          "arguments": {
+            "file_id": "55cf5bda909b4056805c9bfbb6413edd",
+            "row_index": 0
+          },
+          "reason": "Prediction withheld: accuracy 0.000000 is below the required 0.950000.",
+          "status": "skipped",
+          "tool": "predict_single"
+        }
+      ],
+      "reply": "Prediction withheld: accuracy 0.000000 is below the required 0.950000, so the agent did not call predict_single.\n\nAccuracy: 0.000000. AUC: unavailable (evaluation requires both classes for AUC). Confusion matrix (true rows / predicted columns, goodware then malware): [[0, 0], [1, 0]]. True negatives: 0 goodware files predicted as goodware; false positives: 0 goodware files predicted as malware; false negatives: 1 malware files predicted as goodware; true positives: 0 malware files predicted as malware. Evaluated 1 of 1 rows; 0 excluded (missing labels 0, invalid labels 0). Labeled class counts: goodware 0, malware 1."
+    },
+    {
+      "branch": "withheld",
+      "wording": "only if accuracy >= 0.95",
+      "trial": 2,
+      "prompt": "Evaluate file 5b63dcbf843b4520a487788830301c74; only if accuracy >= 0.95, predict row 0 of file fce9a5ad93e147f68801922710285622.",
+      "predict_single": "skipped",
+      "model_decided_correctly": true,
+      "activity": [
+        {
+          "arguments": {
+            "file_id": "5b63dcbf843b4520a487788830301c74"
+          },
+          "result_id": "a578533319c34cbbab1c2ae5d855279f",
+          "status": "success",
+          "tool": "evaluate"
+        },
+        {
+          "arguments": {
+            "file_id": "fce9a5ad93e147f68801922710285622",
+            "row_index": 0
+          },
+          "reason": "Prediction withheld: accuracy 0.000000 is below the required 0.950000.",
+          "status": "skipped",
+          "tool": "predict_single"
+        }
+      ],
+      "reply": "Prediction withheld: accuracy 0.000000 is below the required 0.950000, so the agent did not call predict_single.\n\nAccuracy: 0.000000. AUC: unavailable (evaluation requires both classes for AUC). Confusion matrix (true rows / predicted columns, goodware then malware): [[0, 0], [1, 0]]. True negatives: 0 goodware files predicted as goodware; false positives: 0 goodware files predicted as malware; false negatives: 1 malware files predicted as goodware; true positives: 0 malware files predicted as malware. Evaluated 1 of 1 rows; 0 excluded (missing labels 0, invalid labels 0). Labeled class counts: goodware 0, malware 1."
+    },
+    {
+      "branch": "withheld",
+      "wording": "only if accuracy >= 0.95",
+      "trial": 3,
+      "prompt": "Evaluate file a8a5859dbd1f4c23a46c39bbcf6eb014; only if accuracy >= 0.95, predict row 0 of file ccbb1dc0463c46a7a4b56ce6f40631ce.",
+      "predict_single": "skipped",
+      "model_decided_correctly": true,
+      "activity": [
+        {
+          "arguments": {
+            "file_id": "a8a5859dbd1f4c23a46c39bbcf6eb014"
+          },
+          "result_id": "6feda074492444bf8116eaabb3bf5b94",
+          "status": "success",
+          "tool": "evaluate"
+        },
+        {
+          "arguments": {
+            "file_id": "ccbb1dc0463c46a7a4b56ce6f40631ce",
+            "row_index": 0
+          },
+          "reason": "Prediction withheld: accuracy 0.000000 is below the required 0.950000.",
+          "status": "skipped",
+          "tool": "predict_single"
+        }
+      ],
+      "reply": "Prediction withheld: accuracy 0.000000 is below the required 0.950000, so the agent did not call predict_single.\n\nAccuracy: 0.000000. AUC: unavailable (evaluation requires both classes for AUC). Confusion matrix (true rows / predicted columns, goodware then malware): [[0, 0], [1, 0]]. True negatives: 0 goodware files predicted as goodware; false positives: 0 goodware files predicted as malware; false negatives: 1 malware files predicted as goodware; true positives: 0 malware files predicted as malware. Evaluated 1 of 1 rows; 0 excluded (missing labels 0, invalid labels 0). Labeled class counts: goodware 0, malware 1."
+    },
+    {
+      "branch": "withheld",
+      "wording": "only if accuracy >= 0.95",
+      "trial": 4,
+      "prompt": "Evaluate file 034674b158c647d5a74da29da047b9cd; only if accuracy >= 0.95, predict row 0 of file 5d0b65d5989f4d23b184602586129be6.",
+      "predict_single": "skipped",
+      "model_decided_correctly": true,
+      "activity": [
+        {
+          "arguments": {
+            "file_id": "034674b158c647d5a74da29da047b9cd"
+          },
+          "result_id": "4bf99b9624b74b03b0d94b83e96e782d",
+          "status": "success",
+          "tool": "evaluate"
+        },
+        {
+          "arguments": {
+            "file_id": "5d0b65d5989f4d23b184602586129be6",
+            "row_index": 0
+          },
+          "reason": "Prediction withheld: accuracy 0.000000 is below the required 0.950000.",
+          "status": "skipped",
+          "tool": "predict_single"
+        }
+      ],
+      "reply": "Prediction withheld: accuracy 0.000000 is below the required 0.950000, so the agent did not call predict_single.\n\nAccuracy: 0.000000. AUC: unavailable (evaluation requires both classes for AUC). Confusion matrix (true rows / predicted columns, goodware then malware): [[0, 0], [1, 0]]. True negatives: 0 goodware files predicted as goodware; false positives: 0 goodware files predicted as malware; false negatives: 1 malware files predicted as goodware; true positives: 0 malware files predicted as malware. Evaluated 1 of 1 rows; 0 excluded (missing labels 0, invalid labels 0). Labeled class counts: goodware 0, malware 1."
+    },
+    {
+      "branch": "withheld",
+      "wording": "only if accuracy >= 0.95",
+      "trial": 5,
+      "prompt": "Evaluate file bd37e6eeec6347abad1744429bd9188d; only if accuracy >= 0.95, predict row 0 of file ab8e48f45a724738b9fd3d6a37cc8c9c.",
+      "predict_single": "skipped",
+      "model_decided_correctly": true,
+      "activity": [
+        {
+          "arguments": {
+            "file_id": "bd37e6eeec6347abad1744429bd9188d"
+          },
+          "result_id": "8582ff0e28e0409fbe4a1a5ae0e677fa",
+          "status": "success",
+          "tool": "evaluate"
+        },
+        {
+          "arguments": {
+            "file_id": "ab8e48f45a724738b9fd3d6a37cc8c9c",
+            "row_index": 0
+          },
+          "reason": "Prediction withheld: accuracy 0.000000 is below the required 0.950000.",
+          "status": "skipped",
+          "tool": "predict_single"
+        }
+      ],
+      "reply": "Prediction withheld: accuracy 0.000000 is below the required 0.950000, so the agent did not call predict_single.\n\nAccuracy: 0.000000. AUC: unavailable (evaluation requires both classes for AUC). Confusion matrix (true rows / predicted columns, goodware then malware): [[0, 0], [1, 0]]. True negatives: 0 goodware files predicted as goodware; false positives: 0 goodware files predicted as malware; false negatives: 1 malware files predicted as goodware; true positives: 0 malware files predicted as malware. Evaluated 1 of 1 rows; 0 excluded (missing labels 0, invalid labels 0). Labeled class counts: goodware 0, malware 1."
+    },
+    {
+      "branch": "withheld",
+      "wording": "only if accuracy >= 0.95",
+      "trial": 6,
+      "prompt": "Evaluate file 833a3dddab2d4e1bb1b133d89cf5b9c3; only if accuracy >= 0.95, predict row 0 of file ba926b06f0c049a3afddce8e37dfc0c7.",
+      "predict_single": "skipped",
+      "model_decided_correctly": true,
+      "activity": [
+        {
+          "arguments": {
+            "file_id": "833a3dddab2d4e1bb1b133d89cf5b9c3"
+          },
+          "result_id": "c8309506bf9b4422a62d0aa73e26f282",
+          "status": "success",
+          "tool": "evaluate"
+        },
+        {
+          "arguments": {
+            "file_id": "ba926b06f0c049a3afddce8e37dfc0c7",
+            "row_index": 0
+          },
+          "reason": "Prediction withheld: accuracy 0.000000 is below the required 0.950000.",
+          "status": "skipped",
+          "tool": "predict_single"
+        }
+      ],
+      "reply": "Prediction withheld: accuracy 0.000000 is below the required 0.950000, so the agent did not call predict_single.\n\nAccuracy: 0.000000. AUC: unavailable (evaluation requires both classes for AUC). Confusion matrix (true rows / predicted columns, goodware then malware): [[0, 0], [1, 0]]. True negatives: 0 goodware files predicted as goodware; false positives: 0 goodware files predicted as malware; false negatives: 1 malware files predicted as goodware; true positives: 0 malware files predicted as malware. Evaluated 1 of 1 rows; 0 excluded (missing labels 0, invalid labels 0). Labeled class counts: goodware 0, malware 1."
+    },
+    {
+      "branch": "withheld",
+      "wording": "only if accuracy >= 0.95",
+      "trial": 7,
+      "prompt": "Evaluate file 54d0d4c0a92c4160801b51e30c7948a5; only if accuracy >= 0.95, predict row 0 of file 82036facfb934410b09ea6e4bef05acf.",
+      "predict_single": "skipped",
+      "model_decided_correctly": true,
+      "activity": [
+        {
+          "arguments": {
+            "file_id": "54d0d4c0a92c4160801b51e30c7948a5"
+          },
+          "result_id": "1bdf722c98374dad8852a2256026cadc",
+          "status": "success",
+          "tool": "evaluate"
+        },
+        {
+          "arguments": {
+            "file_id": "82036facfb934410b09ea6e4bef05acf",
+            "row_index": 0
+          },
+          "reason": "Prediction withheld: accuracy 0.000000 is below the required 0.950000.",
+          "status": "skipped",
+          "tool": "predict_single"
+        }
+      ],
+      "reply": "Prediction withheld: accuracy 0.000000 is below the required 0.950000, so the agent did not call predict_single.\n\nAccuracy: 0.000000. AUC: unavailable (evaluation requires both classes for AUC). Confusion matrix (true rows / predicted columns, goodware then malware): [[0, 0], [1, 0]]. True negatives: 0 goodware files predicted as goodware; false positives: 0 goodware files predicted as malware; false negatives: 1 malware files predicted as goodware; true positives: 0 malware files predicted as malware. Evaluated 1 of 1 rows; 0 excluded (missing labels 0, invalid labels 0). Labeled class counts: goodware 0, malware 1."
+    },
+    {
+      "branch": "withheld",
+      "wording": "only if accuracy >= 0.95",
+      "trial": 8,
+      "prompt": "Evaluate file 787c44781da64cd7805bede650131915; only if accuracy >= 0.95, predict row 0 of file d7fce50bfb7c49af9fd8ac55d0ef8835.",
+      "predict_single": "skipped",
+      "model_decided_correctly": true,
+      "activity": [
+        {
+          "arguments": {
+            "file_id": "787c44781da64cd7805bede650131915"
+          },
+          "result_id": "caaba81968f647d0b5fb6e546f3118be",
+          "status": "success",
+          "tool": "evaluate"
+        },
+        {
+          "arguments": {
+            "file_id": "d7fce50bfb7c49af9fd8ac55d0ef8835",
+            "row_index": 0
+          },
+          "reason": "Prediction withheld: accuracy 0.000000 is below the required 0.950000.",
+          "status": "skipped",
+          "tool": "predict_single"
+        }
+      ],
+      "reply": "Prediction withheld: accuracy 0.000000 is below the required 0.950000, so the agent did not call predict_single.\n\nAccuracy: 0.000000. AUC: unavailable (evaluation requires both classes for AUC). Confusion matrix (true rows / predicted columns, goodware then malware): [[0, 0], [1, 0]]. True negatives: 0 goodware files predicted as goodware; false positives: 0 goodware files predicted as malware; false negatives: 1 malware files predicted as goodware; true positives: 0 malware files predicted as malware. Evaluated 1 of 1 rows; 0 excluded (missing labels 0, invalid labels 0). Labeled class counts: goodware 0, malware 1."
+    },
+    {
+      "branch": "withheld",
+      "wording": "only if accuracy is at least 0.95",
+      "trial": 1,
+      "prompt": "Evaluate file 6ca8643e28d3428c94cc760565099135; only if accuracy is at least 0.95, predict row 0 of file 1b067d6c2ce94830b77f0314ad9983b2.",
+      "predict_single": "skipped",
+      "model_decided_correctly": true,
+      "activity": [
+        {
+          "arguments": {
+            "file_id": "6ca8643e28d3428c94cc760565099135"
+          },
+          "result_id": "d339e670228648299858a2af89c6eef1",
+          "status": "success",
+          "tool": "evaluate"
+        },
+        {
+          "arguments": {
+            "file_id": "1b067d6c2ce94830b77f0314ad9983b2",
+            "row_index": 0
+          },
+          "reason": "Prediction withheld: accuracy 0.000000 is below the required 0.950000.",
+          "status": "skipped",
+          "tool": "predict_single"
+        }
+      ],
+      "reply": "Prediction withheld: accuracy 0.000000 is below the required 0.950000, so the agent did not call predict_single.\n\nAccuracy: 0.000000. AUC: unavailable (evaluation requires both classes for AUC). Confusion matrix (true rows / predicted columns, goodware then malware): [[0, 0], [1, 0]]. True negatives: 0 goodware files predicted as goodware; false positives: 0 goodware files predicted as malware; false negatives: 1 malware files predicted as goodware; true positives: 0 malware files predicted as malware. Evaluated 1 of 1 rows; 0 excluded (missing labels 0, invalid labels 0). Labeled class counts: goodware 0, malware 1."
+    },
+    {
+      "branch": "withheld",
+      "wording": "only if accuracy is at least 0.95",
+      "trial": 2,
+      "prompt": "Evaluate file 911a1ae31eb04ecb9e56cc6564ce35ba; only if accuracy is at least 0.95, predict row 0 of file c016f3ed7d1e488589a513af5f2b88d6.",
+      "predict_single": "skipped",
+      "model_decided_correctly": true,
+      "activity": [
+        {
+          "arguments": {
+            "file_id": "911a1ae31eb04ecb9e56cc6564ce35ba"
+          },
+          "result_id": "140c294961d7428d8481187e53899db4",
+          "status": "success",
+          "tool": "evaluate"
+        },
+        {
+          "arguments": {
+            "file_id": "c016f3ed7d1e488589a513af5f2b88d6",
+            "row_index": 0
+          },
+          "reason": "Prediction withheld: accuracy 0.000000 is below the required 0.950000.",
+          "status": "skipped",
+          "tool": "predict_single"
+        }
+      ],
+      "reply": "Prediction withheld: accuracy 0.000000 is below the required 0.950000, so the agent did not call predict_single.\n\nAccuracy: 0.000000. AUC: unavailable (evaluation requires both classes for AUC). Confusion matrix (true rows / predicted columns, goodware then malware): [[0, 0], [1, 0]]. True negatives: 0 goodware files predicted as goodware; false positives: 0 goodware files predicted as malware; false negatives: 1 malware files predicted as goodware; true positives: 0 malware files predicted as malware. Evaluated 1 of 1 rows; 0 excluded (missing labels 0, invalid labels 0). Labeled class counts: goodware 0, malware 1."
+    },
+    {
+      "branch": "withheld",
+      "wording": "only if accuracy is at least 0.95",
+      "trial": 3,
+      "prompt": "Evaluate file 0b302673637e443ea9036aedbd2764e3; only if accuracy is at least 0.95, predict row 0 of file f2ef65cf441b441fa13ba3225851236f.",
+      "predict_single": "skipped",
+      "model_decided_correctly": true,
+      "activity": [
+        {
+          "arguments": {
+            "file_id": "0b302673637e443ea9036aedbd2764e3"
+          },
+          "result_id": "9520bf8077894d9b940e55dc56e37227",
+          "status": "success",
+          "tool": "evaluate"
+        },
+        {
+          "arguments": {
+            "file_id": "f2ef65cf441b441fa13ba3225851236f",
+            "row_index": 0
+          },
+          "reason": "Prediction withheld: accuracy 0.000000 is below the required 0.950000.",
+          "status": "skipped",
+          "tool": "predict_single"
+        }
+      ],
+      "reply": "Prediction withheld: accuracy 0.000000 is below the required 0.950000, so the agent did not call predict_single.\n\nAccuracy: 0.000000. AUC: unavailable (evaluation requires both classes for AUC). Confusion matrix (true rows / predicted columns, goodware then malware): [[0, 0], [1, 0]]. True negatives: 0 goodware files predicted as goodware; false positives: 0 goodware files predicted as malware; false negatives: 1 malware files predicted as goodware; true positives: 0 malware files predicted as malware. Evaluated 1 of 1 rows; 0 excluded (missing labels 0, invalid labels 0). Labeled class counts: goodware 0, malware 1."
+    },
+    {
+      "branch": "withheld",
+      "wording": "only if accuracy is at least 0.95",
+      "trial": 4,
+      "prompt": "Evaluate file 5ecf2fdca4a643978da60e02afd72c23; only if accuracy is at least 0.95, predict row 0 of file 5ac89c7cff764d22b9ba7256ef46bfcf.",
+      "predict_single": "skipped",
+      "model_decided_correctly": true,
+      "activity": [
+        {
+          "arguments": {
+            "file_id": "5ecf2fdca4a643978da60e02afd72c23"
+          },
+          "result_id": "27a7d8c18d0747e1bf5de7cfd8266c12",
+          "status": "success",
+          "tool": "evaluate"
+        },
+        {
+          "arguments": {
+            "file_id": "5ac89c7cff764d22b9ba7256ef46bfcf",
+            "row_index": 0
+          },
+          "reason": "Prediction withheld: accuracy 0.000000 is below the required 0.950000.",
+          "status": "skipped",
+          "tool": "predict_single"
+        }
+      ],
+      "reply": "Prediction withheld: accuracy 0.000000 is below the required 0.950000, so the agent did not call predict_single.\n\nAccuracy: 0.000000. AUC: unavailable (evaluation requires both classes for AUC). Confusion matrix (true rows / predicted columns, goodware then malware): [[0, 0], [1, 0]]. True negatives: 0 goodware files predicted as goodware; false positives: 0 goodware files predicted as malware; false negatives: 1 malware files predicted as goodware; true positives: 0 malware files predicted as malware. Evaluated 1 of 1 rows; 0 excluded (missing labels 0, invalid labels 0). Labeled class counts: goodware 0, malware 1."
+    },
+    {
+      "branch": "withheld",
+      "wording": "only if accuracy is at least 0.95",
+      "trial": 5,
+      "prompt": "Evaluate file d32c427e574b49b88af41df6b060832c; only if accuracy is at least 0.95, predict row 0 of file e18db704cf6644538b77ab08320a9b2e.",
+      "predict_single": "skipped",
+      "model_decided_correctly": true,
+      "activity": [
+        {
+          "arguments": {
+            "file_id": "d32c427e574b49b88af41df6b060832c"
+          },
+          "result_id": "20c294f5d27948fe83d03afbcd98a408",
+          "status": "success",
+          "tool": "evaluate"
+        },
+        {
+          "arguments": {
+            "file_id": "e18db704cf6644538b77ab08320a9b2e",
+            "row_index": 0
+          },
+          "reason": "Prediction withheld: accuracy 0.000000 is below the required 0.950000.",
+          "status": "skipped",
+          "tool": "predict_single"
+        }
+      ],
+      "reply": "Prediction withheld: accuracy 0.000000 is below the required 0.950000, so the agent did not call predict_single.\n\nAccuracy: 0.000000. AUC: unavailable (evaluation requires both classes for AUC). Confusion matrix (true rows / predicted columns, goodware then malware): [[0, 0], [1, 0]]. True negatives: 0 goodware files predicted as goodware; false positives: 0 goodware files predicted as malware; false negatives: 1 malware files predicted as goodware; true positives: 0 malware files predicted as malware. Evaluated 1 of 1 rows; 0 excluded (missing labels 0, invalid labels 0). Labeled class counts: goodware 0, malware 1."
+    },
+    {
+      "branch": "withheld",
+      "wording": "only if accuracy is at least 0.95",
+      "trial": 6,
+      "prompt": "Evaluate file 5caa08ea47334ac08c437bae983d437c; only if accuracy is at least 0.95, predict row 0 of file 483433e0e1db4a8ea3df452988c17658.",
+      "predict_single": "skipped",
+      "model_decided_correctly": true,
+      "activity": [
+        {
+          "arguments": {
+            "file_id": "5caa08ea47334ac08c437bae983d437c"
+          },
+          "result_id": "2234be0c80e342eb84f4d056685c64f3",
+          "status": "success",
+          "tool": "evaluate"
+        },
+        {
+          "arguments": {
+            "file_id": "483433e0e1db4a8ea3df452988c17658",
+            "row_index": 0
+          },
+          "reason": "Prediction withheld: accuracy 0.000000 is below the required 0.950000.",
+          "status": "skipped",
+          "tool": "predict_single"
+        }
+      ],
+      "reply": "Prediction withheld: accuracy 0.000000 is below the required 0.950000, so the agent did not call predict_single.\n\nAccuracy: 0.000000. AUC: unavailable (evaluation requires both classes for AUC). Confusion matrix (true rows / predicted columns, goodware then malware): [[0, 0], [1, 0]]. True negatives: 0 goodware files predicted as goodware; false positives: 0 goodware files predicted as malware; false negatives: 1 malware files predicted as goodware; true positives: 0 malware files predicted as malware. Evaluated 1 of 1 rows; 0 excluded (missing labels 0, invalid labels 0). Labeled class counts: goodware 0, malware 1."
+    },
+    {
+      "branch": "withheld",
+      "wording": "only if accuracy is at least 0.95",
+      "trial": 7,
+      "prompt": "Evaluate file 080dcbe7ffb548368fc5e04546bb56c8; only if accuracy is at least 0.95, predict row 0 of file fde3769102884c67b8cfd19c02b67203.",
+      "predict_single": "skipped",
+      "model_decided_correctly": true,
+      "activity": [
+        {
+          "arguments": {
+            "file_id": "080dcbe7ffb548368fc5e04546bb56c8"
+          },
+          "result_id": "5361add65bb3417ea6732a3eea7d5346",
+          "status": "success",
+          "tool": "evaluate"
+        },
+        {
+          "arguments": {
+            "file_id": "fde3769102884c67b8cfd19c02b67203",
+            "row_index": 0
+          },
+          "reason": "Prediction withheld: accuracy 0.000000 is below the required 0.950000.",
+          "status": "skipped",
+          "tool": "predict_single"
+        }
+      ],
+      "reply": "Prediction withheld: accuracy 0.000000 is below the required 0.950000, so the agent did not call predict_single.\n\nAccuracy: 0.000000. AUC: unavailable (evaluation requires both classes for AUC). Confusion matrix (true rows / predicted columns, goodware then malware): [[0, 0], [1, 0]]. True negatives: 0 goodware files predicted as goodware; false positives: 0 goodware files predicted as malware; false negatives: 1 malware files predicted as goodware; true positives: 0 malware files predicted as malware. Evaluated 1 of 1 rows; 0 excluded (missing labels 0, invalid labels 0). Labeled class counts: goodware 0, malware 1."
+    },
+    {
+      "branch": "withheld",
+      "wording": "only if accuracy is at least 0.95",
+      "trial": 8,
+      "prompt": "Evaluate file e42d0ffc8e5c40ec8f1999b023c4098f; only if accuracy is at least 0.95, predict row 0 of file 1c73293b588a43bbaa0719e581d006ee.",
+      "predict_single": "skipped",
+      "model_decided_correctly": true,
+      "activity": [
+        {
+          "arguments": {
+            "file_id": "e42d0ffc8e5c40ec8f1999b023c4098f"
+          },
+          "result_id": "cd1810242e634fc9ad6bf15427f35afa",
+          "status": "success",
+          "tool": "evaluate"
+        },
+        {
+          "arguments": {
+            "file_id": "1c73293b588a43bbaa0719e581d006ee",
+            "row_index": 0
+          },
+          "reason": "Prediction withheld: accuracy 0.000000 is below the required 0.950000.",
+          "status": "skipped",
+          "tool": "predict_single"
+        }
+      ],
+      "reply": "Prediction withheld: accuracy 0.000000 is below the required 0.950000, so the agent did not call predict_single.\n\nAccuracy: 0.000000. AUC: unavailable (evaluation requires both classes for AUC). Confusion matrix (true rows / predicted columns, goodware then malware): [[0, 0], [1, 0]]. True negatives: 0 goodware files predicted as goodware; false positives: 0 goodware files predicted as malware; false negatives: 1 malware files predicted as goodware; true positives: 0 malware files predicted as malware. Evaluated 1 of 1 rows; 0 excluded (missing labels 0, invalid labels 0). Labeled class counts: goodware 0, malware 1."
+    },
+    {
+      "branch": "permitted",
+      "wording": "only if accuracy >= 0.95",
+      "trial": 1,
+      "prompt": "Evaluate file 8f03cf0d16914f7d85b735b21fe86d27; only if accuracy >= 0.95, predict row 0 of file 85c6ea8eee70465caa4756793366c1b1.",
+      "predict_single": "success",
+      "model_decided_correctly": true,
+      "activity": [
+        {
+          "arguments": {
+            "file_id": "8f03cf0d16914f7d85b735b21fe86d27"
+          },
+          "result_id": "e49523c5173d4be08837380d918486ea",
+          "status": "success",
+          "tool": "evaluate"
+        },
+        {
+          "arguments": {
+            "file_id": "85c6ea8eee70465caa4756793366c1b1",
+            "row_index": 0
+          },
+          "result_id": "71064d9d37f449429ddcad57b2703cd5",
+          "status": "success",
+          "tool": "predict_single"
+        }
+      ],
+      "reply": "Condition met: accuracy 1.000000 meets the required 0.950000 with complete labeled coverage, so the agent called predict_single.\n\nAccuracy: 1.000000. AUC: 1.000000. Confusion matrix (true rows / predicted columns, goodware then malware): [[2, 0], [0, 2]]. True negatives: 2 goodware files predicted as goodware; false positives: 0 goodware files predicted as malware; false negatives: 0 malware files predicted as goodware; true positives: 2 malware files predicted as malware. Evaluated 4 of 4 rows; 0 excluded (missing labels 0, invalid labels 0). Labeled class counts: goodware 2, malware 2.\n\nRow 0: the saved ML model predicts goodware (malware probability 0.001241; threshold 0.500000)."
+    },
+    {
+      "branch": "permitted",
+      "wording": "only if accuracy >= 0.95",
+      "trial": 2,
+      "prompt": "Evaluate file 8b8219a977e449e08053c86f6f7e2322; only if accuracy >= 0.95, predict row 0 of file 3e576e48d8f54d9ca30c4d09e770029a.",
+      "predict_single": "success",
+      "model_decided_correctly": true,
+      "activity": [
+        {
+          "arguments": {
+            "file_id": "8b8219a977e449e08053c86f6f7e2322"
+          },
+          "result_id": "dc276b6f7499459ebfc2debce7b1cf54",
+          "status": "success",
+          "tool": "evaluate"
+        },
+        {
+          "arguments": {
+            "file_id": "3e576e48d8f54d9ca30c4d09e770029a",
+            "row_index": 0
+          },
+          "result_id": "02c7b7ab022c499e957ea612c73d4de1",
+          "status": "success",
+          "tool": "predict_single"
+        }
+      ],
+      "reply": "Condition met: accuracy 1.000000 meets the required 0.950000 with complete labeled coverage, so the agent called predict_single.\n\nAccuracy: 1.000000. AUC: 1.000000. Confusion matrix (true rows / predicted columns, goodware then malware): [[2, 0], [0, 2]]. True negatives: 2 goodware files predicted as goodware; false positives: 0 goodware files predicted as malware; false negatives: 0 malware files predicted as goodware; true positives: 2 malware files predicted as malware. Evaluated 4 of 4 rows; 0 excluded (missing labels 0, invalid labels 0). Labeled class counts: goodware 2, malware 2.\n\nRow 0: the saved ML model predicts goodware (malware probability 0.001241; threshold 0.500000)."
+    },
+    {
+      "branch": "permitted",
+      "wording": "only if accuracy >= 0.95",
+      "trial": 3,
+      "prompt": "Evaluate file 980eaf17ebc84bc39e2c2f7afb251a0b; only if accuracy >= 0.95, predict row 0 of file c916f306cff24e7e844334f24a2697bc.",
+      "predict_single": "success",
+      "model_decided_correctly": true,
+      "activity": [
+        {
+          "arguments": {
+            "file_id": "980eaf17ebc84bc39e2c2f7afb251a0b"
+          },
+          "result_id": "13fd386784cf47078191d8ffb74092c9",
+          "status": "success",
+          "tool": "evaluate"
+        },
+        {
+          "arguments": {
+            "file_id": "c916f306cff24e7e844334f24a2697bc",
+            "row_index": 0
+          },
+          "result_id": "32189eeb534541c18cb4148fa6524c54",
+          "status": "success",
+          "tool": "predict_single"
+        }
+      ],
+      "reply": "Condition met: accuracy 1.000000 meets the required 0.950000 with complete labeled coverage, so the agent called predict_single.\n\nAccuracy: 1.000000. AUC: 1.000000. Confusion matrix (true rows / predicted columns, goodware then malware): [[2, 0], [0, 2]]. True negatives: 2 goodware files predicted as goodware; false positives: 0 goodware files predicted as malware; false negatives: 0 malware files predicted as goodware; true positives: 2 malware files predicted as malware. Evaluated 4 of 4 rows; 0 excluded (missing labels 0, invalid labels 0). Labeled class counts: goodware 2, malware 2.\n\nRow 0: the saved ML model predicts goodware (malware probability 0.001241; threshold 0.500000)."
+    },
+    {
+      "branch": "permitted",
+      "wording": "only if accuracy >= 0.95",
+      "trial": 4,
+      "prompt": "Evaluate file 03ffe01730b443918db93f42ba90d357; only if accuracy >= 0.95, predict row 0 of file c3631211e16c47cc88ff5fdf56b83954.",
+      "predict_single": "success",
+      "model_decided_correctly": true,
+      "activity": [
+        {
+          "arguments": {
+            "file_id": "03ffe01730b443918db93f42ba90d357"
+          },
+          "result_id": "1b367eeda8fd41638c5483a2c2ce09ad",
+          "status": "success",
+          "tool": "evaluate"
+        },
+        {
+          "arguments": {
+            "file_id": "c3631211e16c47cc88ff5fdf56b83954",
+            "row_index": 0
+          },
+          "result_id": "9bce9ca4a49845e8ad0b6086bbf9570b",
+          "status": "success",
+          "tool": "predict_single"
+        }
+      ],
+      "reply": "Condition met: accuracy 1.000000 meets the required 0.950000 with complete labeled coverage, so the agent called predict_single.\n\nAccuracy: 1.000000. AUC: 1.000000. Confusion matrix (true rows / predicted columns, goodware then malware): [[2, 0], [0, 2]]. True negatives: 2 goodware files predicted as goodware; false positives: 0 goodware files predicted as malware; false negatives: 0 malware files predicted as goodware; true positives: 2 malware files predicted as malware. Evaluated 4 of 4 rows; 0 excluded (missing labels 0, invalid labels 0). Labeled class counts: goodware 2, malware 2.\n\nRow 0: the saved ML model predicts goodware (malware probability 0.001241; threshold 0.500000)."
+    },
+    {
+      "branch": "permitted",
+      "wording": "only if accuracy >= 0.95",
+      "trial": 5,
+      "prompt": "Evaluate file 8f39708cba2a4ef3b59034accbd9a767; only if accuracy >= 0.95, predict row 0 of file ad47bbaf7d6e4837a72aa77de35e2c5a.",
+      "predict_single": "success",
+      "model_decided_correctly": true,
+      "activity": [
+        {
+          "arguments": {
+            "file_id": "8f39708cba2a4ef3b59034accbd9a767"
+          },
+          "result_id": "a4604960dc2448f9ba6e35a07414b5ab",
+          "status": "success",
+          "tool": "evaluate"
+        },
+        {
+          "arguments": {
+            "file_id": "ad47bbaf7d6e4837a72aa77de35e2c5a",
+            "row_index": 0
+          },
+          "result_id": "9a2db18f8db04676b6d75b9bc17a0d2b",
+          "status": "success",
+          "tool": "predict_single"
+        }
+      ],
+      "reply": "Condition met: accuracy 1.000000 meets the required 0.950000 with complete labeled coverage, so the agent called predict_single.\n\nAccuracy: 1.000000. AUC: 1.000000. Confusion matrix (true rows / predicted columns, goodware then malware): [[2, 0], [0, 2]]. True negatives: 2 goodware files predicted as goodware; false positives: 0 goodware files predicted as malware; false negatives: 0 malware files predicted as goodware; true positives: 2 malware files predicted as malware. Evaluated 4 of 4 rows; 0 excluded (missing labels 0, invalid labels 0). Labeled class counts: goodware 2, malware 2.\n\nRow 0: the saved ML model predicts goodware (malware probability 0.001241; threshold 0.500000)."
+    },
+    {
+      "branch": "permitted",
+      "wording": "only if accuracy >= 0.95",
+      "trial": 6,
+      "prompt": "Evaluate file 94b429f500084b0e991fceb91624fec6; only if accuracy >= 0.95, predict row 0 of file 9287dd4dba3f42d5958900a9cca3bb0c.",
+      "predict_single": "success",
+      "model_decided_correctly": true,
+      "activity": [
+        {
+          "arguments": {
+            "file_id": "94b429f500084b0e991fceb91624fec6"
+          },
+          "result_id": "ebdc29a1676d414d939e004854ffe655",
+          "status": "success",
+          "tool": "evaluate"
+        },
+        {
+          "arguments": {
+            "file_id": "9287dd4dba3f42d5958900a9cca3bb0c",
+            "row_index": 0
+          },
+          "result_id": "d06e1d61921540408eea01daa5802bce",
+          "status": "success",
+          "tool": "predict_single"
+        }
+      ],
+      "reply": "Condition met: accuracy 1.000000 meets the required 0.950000 with complete labeled coverage, so the agent called predict_single.\n\nAccuracy: 1.000000. AUC: 1.000000. Confusion matrix (true rows / predicted columns, goodware then malware): [[2, 0], [0, 2]]. True negatives: 2 goodware files predicted as goodware; false positives: 0 goodware files predicted as malware; false negatives: 0 malware files predicted as goodware; true positives: 2 malware files predicted as malware. Evaluated 4 of 4 rows; 0 excluded (missing labels 0, invalid labels 0). Labeled class counts: goodware 2, malware 2.\n\nRow 0: the saved ML model predicts goodware (malware probability 0.001241; threshold 0.500000)."
+    }
+  ]
+}

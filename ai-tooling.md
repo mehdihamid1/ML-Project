@@ -199,3 +199,10 @@ answers with usage help, now also shows the stored result, and a question about
 a withheld row says no prediction was made and why. Regression tests cover
 these cases. After deployment, Run 8 passed all 15 scenarios and all 9
 supplemental follow-up checks.
+
+While preparing the three-speaker demo, Claude Code repeated the withheld
+conditional branch on the live site; in 2 of 13 tries the AI requested the
+prediction anyway and the server blocked it. Claude Code restated the rule in
+that turn's `predict_single` description, keeping the comparison with the AI.
+On the deployed change, 22 repeated conditional requests all got the right
+decision and Run 9 passed all 15 scenarios.

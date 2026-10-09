@@ -6,10 +6,10 @@ The app is live at <https://quantic-malware-agent.onrender.com/>. On
 2026-10-09, its [/health](https://quantic-malware-agent.onrender.com/health)
 reported `status: ok`, `selected_model: LightGBM`, `openai_configured: true`,
 `openai_model: gpt-4.1-mini`, model version `d13e54cf1970-1791236375742615262`
-and commit [`652bdf8`](https://github.com/mehdihamid1/ML-Project/commit/652bdf8),
+and commit [`9d4dccb`](https://github.com/mehdihamid1/ML-Project/commit/9d4dccb),
 the last code change.
 
-Observed [GitHub Actions run 37965571132](https://github.com/mehdihamid1/ML-Project/actions/runs/37965571132)
+Observed [GitHub Actions run 37980201759](https://github.com/mehdihamid1/ML-Project/actions/runs/37980201759)
 for that commit:
 
 | Check | Observed result |
@@ -21,9 +21,10 @@ for that commit:
 | Live `/health` smoke test | Passed. |
 | Overall workflow | Passed. |
 
-The real-LLM run against that deployment (Run 8) passed all 15 scenarios,
-with all 27 numeric checks matching, and all 9 supplemental follow-up checks
-passed; see [agent-evaluation.md](agent-evaluation.md).
+The real-LLM run against that deployment (Run 9) passed all 15 scenarios,
+with all 27 numeric checks matching. In 22 repeated live conditional requests,
+the AI made the right decision every time; see
+[agent-evaluation.md](agent-evaluation.md).
 
 ## Observed blocked deployment
 

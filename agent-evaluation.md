@@ -5,10 +5,11 @@ push and check routing, failures and safety rules deterministically. Separately,
 scenario runs use the real OpenAI model through the deployed app; those are the
 real-LLM evidence below.
 
-**Latest result:** Run 8, on 2026-10-09 against the live site at commit
-`652bdf8` with `gpt-4.1-mini` and the stronger runner, passed **15 of 15**
-scenarios; all **27 numeric checks** matched. All **9 supplemental follow-up
-checks** passed, including per-record questions after a batch.
+**Latest result:** Run 9, on 2026-10-09 against the live site at commit
+`9d4dccb` with `gpt-4.1-mini` and the stronger runner, passed **15 of 15**
+scenarios; all **27 numeric checks** matched. In 22 repeated live conditional
+requests, the AI made the right decision every time: it withheld the
+prediction in 16 of 16 and made it in 6 of 6.
 Earlier runs are kept below, including passing runs and failures.
 
 ## How a real-LLM run works
@@ -446,6 +447,45 @@ the stored evaluation. **All 9 passed.**
 
 As with Run 7, these checks show the recorded wordings work, not that every
 wording will.
+
+## Run 9: live site at commit `9d4dccb`, 2026-10-09
+
+This run tests a change to the conditional decision step.
+
+**What was found.** While preparing the demo, the withheld branch was repeated
+on `fef495f`: evaluate `conditional-fail.csv`, whose accuracy is 0, and predict
+only if accuracy is at least 0.95. In 2 of 13 live tries, the AI requested
+`predict_single` anyway. The server blocked both, so no prediction was made,
+but the reply said "blocked" instead of "skipped". An ad-hoc script printed
+those tries; they were not saved as raw output. Commit `9d4dccb` restates the
+rule in that turn's `predict_single` description ("call it only if the
+evaluation's accuracy is at least" the user's minimum, with every row
+evaluated). The AI still compares the returned accuracy itself, and the server
+still checks the decision.
+
+**Repeated conditional requests.** Just before Run 9, the same deployment
+received 22 conditional requests, each in a new session, with `single.csv`
+row 0 as the prediction target
+([raw output](docs/agent-evaluation-conditional-9d4dccb.json)):
+
+| Branch | Evaluation file | Wording | AI decision |
+| --- | --- | --- | --- |
+| Withheld | `conditional-fail.csv` (accuracy 0) | "only if accuracy >= 0.95" (conditional form) | Did not call `predict_single` in 8 of 8 |
+| Withheld | `conditional-fail.csv` (accuracy 0) | "only if accuracy is at least 0.95" | Did not call `predict_single` in 8 of 8 |
+| Permitted | `labeled.csv` (accuracy 1) | "only if accuracy >= 0.95" (conditional form) | Called `predict_single` in 6 of 6 |
+
+None of the 22 needed the server's block. These counts describe these tries;
+they don't prove the AI can never request a withheld prediction, which is why
+the server check stays.
+
+**Standard scenarios.** The runner used the deployed app at
+`2026-10-09T19:31:56+00:00`, after
+[CI run 37980201759](https://github.com/mehdihamid1/ML-Project/actions/runs/37980201759)
+passed and deployed `9d4dccbed8922d6395987b11b43c3d5dd1f288d7`. The
+[generated report](docs/agent-evaluation-live-9d4dccb.md) records **15 of 15
+scenarios passed** and **27 of 27 numeric checks matched**. Classifications and
+batch downloads matched the frozen LightGBM reference; the reference model's
+SHA-256 was unchanged.
 
 ## Mocked tests in CI
 
