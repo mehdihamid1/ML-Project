@@ -414,12 +414,29 @@ def _stored_followup(message, stored, files):
     file_refs = [file_id for file_id in files if re.search(
         r"(?<![\w-])" + re.escape(file_id) + r"(?![\w-])", message)]
     explicit_files = re.findall(r"\b(?:file-[\w-]+|[0-9a-f]{32})\b", message, re.I)
-    if any(ref not in files and ref not in result_refs for ref in explicit_files):
+    unknown_file = any(ref not in files and ref not in result_refs for ref in explicit_files)
+    if unknown_file:
         candidates = []
     elif file_refs:
         candidates = [r for r in candidates if r.get("file_id") in file_refs]
         # Asking about a different, not-yet-evaluated upload can require a tool.
         if not candidates and not prior:
+            return None
+    # A question about specific rows ("Is row 2 malware?") asks for their
+    # classification. A stored prediction of those rows answers it. Otherwise
+    # it is new work, so per-record questions after a batch can call
+    # predict_single. Past-tense row questions ("What was the prediction for
+    # row 0?") get a tool only for rows a stored batch already classified, so
+    # they cannot run a prediction that a condition withheld.
+    rows = {int(number) for match in re.finditer(
+        r"\brow(?:s|_index)?\s*[=:]?\s*((?:\d+\s*(?:,|and|or|&)?\s*)+)", affirmative)
+        for number in re.findall(r"\d+", match.group(1))}
+    if rows and not unknown_file and not result_refs and set(focuses) <= {"prediction"}:
+        in_scope = [r for r in stored if not file_refs or r.get("file_id") in file_refs]
+        answered = [r for r in in_scope if r.get("tool") == "predict_single" and r.get("row_index") in rows]
+        if {r["row_index"] for r in answered} >= rows:
+            return {"results": answered, "focus": "prediction"}
+        if not prior or any(r.get("tool") == "predict_batch" for r in in_scope):
             return None
     return {"results": candidates, "focus": focuses[0] if len(focuses) == 1 else "summary"}
 
@@ -828,6 +845,7 @@ class Agent:
                     return self._finish(reply + "\n\n" + self._render(evaluation), state, message, activity, results)
                 render_state = {**state, "results": evidence} if followup is not None else state
                 response_text = _get(response, "output_text", "")
+                shown = []
                 if followup is not None:
                     try:
                         selection = json.loads(response_text)
@@ -837,9 +855,16 @@ class Agent:
                             if followup["focus"] != "summary":
                                 selection["focus"] = followup["focus"]
                             response_text = json.dumps(selection)
+                        elif isinstance(selection, dict) and selection.get("kind") == "explanation_unavailable":
+                            # A summary question such as "Explain what the evaluation found"
+                            # still gets the stored result; only feature-level causes are refused.
+                            ids = selection.get("result_ids") if isinstance(selection.get("result_ids"), list) else []
+                            shown = [r for r in evidence if r["result_id"] in ids][:3] or evidence[-1:]
                     except (TypeError, ValueError):
                         pass
                 reply = self._render_response(response_text, render_state, results)
+                if shown:
+                    reply += "\n\n" + "\n\n".join(self._render(r, followup["focus"]) for r in shown)
                 return self._finish(reply, state, message, activity, results)
             # No parallel execution, so the activity record keeps the decision order.
             if len(calls) != 1:

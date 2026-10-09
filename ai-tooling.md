@@ -43,7 +43,7 @@ documentation and its Blueprint schema. It rebuilt both Docker images, verified
 authenticated Jupyter access, and added a reproducible production HTTP probe
 using an actual memory-limited Gunicorn container. The probe's provider is a
 local stub, while model predictions, metrics and downloads use production code.
-The latest local full and lean runtime suites pass 447 and 436 tests respectively.
+The latest local full and lean runtime suites pass 460 and 449 tests respectively.
 
 Claude Code (Anthropic) performed that review and checked its findings with
 read-only experiments: phrasing checks against the conditional detector and an
@@ -186,3 +186,13 @@ Live Run 7 passed all 15 scenarios and all 27 numeric checks; four additional
 follow-ups ran no tools, with one unnecessary refusal and one correct
 true-positive answer rejected by the supplemental script's narrower text check.
 The blocked-deploy experiment and its revert are recorded in `deployed.md`.
+
+Claude Code then checked the guard against per-record questions on the live
+site. After a batch, "What is the malware probability of row 2?" was answered
+"unavailable" and "Is row 0 malware?" returned only the batch counts, because
+any question after a stored result disabled tools. Claude Code kept the guard
+but let a question naming specific rows classify them unless a stored
+prediction already answers it; past-tense row questions get a tool only for
+rows a stored batch classified, so a withheld prediction stays withheld. A
+stored-result question the model declines as a feature explanation now also
+shows the stored result. Regression tests cover both cases.

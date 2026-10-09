@@ -302,6 +302,13 @@ Explicit fresh evaluation/classification commands remain available, and
 explicit session references restrict which stored results may be rendered.
 After results exist, unrecognized follow-up wording also defaults to stored
 evidence; it cannot re-enable tools merely by missing a metric keyword.
+A question naming specific rows, such as "Is row 2 malware?", asks for their
+classification: a stored prediction of those rows answers it, and otherwise
+`predict_single` may run, so per-record questions after a batch work. Asked in
+the past tense ("What was the prediction for row 0?"), it gets a tool only for
+rows a stored batch already classified, so a follow-up cannot carry out a
+prediction that a condition withheld. If the model declines a stored-result
+question as a feature explanation, the reply still shows the stored result.
 Known tool validation errors explain the
 problem; unexpected exceptions remain sanitized.
 

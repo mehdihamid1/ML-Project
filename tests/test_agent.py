@@ -704,6 +704,8 @@ def test_followup_uses_existing_evidence_and_session_isolation(files):
     "Do not evaluate again. How many false negatives were there in that evaluation?",
     "How many false negatives were there? Don't predict another row.",
     "Don't predict or classify. How many false negatives were there?",
+    "Don't predict row 0. How many false negatives were there?",
+    "What was the prediction for row 0?",
     "How many malware samples did it miss?",
     "Explain what the evaluation found.",
     "What did the classifier miss?",
@@ -797,6 +799,7 @@ def test_followup_requested_metric_and_sole_reference_override_empty_provider_se
 
 @pytest.mark.parametrize("name,message,expected", [
     ("predict_single", "What is the malware probability?", "malware probability 0.870000"),
+    ("predict_single", "What is the malware probability of row 0?", "malware probability 0.870000"),
     ("predict_batch", "How many goodware files were there?", "0 goodware"),
 ])
 def test_prediction_and_batch_followups_also_disable_new_tools(files, name, message, expected):
@@ -817,6 +820,48 @@ def test_mixed_stored_prediction_and_batch_metrics_do_not_enable_tools(files):
     output = Agent(service, client).chat("What is the malware probability and goodware count?", state, files)
     assert "malware probability 0.870000" in output["reply"] and "0 goodware" in output["reply"]
     assert len(service.calls) == 2 and not output["activity"] and not output["results"]
+    assert client.requests[0]["tools"] == [] and client.requests[0]["tool_choice"] == "none"
+
+
+@pytest.mark.parametrize("message", [
+    "What is the malware probability of row 0?",
+    "Is row 0 malware?",
+    "Tell me if row 0 of file-b is malware.",
+    "What was the malware probability of row 0 in that batch?",
+])
+def test_row_question_after_a_batch_classifies_that_row(files, message):
+    # Live regression: after a batch, per-record questions got the batch counts
+    # or "unavailable" because stored-result mode had disabled every tool.
+    state, service = {}, FakeService()
+    Agent(service, FakeClient(tool("predict_batch", file_id="file-b"), final())).chat(
+        "Classify all rows in file-b", state, files)
+    client = FakeClient(tool("predict_single", file_id="file-b", row_index=0), final())
+    output = Agent(service, client).chat(message, state, files)
+    assert [call[0] for call in service.calls] == ["predict_batch", "predict_single"]
+    assert [(a["tool"], a["status"]) for a in output["activity"]] == [("predict_single", "success")]
+    assert "malware probability 0.870000" in output["reply"]
+    assert client.requests[0]["tools"] and client.requests[0]["tool_choice"] == "auto"
+
+
+def test_row_question_about_an_unpredicted_row_can_classify_it(files):
+    state, service = {}, FakeService()
+    Agent(service, FakeClient(tool("predict_single", file_id="file-a", row_index=0), final())).chat(
+        "Classify row 0 of file-a", state, files)
+    client = FakeClient(tool("predict_single", file_id="file-a", row_index=1), final())
+    output = Agent(service, client).chat("What is the malware probability of row 1?", state, files)
+    assert service.calls[-1] == ("predict_single", files["file-a"]["path"], 1)
+    assert output["activity"][0]["status"] == "success"
+
+
+def test_refused_summary_followup_still_shows_the_stored_result(files):
+    # Live finding: "Explain what the evaluation found." got only the refusal.
+    state, service = {}, FakeService(accuracy=0, confusion_matrix=[[0, 0], [1, 0]])
+    Agent(service, FakeClient(tool("evaluate", file_id="file-a"), final())).chat("Evaluate file-a", state, files)
+    client = FakeClient(final(kind="explanation_unavailable"))
+    output = Agent(service, client).chat("Explain what the evaluation found.", state, files)
+    assert output["reply"].startswith("Feature-level explanations are unavailable")
+    assert "Accuracy: 0.000000" in output["reply"] and "false negatives: 1" in output["reply"].lower()
+    assert len(service.calls) == 1 and not output["activity"] and not output["results"]
     assert client.requests[0]["tools"] == [] and client.requests[0]["tool_choice"] == "none"
 
 

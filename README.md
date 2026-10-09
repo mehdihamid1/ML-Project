@@ -15,8 +15,8 @@ under `docs/`, so a clean checkout can run the app without retraining.
 ## Current status
 
 The tools, OpenAI agent, Flask app, sample CSVs and deployment workflow are
-implemented. Plain `pytest` passes all 447 tests locally; the lean runtime
-suite passes 436 tests.
+implemented. Plain `pytest` passes all 460 tests locally; the lean runtime
+suite passes 449 tests.
 
 The final code change, [`15df7ec`](https://github.com/mehdihamid1/ML-Project/commit/15df7ec), was
 deployed by [GitHub Actions run 37961560594](https://github.com/mehdihamid1/ML-Project/actions/runs/37961560594):
@@ -92,7 +92,9 @@ evaluation, prediction, failure or skip. On screens at least 721 pixels wide
 and 560 tall, the page fits the first screen: the chat and its input stay
 visible while the file column scrolls on its own. Phones show the chat after
 the file list.
-Follow-up questions use stored session results.
+Follow-up questions use stored session results. A question about specific
+rows, such as “Is row 2 malware?” after a batch, classifies those rows with
+`predict_single` unless a stored prediction already answers it.
 Confusion-matrix follow-ups name false negatives, false positives, true negatives
 and true positives, with counts and rates calculated in code. Ordinary “tell me
 if it is malware” requests work, and evaluation and classification can be
@@ -110,6 +112,7 @@ buttons and the conditional form write the same requests for you.
 | --- | --- | --- | --- |
 | Single prediction | **One row** (`single.csv`) | `Predict row 0 of file <file-id>.` | `predict_single`: the row's class and malware probability |
 | Batch prediction | **Batch of 4** (`batch.csv`) | `Classify all rows in file <file-id>.` | `predict_batch`: class counts for the 4 rows and a download link |
+| Per-record follow-up | after the batch | `What is the malware probability of row 2?` | `predict_single` on row 2 of the batch file |
 | Labeled evaluation | **Labeled** (`labeled.csv`) | `Evaluate file <file-id> using its labels.` | `evaluate`: AUC, accuracy and confusion matrix |
 | Conditional, met | **Labeled**, then **One row** | `Evaluate file <labeled-id>; only if accuracy >= 0.95, predict row 0 of file <single-id>.` | `evaluate`, then the AI model calls `predict_single` |
 | Conditional, not met | **Low accuracy**, then **One row** | `Evaluate file <low-accuracy-id>; only if accuracy >= 0.9, predict row 0 of file <single-id>.` | `evaluate`; the prediction is withheld |
