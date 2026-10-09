@@ -120,11 +120,62 @@ Both were in the version Run 1 tested, and both are fixed with regression tests:
   comes from the condition itself, and two different values in the condition
   prompt a clarification question.
 
-## Run 2: after the AI-decided conditional task
+## Run 2: live site at commit `ab544ad`, 2026-10-09
 
-Not run yet. It needs the change to be committed, pushed and deployed. The
-same command then runs against the new deployment; its report will be added
-here and to `docs/`.
+This run tests the AI-decided conditional task and the two condition fixes.
+
+- Where: <https://quantic-malware-agent.onrender.com>, deployed commit
+  `ab544ada7054adf5bd99c0e27b78163dcbd807de`.
+- AI model: `gpt-4.1-mini`, as reported by `/health`.
+- ML model version: `d13e54cf1970-1791236375742615262`.
+- Run (UTC): 2026-10-09T13:55:59+00:00.
+- Result: **13 of 15 scenarios passed**. All 22 six-decimal numbers in the
+  replies matched the tool outputs.
+- Full report with every reply:
+  [docs/agent-evaluation-live-ab544ad.md](docs/agent-evaluation-live-ab544ad.md).
+
+| # | Scenario | Tools called | Result |
+| --- | --- | --- | --- |
+| 1 | Single prediction | `evaluate` (error) | FAIL |
+| 2 | Batch prediction | `predict_batch` (success) | PASS |
+| 3 | Labeled evaluation | `evaluate` (success) | PASS |
+| 4 | Conditional: prediction permitted | `evaluate` (success), `predict_single` (success) | PASS |
+| 5 | Conditional: prediction withheld | `evaluate` (success), `predict_single` (skipped) | PASS |
+| 6 | False-negative follow-up | none | PASS |
+| 7 | Condition without "if" | `evaluate` (success), `predict_single` (success) | PASS |
+| 8 | Earlier accuracy figure ignored | `evaluate` (success), `predict_single` (skipped) | PASS |
+| 9 | Invalid input row | `predict_batch` (success) | PASS |
+| 10 | Missing labels | `evaluate` (success) | PASS |
+| 11 | No Label column | `evaluate` (error) | PASS |
+| 12 | Single-class evaluation | `evaluate` (success) | FAIL |
+| 13 | Tool failure | `predict_single` (error) | PASS |
+| 14 | Feature explanation refused | none | PASS |
+| 15 | Ambiguous condition | none | PASS |
+
+**Findings.** The conditional task worked with the real model in all four of
+its scenarios. In each, the model read the returned accuracy and made the right
+call, including for the two wordings the review flagged. Two failures and one
+gap in the checks showed one pattern: the reply text depended on choices the
+model made outside the task.
+
+- Scenario 1: for "Classify row 0 of file single.csv", the model called
+  `evaluate` instead of `predict_single`. The evaluation failed for lack of
+  labels, and no prediction was made. The system instructions described the
+  conditional steps ("call evaluate first") to every request, which the model
+  over-applied. They now route one row to `predict_single`, a whole file to
+  `predict_batch` and only evaluation requests to `evaluate`. The conditional
+  steps appear only in the developer message added to conditional requests.
+- Scenario 12: the model chose the accuracy focus, so the reply left out the
+  required explanation that AUC is undefined. An unavailable AUC is now always
+  explained, together with the accuracy.
+- Scenario 3 passed, but its reply gave only accuracy although AUC and the
+  confusion matrix were requested; the check had read the tool result, not the
+  reply. A new evaluation now always reports every metric, the focus only
+  narrows follow-ups, and the check reads the reply.
+
+## Run 3: after the routing and reply fixes
+
+Not run yet. It needs those fixes to be deployed.
 
 ## Mocked tests in CI
 
@@ -141,6 +192,9 @@ These run on every push and are not real-LLM evidence:
     the server;
   - conditions worded without "if" still force the evaluation, and an earlier
     accuracy figure in the message never becomes the threshold.
+
+  Rendering tests check that a new evaluation reports every metric whatever
+  focus the model picks, and that an unavailable AUC is always explained.
 - Runner tests drive the same scenarios through the pinned OpenAI SDK with
   mocked HTTP responses and the frozen model. One runs the live mode against
   a local HTTP server.

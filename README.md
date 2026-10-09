@@ -15,8 +15,8 @@ under `docs/`, so a clean checkout can run the app without retraining.
 ## Current status
 
 The tools, OpenAI agent, Flask app, sample CSVs and deployment workflow are
-implemented. Plain `pytest` passes all 331 tests locally; the lean environment
-passes 320 tests. The AI-decided conditional task, the sample-file buttons and
+implemented. Plain `pytest` passes all 337 tests locally; the lean environment
+passes 326 tests. The AI-decided conditional task, the sample-file buttons and
 the live mode of the evaluation runner in this checkout are verified locally
 and await commit, push and deployment.
 

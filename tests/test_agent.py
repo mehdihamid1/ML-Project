@@ -541,9 +541,30 @@ def test_followup_uses_existing_evidence_and_session_isolation(files):
     output = Agent(service, followup).chat("What was its AUC?", state, files)
     assert "AUC: 0.960000" in output["reply"]
     assert len(service.calls) == 1
+    # A follow-up's focus narrows the answer to the metric asked about.
+    assert "Accuracy" not in output["reply"]
     other = Agent(service, FakeClient(final(result_ids=[result_id]))).chat("Tell me that other user's results", {}, files)
     assert "unavailable in this session" in other["reply"]
     assert "0.960000" not in other["reply"]
+
+
+@pytest.mark.parametrize("focus", ["accuracy", "auc", "counts", "false_negatives"])
+def test_new_evaluation_reports_every_metric_whatever_the_focus(files, focus):
+    # Run 2 regression: the model picked the accuracy focus, so AUC and the matrix went unreported.
+    output = Agent(FakeService(), FakeClient(tool("evaluate", file_id="file-a"), final(focus=focus))).chat(
+        "Evaluate file-a and report the AUC, accuracy and confusion matrix", {}, files)
+    for text in ("Accuracy: 0.900000", "AUC: 0.960000", "Confusion matrix", "Labeled class counts"):
+        assert text in output["reply"]
+
+
+@pytest.mark.parametrize("focus", ["accuracy", "auc"])
+def test_unavailable_auc_is_always_explained_with_accuracy(files, focus):
+    state, service = {}, FakeService(auc=None)
+    Agent(service, FakeClient(tool("evaluate", file_id="file-a"), final())).chat("Evaluate", state, files)
+    result_id = state["results"][0]["result_id"]
+    output = Agent(service, FakeClient(final(result_ids=[result_id], focus=focus))).chat("What about that one?", state, files)
+    assert "AUC: unavailable (evaluation requires both classes for AUC)." in output["reply"]
+    assert "Accuracy: 0.900000." in output["reply"]
 
 
 @pytest.mark.parametrize("focus,title,count,denominator", [

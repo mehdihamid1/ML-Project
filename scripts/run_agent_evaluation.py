@@ -68,6 +68,8 @@ def check_evaluation(response, session, previous):
     result = only_result(response, 'evaluate')
     expect(result['evaluated_count'] == 4 and finite(result['auc']) and finite(result['accuracy']), 'AUC or accuracy is missing')
     expect(sum(map(sum, result['confusion_matrix'])) == 4, 'the confusion matrix does not cover the 4 rows')
+    for text in ('Accuracy:', 'AUC:', 'Confusion matrix'):
+        expect(text in response['reply'], f'the reply does not report "{text}", which the request asked for')
 
 
 def check_permitted(response, session, previous):

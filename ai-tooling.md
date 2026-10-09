@@ -43,7 +43,7 @@ documentation and its Blueprint schema. It rebuilt both Docker images, verified
 authenticated Jupyter access, and added a reproducible production HTTP probe
 using an actual memory-limited Gunicorn container. The probe's provider is a
 local stub, while model predictions, metrics and downloads use production code.
-The latest local full and lean suites pass 331 and 320 tests respectively.
+The latest local full and lean suites pass 337 and 326 tests respectively.
 
 Claude Code (Anthropic) performed that review and checked its findings with
 read-only experiments: phrasing checks against the conditional detector and an
@@ -146,4 +146,7 @@ requests were read: a condition worded without "if" ("predict when accuracy is
 accuracy of 0.80" could become the threshold. Claude Code reproduced both,
 fixed them so the threshold is read from the condition itself (two different
 values prompt a clarification question), and added regression tests and two
-matching live scenarios.
+matching live scenarios. The second live run then failed 2 of 15 scenarios:
+the model routed a plain prediction to evaluation, and a reply depended on
+the metric focus the model chose. Routing instructions were tightened and new
+evaluations now always report every metric.
