@@ -12,6 +12,17 @@ requests, the AI made the right decision every time: it withheld the
 prediction in 16 of 16 and made it in 6 of 6.
 Earlier runs are kept below, including passing runs and failures.
 
+The live site now runs `cbd90fb`. The two code changes since `9d4dccb`, a
+dashboard theme and the Workflow tab, leave the instructions, tools and inputs
+sent to OpenAI unchanged; the agent now also records each call for the
+Workflow tab. On `cbd90fb`, that record of one live conditional request
+([raw trace](docs/workflow-trace-live-cbd90fb.json)) shows two real
+`gpt-4.1-mini` calls. The request evaluated `labeled.csv` and asked for row 0
+of `single.csv` only if accuracy >= 0.95. The first call was offered only
+`evaluate` and called it. The second was offered only `predict_single`,
+received the returned accuracy, 1.0, and called `predict_single`. This is one
+request, not a scenario run.
+
 ## How a real-LLM run works
 
 Use Python 3.10 with `requirements-runtime.txt` installed (and the platform's

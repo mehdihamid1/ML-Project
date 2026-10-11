@@ -3,13 +3,14 @@
 ## Status
 
 The app is live at <https://quantic-malware-agent.onrender.com/>. On
-2026-10-09, its [/health](https://quantic-malware-agent.onrender.com/health)
+2026-10-11, its [/health](https://quantic-malware-agent.onrender.com/health)
 reported `status: ok`, `selected_model: LightGBM`, `openai_configured: true`,
 `openai_model: gpt-4.1-mini`, model version `d13e54cf1970-1791236375742615262`
-and commit [`9d4dccb`](https://github.com/mehdihamid1/ML-Project/commit/9d4dccb),
-the last code change.
+and commit [`cbd90fb`](https://github.com/mehdihamid1/ML-Project/commit/cbd90fb),
+the last code change, which added the Workflow tab. Later commits change only
+documentation; CI tests and deploys them the same way.
 
-Observed [GitHub Actions run 37980201759](https://github.com/mehdihamid1/ML-Project/actions/runs/37980201759)
+Observed [GitHub Actions run 38099361745](https://github.com/mehdihamid1/ML-Project/actions/runs/38099361745)
 for that commit:
 
 | Check | Observed result |
@@ -21,9 +22,13 @@ for that commit:
 | Live `/health` smoke test | Passed. |
 | Overall workflow | Passed. |
 
-The real-LLM run against that deployment (Run 9) passed all 15 scenarios,
-with all 27 numeric checks matching. In 22 repeated live conditional requests,
-the AI made the right decision every time; see
+The latest full real-LLM run (Run 9, against commit `9d4dccb`) passed all 15
+scenarios, with all 27 numeric checks matching. In 22 repeated live
+conditional requests, the AI made the right decision every time. The code
+changes since then, a dashboard theme and the Workflow tab, leave the
+instructions, tools and inputs sent to OpenAI unchanged. On `cbd90fb`, the
+Workflow tab's trace of a live conditional request showed the AI reading the
+returned accuracy before calling `predict_single`; see
 [agent-evaluation.md](agent-evaluation.md).
 
 ## Observed blocked deployment

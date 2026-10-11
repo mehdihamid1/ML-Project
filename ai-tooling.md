@@ -213,4 +213,6 @@ the LightGBM model, and shows the real OpenAI calls of the session's last
 request: tools offered, a summary of what each call received, and what it
 returned. The agent records that trace per session without CSV rows; tests
 cover the page, the trace and session isolation, and a headless browser check
-confirmed the layout at desktop, 390 and 320 pixel widths.
+confirmed the layout at desktop, 390 and 320 pixel widths. After CI deployed
+it, the trace of a live conditional request showed the AI receiving the
+returned accuracy before it called `predict_single`.

@@ -8,14 +8,16 @@ that video remain pending. This guide describes what to demonstrate.
 Configure OpenAI and Render using [deployment instructions](../deployed.md).
 Run the real-provider scenario runner against the live site, as described in
 [agent evaluation](../agent-evaluation.md), and keep its original report.
-Use the successful deployment workflow and its verified live health response
-as evidence. Keep credentials and deploy-hook URLs out of the recording.
+Use the successful CI run and its verified live health response as evidence.
+Keep credentials and deploy-hook URLs out of the recording.
 
 ## Walkthrough
 
 1. State the task: classify Windows PE feature records using the saved ML model.
    Explain that OpenAI selects tools and stored results, while Python produces
    classifications and metrics. No feature-level explanation tool exists.
+   Open **Workflow** to show each step of an upload and of a chat request and
+   where it runs: the browser, the server, OpenAI or the LightGBM model.
 2. Show the dataset provenance, deduplication and leakage controls, the
    app's **Model dashboard** (`/analytics`) and its four experiment sections.
    Start with the duplicate removal and the train/test split. Advance the
@@ -32,7 +34,7 @@ as evidence. Keep credentials and deploy-hook URLs out of the recording.
    Relate these results to [evaluation and design](../evaluation-and-design.md). Explain the fixed
    decision threshold and limitations. Do not run tuning on the hold-out.
 3. Open the live app and `/health`. Show the tested commit and model version;
-   relate them to the successful workflow and frozen-model checksum.
+   relate them to the successful CI run and frozen-model checksum.
 4. Upload [single.csv](../samples/single.csv), or click the **One row** sample
    button, which loads the same file on the server. Show the automatically
    prepared question and its new file ID, review it, then click **Send**. Show
@@ -51,6 +53,9 @@ as evidence. Keep credentials and deploy-hook URLs out of the recording.
    the agent must call `evaluate` first; the AI model then reads the returned
    accuracy and calls `predict_single` itself, and the server checks that
    decision against your threshold. The reply begins "Condition met".
+   Open **Workflow** in a new browser tab: under **Your last request**, the
+   second OpenAI call received the returned accuracy and chose
+   `predict_single`. Do this before the next request, which replaces the trace.
    Then use [conditional-fail.csv](../samples/conditional-fail.csv) (the **Low
    accuracy** sample) with a demanding threshold: the reply begins "Prediction
    withheld" and the trail shows `predict_single()` skipped. Ask "How many false
@@ -61,9 +66,10 @@ as evidence. Keep credentials and deploy-hook URLs out of the recording.
    typing an evaluation request for [batch.csv](../samples/batch.csv) (its card
    offers no **Evaluate** button because it has no labels), and an
    informative out-of-range row request. Explain partial evaluation coverage.
-9. Show both successful CI test jobs, the real-provider scenario report, and
-   the deployment health check. Explain runtime dependencies, upload limits,
-   session isolation and the remaining limitations.
+9. Show the successful CI run (full, runtime and container tests, then the
+   deploy), the real-provider scenario report and the live health check.
+   Explain runtime dependencies, upload limits, session isolation and the
+   remaining limitations.
 
 ## Submission
 
