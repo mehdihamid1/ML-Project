@@ -131,7 +131,7 @@ separately against the live site; see [agent-evaluation.md](agent-evaluation.md)
 The current Blueprint passes the JSON schema served by
 [Render](https://render.com/schema/render.yaml.json). Docker Compose configuration
 validates, and both the training and production images build successfully.
-The training image passes 463 tests; the lean runtime passes 452 tests.
+The training image passes 473 tests; the lean runtime passes 462 tests.
 Authenticated Jupyter HTTP access works with the host owner's UID/GID.
 
 The production image works at its local default port and honors a custom

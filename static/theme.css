@@ -229,3 +229,7 @@ textarea:focus-visible, summary:focus-visible, [tabindex]:focus-visible,
   .holdout-metrics > div:last-child { grid-column: 1 / -1; }
 }
 @media (prefers-reduced-motion: reduce) { html:focus-within { scroll-behavior: auto; } }
+/* Three header tabs on the narrowest phones: size each tab by its label. */
+@media (max-width: 380px) {
+  .primary-nav a { flex: 1 1 auto; padding: 8px 6px; }
+}

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Request workflow · Quantic</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='theme.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='workflow.css') }}">
+  <script src="{{ url_for('static', filename='workflow.js') }}" defer></script>
+</head>
+<body>
+  {% set model_name = model or 'the OpenAI model' %}
+  <div class="workspace workflow-workspace">
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="Quantic classifier home"><span class="brand-mark">Q</span><span>Quantic<span class="brand-detail">Machine learning laboratory</span></span></a>
+      <nav class="primary-nav" aria-label="Main navigation"><a href="/">Chat</a><a href="/analytics">Model dashboard</a><a href="/workflow" aria-current="page">Workflow</a></nav>
+      <span class="recorded-badge"><span class="status-dot"></span>AI model: {{ model or 'unavailable' }}</span>
+    </header>
+    <main class="workflow-main">
+      <section class="workflow-intro">
+        <p class="eyebrow">HOW A REQUEST FLOWS</p>
+        <h1>From CSV upload to answer.</h1>
+        <p class="intro-copy">Each step shows where it runs. Only the steps marked <span class="lane-chip lane-llm">OpenAI</span> call the AI, and it sees file IDs and result summaries, never your CSV rows. The saved LightGBM model makes every classification, and Python writes every number in a reply.</p>
+        <ul class="lane-legend" aria-label="Where each step runs">
+          <li><span class="lane-chip lane-browser">Browser</span><span>This page and the chat</span></li>
+          <li><span class="lane-chip lane-server">Server</span><span>Flask app: Python checks and replies</span></li>
+          <li><span class="lane-chip lane-llm">OpenAI</span><span>{{ model_name }}: picks tools and results</span></li>
+          <li><span class="lane-chip lane-model">ML model</span><span>The frozen LightGBM pipeline</span></li>
+        </ul>
+        <nav class="workflow-jump" aria-label="Workflow sections"><a href="#upload">1 · Upload a CSV</a><a href="#request">2 · Send a request</a><a href="#calls">OpenAI calls by request</a><a href="#last">Your last request</a></nav>
+      </section>
+
+      <section class="panel workflow-section" id="upload" aria-labelledby="upload-heading">
+        <h2 id="upload-heading"><span class="section-number">1</span>Upload a CSV</h2>
+        <p class="section-note">No OpenAI call happens during an upload.</p>
+        <ol class="flow">
+          <li class="flow-step"><span class="lane-chip lane-browser">Browser</span><div class="step-body"><h3>Choose a file</h3><p>Drop or choose a CSV, or click a sample button such as <b>One row</b>.</p></div></li>
+          <li class="flow-step"><span class="lane-chip lane-browser">Browser</span><div class="step-body"><h3>Send it to the server</h3><p><code>POST /api/upload</code> (samples use <code>POST /api/samples/&lt;name&gt;</code>), with this session's CSRF token.</p></div></li>
+          <li class="flow-step"><span class="lane-chip lane-server">Server</span><div class="step-body"><h3>Check the file</h3><p>A <code>.csv</code> name and type, at most {{ '%g' | format(limits.upload_mb) }} MB, and at most {{ limits.files }} files and {{ '%g' | format(limits.session_mb) }} MB per session.</p></div></li>
+          <li class="flow-step"><span class="lane-chip lane-server">Server</span><div class="step-body"><h3>Check the contents</h3><p>UTF-8 text in valid CSV syntax; exact, unique column names that include every model feature and nothing unknown; 1 to {{ '{:,}'.format(limits.rows) }} rows. A row with bad values is kept and reported when a tool runs, never dropped.</p></div></li>
+          <li class="flow-step"><span class="lane-chip lane-server">Server</span><div class="step-body"><h3>Store it in your session</h3><p>Saved under a random file ID that only this session can use, for up to {{ limits.session_minutes }} minutes of inactivity. The content is treated as data and never executed.</p></div></li>
+          <li class="flow-step"><span class="lane-chip lane-browser">Browser</span><div class="step-body"><h3>Prepare a question</h3><p>A file card appears and the chat box gets an editable question: predict row 0, classify all rows, or evaluate a labeled file. Nothing is sent until you press <b>Send</b>.</p></div></li>
+        </ol>
+      </section>
+
+      <section class="panel workflow-section" id="request" aria-labelledby="request-heading">
+        <h2 id="request-heading"><span class="section-number">2</span>Send a request</h2>
+        <p class="section-note">A typical request makes two OpenAI calls, shown in purple.</p>
+        <ol class="flow">
+          <li class="flow-step"><span class="lane-chip lane-browser">Browser</span><div class="step-body"><h3>You press Send</h3><p>The message goes to <code>POST /api/chat/stream</code>, which streams progress back as each step happens.</p></div></li>
+          <li class="flow-step"><span class="lane-chip lane-server">Server</span><div class="step-body"><h3>Check the request</h3><p>CSRF token, 1 to {{ '{:,}'.format(limits.message) }} characters, at most {{ limits.chat_per_minute }} chat requests a minute per session. The session is locked for this turn, and a failed turn is rolled back.</p></div></li>
+          <li class="flow-step"><span class="lane-chip lane-server">Server</span><div class="step-body"><h3>Checks before any AI call</h3><p>Pasted CSV text is refused. A conditional request must name one minimum accuracy, the files and the row; if not, the server asks you, without calling the AI. A question about stored results gets no tools.</p></div></li>
+          <li class="flow-step llm"><span class="lane-chip lane-llm">OpenAI</span><div class="step-body"><h3>OpenAI call: choose</h3><p>{{ model_name }} receives the fixed instructions, the file IDs and names, summaries of earlier results, recent messages and your message. It returns one tool call, or picks a stored result to show. Strict JSON schemas, a {{ '%g' | format(limits.timeout) }}-second timeout, and stateless calls (<code>store=false</code>).</p></div></li>
+          <li class="flow-step"><span class="lane-chip lane-server">Server</span><div class="step-body"><h3>Check the tool call</h3><p>The tool must exist, the file must belong to your session, and the row index must be a whole number from 0. In a conditional request the file and row must be the ones you named, and a prediction the accuracy rule forbids is blocked.</p></div></li>
+          <li class="flow-step"><span class="lane-chip lane-model">ML model</span><div class="step-body"><h3>Run the model</h3><p><code>predict_single</code>, <code>predict_batch</code> or <code>evaluate</code> runs the frozen LightGBM pipeline. The full result is stored under a result ID; a batch also writes a downloadable CSV that keeps every row.</p></div></li>
+          <li class="flow-step llm"><span class="lane-chip lane-llm">OpenAI</span><div class="step-body"><h3>OpenAI call: answer or decide</h3><p>The AI reads only the tool's summary: counts and metrics, no rows. It picks the result to show or, in a conditional request, decides from the returned accuracy whether to call <code>predict_single</code>. At most {{ limits.tool_calls }} tool calls per request.</p></div></li>
+          <li class="flow-step"><span class="lane-chip lane-server">Server</span><div class="step-body"><h3>Write the reply</h3><p>Python writes the reply. Every number comes from the stored result, never from the AI's own words.</p></div></li>
+          <li class="flow-step"><span class="lane-chip lane-browser">Browser</span><div class="step-body"><h3>Show the answer</h3><p>Progress and tool events appear live; then the reply, the Tools line under it, and the activity record.</p></div></li>
+        </ol>
+      </section>
+
+      <section class="panel workflow-section" id="calls" aria-labelledby="calls-heading">
+        <h2 id="calls-heading">OpenAI calls by request</h2>
+        <p class="section-note">How many times each kind of request calls the AI, and what each call may do.</p>
+        <div class="table-scroll">
+          <table class="calls-table">
+            <thead><tr><th scope="col">Request</th><th scope="col">OpenAI calls</th><th scope="col">Call 1</th><th scope="col">Call 2</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">Single prediction, batch or evaluation<span class="example">“Predict row 0 of file …”</span></th><td class="calls-count">2</td><td>All three tools offered; the AI calls one</td><td>The AI picks the result to show</td></tr>
+              <tr><th scope="row">Row question after a batch<span class="example">“Is row 2 malware?”</span></th><td class="calls-count">2</td><td>All three tools offered; the AI calls <code>predict_single</code></td><td>The AI picks the result to show</td></tr>
+              <tr><th scope="row">Conditional prediction<span class="example">“Evaluate file A; only if accuracy &gt;= 0.95, predict row 0 of file B”</span></th><td class="calls-count">2</td><td>Only <code>evaluate</code> offered, required, with file A fixed</td><td>Only <code>predict_single</code> offered, with file B and row 0 fixed; the AI calls it or not, and the server checks the decision. No third call</td></tr>
+              <tr><th scope="row">Question about stored results<span class="example">“How many false negatives were there?”</span></th><td class="calls-count">1</td><td>No tools offered; the AI picks the stored result</td><td>None</td></tr>
+              <tr><th scope="row">Feature explanation<span class="example">“Which features caused this?”</span></th><td class="calls-count">1</td><td>The AI calls no tool; the answer says explanations are unavailable</td><td>None</td></tr>
+              <tr><th scope="row">Stopped before the AI<span class="example">Pasted CSV text, an unclear threshold, files or result</span></th><td class="calls-count">0</td><td>The server answers</td><td>None</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel workflow-section" id="last" aria-labelledby="last-heading">
+        <div class="section-head"><h2 id="last-heading">Your last request</h2><button type="button" class="secondary-button" id="trace-refresh">Refresh</button></div>
+        <p class="section-note">The real steps of the last message you sent in this session: what each OpenAI call received and returned, and what the server and model did.</p>
+        <div id="trace" aria-live="polite"><p class="empty-state">Loading…</p></div>
+        <noscript><p class="empty-state">This view needs JavaScript. The sections above describe every step.</p></noscript>
+      </section>
+
+      <section class="panel workflow-section" id="every-call" aria-labelledby="every-call-heading">
+        <h2 id="every-call-heading">What every OpenAI call contains</h2>
+        <details class="workflow-details"><summary>The fixed instructions ({{ '{:,}'.format(instructions | length) }} characters)</summary><pre class="instructions">{{ instructions }}</pre></details>
+        <details class="workflow-details"><summary>The three tools and their arguments</summary>
+          <ul class="tool-list">{% for tool in tools %}<li><code>{{ tool.name }}</code>: {{ tool.description }} Arguments: {% for name, spec in tool.parameters.properties.items() %}<code>{{ name }}</code> ({{ spec.type }}{% if spec.minimum is defined %}, at least {{ spec.minimum }}{% endif %}){% if not loop.last %}, {% endif %}{% endfor %}.</li>{% endfor %}</ul>
+        </details>
+        <p class="section-note">The AI ends each turn with a strict JSON object, <code>{kind, result_ids, focus}</code>. Python turns it into the reply you read.</p>
+      </section>
+    </main>
+    <footer class="site-footer">Quantic Machine Learning and AI Agent Project<span>Request workflow · live trace of your last request</span></footer>
+  </div>
+</body>
+</html>

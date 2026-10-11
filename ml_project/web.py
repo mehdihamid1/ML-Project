@@ -270,6 +270,23 @@ def create_app(config=None, *, service=None, agent=None):
         return render_template("dashboard.html", comparison=comparison, paired=paired,
                                comparison_error="Recorded model results are unavailable. Please try again later."), (200 if comparison else 503)
 
+    @app.get("/workflow")
+    def workflow():
+        # Limits and texts come from the running configuration and code, so the
+        # page cannot drift from what the app enforces.
+        from .agent import PROVIDER_TIMEOUT_SECONDS, SYSTEM_INSTRUCTIONS, TOOLS
+        config = app.config
+        limits = {
+            "upload_mb": config["MAX_UPLOAD_BYTES"] / (1024 * 1024),
+            "session_mb": config["MAX_SESSION_BYTES"] / (1024 * 1024),
+            "files": config["MAX_FILES_PER_SESSION"], "rows": config["MAX_CSV_ROWS"],
+            "cell": config["MAX_CELL_LENGTH"], "message": config["MAX_MESSAGE_LENGTH"],
+            "chat_per_minute": config["CHAT_REQUESTS_PER_MINUTE"], "tool_calls": config["MAX_TOOL_CALLS"],
+            "timeout": PROVIDER_TIMEOUT_SECONDS, "session_minutes": config["SESSION_TTL_SECONDS"] // 60,
+        }
+        return render_template("workflow.html", limits=limits, model=getattr(agent, "model", None),
+                               instructions=SYSTEM_INSTRUCTIONS, tools=TOOLS)
+
     @app.get("/api/model-comparison")
     def model_comparison():
         if comparison is None:
@@ -297,7 +314,8 @@ def create_app(config=None, *, service=None, agent=None):
                      for key, value in record.files.items()]
             return jsonify(csrf_token=record.csrf, files=files,
                            results=record.state.get("results", [])[-20:],
-                           activity=record.state.get("activity", [])[-100:])
+                           activity=record.state.get("activity", [])[-100:],
+                           last_trace=record.state.get("last_trace"))
 
     def register_csv(read, filename):
         """Validate CSV bytes and register them in the session, as uploads and samples share."""

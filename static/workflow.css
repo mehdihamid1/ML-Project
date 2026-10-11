@@ -1,0 +1,63 @@
+/* Request workflow tab. Lane colors show where a step runs; each chip also names it. */
+:root { --llm: #c8b2ff; --llm-soft: #231c38; --llm-border: #6c58aa; }
+.workflow-main { display: grid; gap: 22px; padding: 30px 0 40px; }
+.workflow-intro h1 { font-size: 37px; letter-spacing: -1.4px; margin-bottom: 12px; }
+.workflow-intro .intro-copy { max-width: 760px; font-size: 13px; color: var(--secondary); }
+.lane-legend { list-style: none; display: flex; flex-wrap: wrap; gap: 10px 22px; margin: 18px 0 0; padding: 0; }
+.lane-legend li { display: flex; align-items: center; gap: 8px; color: var(--secondary); font-size: 12px; }
+.lane-chip { display: inline-block; justify-self: start; padding: 2px 9px; border: 1px solid currentColor; border-radius: 999px;
+  font-size: 10px; font-weight: 700; letter-spacing: .8px; line-height: 1.6; text-transform: uppercase; white-space: nowrap; }
+.lane-browser { color: var(--info); background: #182340; }
+.lane-server { color: #cfd9e6; background: #252f3c; }
+.lane-llm { color: var(--llm); background: var(--llm-soft); }
+.lane-model { color: var(--green); background: #173430; }
+.workflow-jump { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+.workflow-jump a { padding: 6px 12px; border: 1px solid var(--control-border); border-radius: 8px; background: var(--soft);
+  color: var(--secondary); font-size: 12px; font-weight: 600; text-decoration: none; }
+.workflow-jump a:hover { background: #2b3847; color: var(--text); }
+.workflow-section { padding: 22px 24px; scroll-margin-top: 12px; }
+.workflow-section h2 { display: flex; align-items: center; gap: 10px; font-size: 17px; }
+.section-number { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%;
+  background: #203a35; color: var(--green); font-size: 12px; font-weight: 700; }
+.section-note { margin: 6px 0 16px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.section-head .secondary-button { width: auto; padding: 7px 14px; }
+.flow { list-style: none; display: grid; gap: 10px; margin: 0; padding: 0 0 0 16px; border-left: 2px solid var(--border); }
+.flow-step { position: relative; display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 14px; align-items: start;
+  padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: #141b25; }
+.flow-step::before { content: ""; position: absolute; left: -23px; top: 18px; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--border); border: 2px solid #10151d; }
+.flow-step.llm { border-color: var(--llm-border); background: #1b1730; box-shadow: inset 3px 0 0 var(--llm); }
+.flow-step.llm::before { background: var(--llm); }
+.step-body { min-width: 0; }
+.step-body h3 { margin: 0 0 4px; font-size: 14px; font-weight: 600; color: var(--text); }
+.step-body p { margin: 0 0 6px; color: var(--secondary); font-size: 13px; line-height: 1.55; overflow-wrap: anywhere; }
+.step-body p:last-child { margin-bottom: 0; }
+.step-body code, .calls-table code, .tool-list code, .section-note code { color: var(--text); font-size: 12px; }
+.table-scroll { overflow-x: auto; }
+.calls-table { width: 100%; min-width: 640px; border-collapse: collapse; font-size: 13px; }
+.calls-table th, .calls-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; line-height: 1.5; }
+.calls-table thead th { color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; }
+.calls-table tbody th { color: var(--text); font-weight: 600; width: 30%; }
+.calls-table td { color: var(--secondary); }
+.calls-table .calls-count { color: var(--llm); font-size: 18px; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; }
+.example { display: block; margin-top: 3px; color: var(--muted); font-size: 12px; font-weight: 400; }
+.trace-summary { margin: 0 0 12px; color: var(--text); font-size: 13px; font-weight: 600; }
+.received-label { color: var(--muted); font-size: 12px; }
+.sent-list { margin: 0 0 8px; padding-left: 18px; color: var(--secondary); font-size: 12px; line-height: 1.6; }
+.sent-list li { overflow-wrap: anywhere; }
+.json, .instructions { max-height: 280px; overflow: auto; margin: 6px 0; padding: 10px 12px; border: 1px solid var(--border);
+  border-radius: 8px; background: #0e131a; color: var(--text); font-size: 12px; line-height: 1.5; }
+.json { white-space: pre; }
+.instructions { white-space: pre-wrap; }
+.reply-text { margin: 0; padding: 10px 12px; border-left: 3px solid var(--green); border-radius: 0 8px 8px 0; background: #16232a;
+  color: var(--text); font-size: 13px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.workflow-details { margin: 10px 0; }
+.workflow-details summary { cursor: pointer; color: var(--text); font-size: 13px; font-weight: 600; }
+.tool-list { margin: 10px 0 0; padding-left: 18px; color: var(--secondary); font-size: 13px; line-height: 1.6; }
+#trace .empty-state { font-size: 12px; }
+@media (max-width: 720px) {
+  .workflow-intro h1 { font-size: 29px; letter-spacing: -1px; }
+  .workflow-section { padding: 18px 16px; }
+  .flow-step { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+}

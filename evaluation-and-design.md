@@ -351,6 +351,24 @@ keeps an explicit session lease and holds its session lock during execution.
 Disconnecting before completion rolls back new state and files; a completed
 turn remains available in session results. Execution stays synchronous within
 the existing Gunicorn thread limit, without background jobs or new dependencies.
+
+The Workflow tab (`/workflow`) shows this path for an upload and for a chat
+request. Each step is labeled with where it runs, and a table shows how many
+OpenAI calls each kind of request makes. Its limits and the instruction and
+tool texts it shows are read from the running configuration and code.
+
+Each chat turn also stores a trace of its OpenAI calls as `last_trace` in the
+server-side session, committed or rolled back with the rest of the turn. For
+each call it records:
+- the stage, the tools offered and the tool choice;
+- a summary of the inputs: counts of registered files, result summaries and
+  earlier messages; the request brief; the user's message; and the tool
+  summaries the model read;
+- what the model returned.
+
+The trace also holds the turn's activity and the reply Python wrote. It
+contains no CSV rows, file paths or row IDs, and `/api/session` returns it only
+to the session that made it. The page inserts every value as text, never HTML.
 Runtime dependencies are separate from the training environment. See
 [deployed.md](deployed.md) for operational setup and
 [agent-evaluation.md](agent-evaluation.md) for the real-LLM evidence.

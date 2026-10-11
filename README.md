@@ -15,8 +15,8 @@ under `docs/`, so a clean checkout can run the app without retraining.
 ## Current status
 
 The tools, OpenAI agent, Flask app, sample CSVs and deployment workflow are
-implemented. Plain `pytest` passes all 463 tests locally; the lean runtime
-suite passes 452 tests.
+implemented. Plain `pytest` passes all 473 tests locally; the lean runtime
+suite passes 462 tests.
 
 The last code change, [`9d4dccb`](https://github.com/mehdihamid1/ML-Project/commit/9d4dccb), was
 deployed by [GitHub Actions run 37980201759](https://github.com/mehdihamid1/ML-Project/actions/runs/37980201759):
@@ -218,7 +218,19 @@ Round 1 remain available when JavaScript is disabled or interactive controls
 cannot load. Charts use local scripts and SVG and
 add no runtime dependencies.
 
-Routes are `/`, `/analytics`, `/health`, `/api/model-comparison`, `/api/session`, `/api/upload`,
+Open **Workflow** in the header, or visit `/workflow`, to see every stage a CSV
+upload and a chat request go through. Each step is labeled with where it runs:
+the browser, the server, OpenAI or the LightGBM model. A table shows how many
+OpenAI calls each kind of request makes. The page's limits come from the
+running configuration. **Your last request** shows the real steps of your
+latest message in this session:
+- each OpenAI call, with the tools it was offered;
+- what the call received: counts of files, results and earlier messages, plus
+  the exact tool summary it read;
+- what the call returned;
+- each model run, and the reply Python wrote.
+
+Routes are `/`, `/analytics`, `/workflow`, `/health`, `/api/model-comparison`, `/api/session`, `/api/upload`,
 `/api/samples/<name>`, `/api/chat`, `/api/chat/stream`, `/api/download/<id>` and `/api/reset`.
 `/health` also names the configured OpenAI model. Mutation requests require the CSRF token
 from `/api/session` in `X-CSRF-Token`. The UI handles that automatically.

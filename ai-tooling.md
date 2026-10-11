@@ -43,7 +43,7 @@ documentation and its Blueprint schema. It rebuilt both Docker images, verified
 authenticated Jupyter access, and added a reproducible production HTTP probe
 using an actual memory-limited Gunicorn container. The probe's provider is a
 local stub, while model predictions, metrics and downloads use production code.
-The latest local full and lean runtime suites pass 463 and 452 tests respectively.
+The latest local full and lean runtime suites pass 473 and 462 tests respectively.
 
 Claude Code (Anthropic) performed that review and checked its findings with
 read-only experiments: phrasing checks against the conditional detector and an
@@ -206,3 +206,11 @@ prediction anyway and the server blocked it. Claude Code restated the rule in
 that turn's `predict_single` description, keeping the comparison with the AI.
 On the deployed change, 22 repeated conditional requests all got the right
 decision and Run 9 passed all 15 scenarios.
+
+At the team's request, Claude Code added the Workflow tab. It charts the path
+of an upload and of a chat request across the browser, the server, OpenAI and
+the LightGBM model, and shows the real OpenAI calls of the session's last
+request: tools offered, a summary of what each call received, and what it
+returned. The agent records that trace per session without CSV rows; tests
+cover the page, the trace and session isolation, and a headless browser check
+confirmed the layout at desktop, 390 and 320 pixel widths.
