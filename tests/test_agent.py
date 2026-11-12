@@ -874,6 +874,22 @@ def test_row_question_after_a_batch_ignores_another_files_prediction(files, row)
     assert "call predict_single for each named row" in brief and brief.endswith("file-b.")
 
 
+def test_row_question_cannot_cite_another_files_stored_prediction(files):
+    # Live finding on cb62c08: in 1 of 19 tries the model called no tool and
+    # cited the other file's row 0 prediction. That result is no longer offered.
+    state, service = {}, FakeService()
+    Agent(service, FakeClient(tool("predict_single", file_id="file-a", row_index=0), final())).chat(
+        "Classify row 0 of file-a", state, files)
+    Agent(service, FakeClient(tool("predict_batch", file_id="file-b"), final())).chat(
+        "Classify all rows in file-b", state, files)
+    other = state["results"][0]["result_id"]
+    client = FakeClient(final(result_ids=[other]))
+    output = Agent(service, client).chat("Is row 0 malware?", state, files)
+    context = json.loads(client.requests[0]["input"][0]["content"].split(": ", 1)[1])
+    assert [r["file_id"] for r in context["session_results"]] == ["file-b"]
+    assert "malware probability" not in output["reply"]
+
+
 def test_row_question_is_still_answered_from_the_same_files_stored_prediction(files):
     state, service = {}, FakeService()
     Agent(service, FakeClient(tool("predict_batch", file_id="file-b"), final())).chat(

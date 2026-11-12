@@ -465,14 +465,16 @@ def _row_brief(message, stored, files):
     """
     rows = _named_rows(message)
     if not rows or not stored:
-        return None
+        return None, None
     brief = ("The user asks about specific rows that no stored prediction answers. A batch summary "
              "does not answer it: call predict_single for each named row.")
     named = [file_id for file_id in files if re.search(r"(?<![\w-])" + re.escape(file_id) + r"(?![\w-])", message)]
     latest = _latest_prediction_file(stored)
+    target = named[0] if len(named) == 1 else None
     if not named and latest and latest[0] in files:
-        brief += f" The user names no file, so the rows belong to the most recently predicted file, {latest[0]}."
-    return brief
+        target = latest[0]
+        brief += f" The user names no file, so the rows belong to the most recently predicted file, {target}."
+    return brief, target
 
 
 def _named_rows(text):
@@ -899,6 +901,11 @@ class Agent:
                 return self._finish(str(exc), state, message, activity, results, "input")
         followup = None if conditional else _stored_followup(message, state["results"], files)
         evidence = followup["results"] if followup is not None else state["results"]
+        # A new question about one file's rows sees only that file's results,
+        # so another file's stored prediction cannot be cited as the answer.
+        row_brief, row_file = (None, None) if conditional or followup is not None else _row_brief(message, state["results"], files)
+        if row_file:
+            evidence = [r for r in evidence if r.get("file_id") == row_file]
         # "What was the prediction for row 0?" after a withheld prediction is
         # answered from the activity record: no prediction was made, and why.
         notes = "\n".join(_withheld_rows(message, state.get("activity", []))) if followup is not None else ""
@@ -914,8 +921,8 @@ class Agent:
             inputs.append({"role": "developer", "content": _conditional_brief(requested_threshold, targets)})
         elif followup is not None:
             inputs.append({"role": "developer", "content": "This is a question about stored results. No new tools may run. Select only a result_id from the supplied session_results."})
-        elif (brief := _row_brief(message, state["results"], files)):
-            inputs.append({"role": "developer", "content": brief})
+        elif row_brief:
+            inputs.append({"role": "developer", "content": row_brief})
         inputs.append({"role": "user", "content": message})
         # A conditional request must evaluate first. The AI model then reads the
         # returned accuracy and decides whether to call predict_single;
@@ -983,7 +990,7 @@ class Agent:
                     yield self._activity_event(activity)
                     reply = f"Prediction withheld: {reason}, so the agent did not call predict_single."
                     return self._finish(reply + "\n\n" + self._render(evaluation), state, message, activity, results)
-                render_state = {**state, "results": evidence} if followup is not None else state
+                render_state = {**state, "results": evidence} if followup is not None or row_file else state
                 response_text = _get(response, "output_text", "")
                 shown = []
                 if followup is not None:
