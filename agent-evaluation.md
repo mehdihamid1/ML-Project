@@ -12,6 +12,12 @@ made the right decision every time: it withheld the prediction in 16 of 16
 and made it in 6 of 6.
 Earlier runs are kept below, including passing runs and failures.
 
+**Subsequent finding, correction pending deployment:** a later demo rehearsal
+on `5407537` failed the false-negative follow-up after both conditional cases.
+The stored evaluation was present, but the selected result reference was not
+available. See the [local follow-up correction](#local-follow-up-correction-pending-deployment)
+and its recorded failure below.
+
 Between Run 9 and Run 10, a dashboard theme, the Workflow tab and numbered
 demo-file buttons left the instructions, tools and input code unchanged; the
 row-question fix described under Run 10 changed the inputs. On `cbd90fb`, that record of one live conditional request
@@ -64,9 +70,11 @@ Without `--base-url` it runs the agent in-process instead, which needs
 These stronger checks and the request-binding fixes were added after Runs
 1–3 below. Those runs used the earlier runner and remain unchanged historical
 evidence.
-A new real-LLM run is required after these changes are deployed. Mocked tests
-also deliberately substitute file IDs, row indexes, result IDs, classifications,
-probabilities and batch rows to verify that the current runner rejects them.
+The subsequent live runs below provide evidence with these stronger checks.
+Mocked tests also deliberately substitute file IDs, row indexes, result IDs,
+classifications, probabilities and batch rows to verify that the current runner
+rejects incorrect output. An invalid provider reference to an unambiguous
+stored follow-up is repaired from verified evidence; a missing answer still fails.
 
 ## Scenarios
 
@@ -539,6 +547,33 @@ Every reply matched the script. One request did extra work: asked to classify
 all rows of the batch file, the model called `predict_batch` and then an
 unrequested `predict_single` on row 0. The reply reported only the batch. This
 is one request; it shows that the model's tool choices still vary.
+
+## Local follow-up correction (pending deployment)
+
+A subsequent rehearsal on `5407537` passed its first eight checks, including
+both conditional outcomes. The ninth request, "How many false negatives were
+there in that evaluation?", called no tools but answered "That result reference
+is unavailable in this session." The invalid-input step was not reached.
+The [raw review report](docs/demo-rehearsal-review-5407537.json) preserves this
+failure separately from Run 10's passing standard scenarios.
+
+The local correction scopes "that evaluation" to the latest matching stored
+evaluation. When the user's request identifies one verified result, the answer
+uses that result even if the provider miscopies its ID. Explicit references to
+older results remain respected; unknown user references remain unavailable.
+Follow-up tools stay disabled, and the AI still makes conditional prediction
+decisions from the returned accuracy.
+
+Regression coverage tests invented IDs, an older evaluation ID, a prediction
+ID, and an explicit request for the older evaluation. It also checks that
+"that evaluation" selects an evaluation after a prediction, and comparisons
+retain both evaluations. The SDK scenario runner checks repaired provider IDs
+and still rejects a missing follow-up answer.
+The full local suite passes 487 tests; the lean runtime passes 476. These are
+mocked-provider checks. The [production-container probe](docs/container-compatibility.json)
+also passes with a stubbed provider and the frozen model under the configured
+free-tier resource limits. This correction must be deployed through the test gate,
+then checked with the real provider before recording the final video.
 
 ## Mocked tests in CI
 

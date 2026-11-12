@@ -19,7 +19,7 @@ from werkzeug.serving import make_server
 from ml_project.tools import ToolService
 from ml_project.web import create_app
 from scripts.run_agent_evaluation import (
-    CheckFailed, check_reference_predictions, check_targets, expected_calls, numbers_in_reply, read_csv, run,
+    CheckFailed, LocalSession, check_reference_predictions, check_targets, expected_calls, numbers_in_reply, read_csv, run,
 )
 
 
@@ -151,8 +151,29 @@ def test_runner_exercises_sdk_function_calls_structured_responses_and_real_tools
     assert str(Path("samples").resolve()) not in str(backend.requests)
 
 
-def test_runner_marks_stale_followup_failed_even_when_other_scenarios_pass(tmp_path, backend_factory):
+def test_runner_uses_verified_followup_when_provider_miscopies_id(tmp_path, backend_factory):
     backend_factory("stale_followup")
+    assert run(tmp_path / "report") is True
+    report = read_report(tmp_path / "report")
+    assert report["passed_count"] == 15
+    followup = record(report, "False-negative follow-up")
+    assert followup["passed"] and followup["observed"]["activity"] == []
+    assert "False negatives: 1" in followup["observed"]["reply"]
+
+
+def test_runner_marks_stale_followup_failed_even_when_other_scenarios_pass(tmp_path, backend_factory, monkeypatch):
+    backend_factory()
+    original = LocalSession.chat
+
+    def stale_reply(self, message):
+        response = original(self, message)
+        if "false negatives" in message.lower():
+            response["reply"] = "That result reference is unavailable in this session."
+        return response
+
+    # Simulate a regression at the application boundary: the runner must still
+    # reject a missing answer even though provider ID mistakes are now repaired.
+    monkeypatch.setattr(LocalSession, "chat", stale_reply)
     assert run(tmp_path / "report") is False
     report = read_report(tmp_path / "report")
     assert report["passed_count"] == 14

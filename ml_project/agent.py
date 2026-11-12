@@ -445,6 +445,18 @@ def _stored_followup(message, stored, files):
             return {"results": answered, "focus": "prediction"}
         if not prior or any(r.get("tool") == "predict_batch" for r in in_scope):
             return None
+    references = re.findall(
+        r"\b(?:that|this|last|latest)\s+(evaluation|result|prediction|run|one)\b", text
+    )
+    comparing = re.search(r"\b(?:compare|comparison|versus|vs|between|both|each|all|previous|earlier|other)\b", text)
+    if not result_refs and not file_refs and len(references) == 1 and not comparing:
+        # A reference to "that evaluation" means the latest compatible result,
+        # even if an earlier conditional request also evaluated another file.
+        if references[0] == "evaluation":
+            candidates = [r for r in candidates if r.get("tool") == "evaluate"]
+        elif references[0] == "prediction":
+            candidates = [r for r in candidates if r.get("tool") in ("predict_single", "predict_batch")]
+        candidates = candidates[-1:]
     return {"results": candidates, "focus": focuses[0] if len(focuses) == 1 else "summary"}
 
 
@@ -1005,7 +1017,10 @@ class Agent:
                             # The question is about stored results, so usage help is no answer.
                             selection = {"kind": "results", "result_ids": [evidence[-1]["result_id"]], "focus": followup["focus"]}
                         if isinstance(selection, dict) and selection.get("kind") == "results":
-                            if selection.get("result_ids") == [] and len(evidence) == 1:
+                            if len(evidence) == 1:
+                                # The request has one verified target after explicit
+                                # reference filtering. A miscopied provider ID must
+                                # not hide that stored result or select another one.
                                 selection["result_ids"] = [evidence[0]["result_id"]]
                             if followup["focus"] != "summary":
                                 selection["focus"] = followup["focus"]

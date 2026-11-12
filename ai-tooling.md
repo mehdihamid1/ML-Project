@@ -43,7 +43,13 @@ documentation and its Blueprint schema. It rebuilt both Docker images, verified
 authenticated Jupyter access, and added a reproducible production HTTP probe
 using an actual memory-limited Gunicorn container. The probe's provider is a
 local stub, while model predictions, metrics and downloads use production code.
-The latest local full and lean runtime suites pass 479 and 468 tests respectively.
+The latest local full and lean runtime suites pass 487 and 476 tests respectively.
+
+After Claude's row-question fix, Codex's live demo rehearsal found an unavailable
+result reference in the false-negative follow-up. Codex narrowed deictic
+references to the latest matching evaluation, repaired provider IDs only for
+an unambiguous verified result, and added regression coverage. The raw failure
+and deployment status are recorded in [agent-evaluation.md](agent-evaluation.md#local-follow-up-correction-pending-deployment).
 
 Claude Code (Anthropic) performed that review and checked its findings with
 read-only experiments: phrasing checks against the conditional detector and an

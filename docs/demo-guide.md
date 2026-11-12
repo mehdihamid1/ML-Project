@@ -11,6 +11,9 @@ section numbers.
 
 ## Before recording
 
+- Deploy and verify the [pending follow-up correction](../agent-evaluation.md#local-follow-up-correction-pending-deployment)
+  before the final recording; a later rehearsal found an unavailable result
+  reference in the false-negative follow-up on the current live version.
 - The [demo script](demo-script.md) has each speaker's lines. It splits the
   sections between three speakers, so every member speaks, and runs about
   9½ minutes.
@@ -149,7 +152,7 @@ Open [agent-evaluation.md](../agent-evaluation.md).
 
 ## 8. Tests and deployment
 
-- **Tests.** Run `docker compose run --rm ml pytest -q` (479 passed), or open
+- **Tests.** Run `docker compose run --rm ml pytest -q` (487 passed), or open
   the test jobs of a CI run. They include unit, integration and agent tests
   with a mocked LLM, plus failure cases.
 - **Failing tests block deployment.** In

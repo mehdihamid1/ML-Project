@@ -2,6 +2,10 @@
 
 ## Status
 
+A local follow-up correction is awaiting deployment and real-provider
+verification; see [the recorded finding](agent-evaluation.md#local-follow-up-correction-pending-deployment).
+The deployed commit and historical CI results below describe the live version.
+
 The app is live at <https://quantic-malware-agent.onrender.com/>. On
 2026-11-12 (UTC), its [/health](https://quantic-malware-agent.onrender.com/health)
 reported `status: ok`, `selected_model: LightGBM`, `openai_configured: true`,
@@ -134,7 +138,7 @@ separately against the live site; see [agent-evaluation.md](agent-evaluation.md)
 The current Blueprint passes the JSON schema served by
 [Render](https://render.com/schema/render.yaml.json). Docker Compose configuration
 validates, and both the training and production images build successfully.
-The training image passes 479 tests; the lean runtime passes 468 tests.
+The training image passes 487 tests; the lean runtime passes 476 tests.
 Authenticated Jupyter HTTP access works with the host owner's UID/GID.
 
 The production image works at its local default port and honors a custom

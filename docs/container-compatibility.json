@@ -36,6 +36,7 @@
     "labeled_evaluation": 200,
     "large_batch_download": 200,
     "large_batch_prediction": 200,
+    "load_demo_07": 201,
     "load_sample_single": 201,
     "missing_label_column": 200,
     "missing_label_rows": 200,
@@ -62,13 +63,13 @@
     "workflow_css": 200,
     "workflow_js": 200
   },
-  "image": "ml-project-web",
-  "image_id": "sha256:6211d288b864268807b26ab78276f43b7cf8942f4681f636bbfb8b4203d473d9",
+  "image": "ml-project:demo-final-review",
+  "image_id": "sha256:a2d5775eec69cb39869b2ea717059fe1a54a9070b8cca5a11489386caa6f4386",
   "large_batch_upload_bytes": 2619213,
   "memory_limit_bytes": 536870912,
   "memory_observation": {
-    "MemPerc": "41.36%",
-    "MemUsage": "211.8MiB / 512MiB",
+    "MemPerc": "37.13%",
+    "MemUsage": "190.1MiB / 512MiB",
     "PIDs": "7"
   },
   "memory_observation_note": "One post-request Docker sample; this is not a peak-memory measurement.",

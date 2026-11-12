@@ -769,6 +769,77 @@ def test_followup_scopes_evaluation_evidence_and_explicit_older_result(files):
     assert len(service.calls) == 3 and not output["activity"]
 
 
+@pytest.mark.parametrize("selected", ["invented", "older", "prediction"])
+def test_latest_evaluation_followup_survives_a_wrong_provider_reference(files, selected):
+    # Live rehearsal: after permitted and withheld evaluations in one session,
+    # an invalid provider result ID hid the latest evaluation's false negatives.
+    state, service = {}, FakeService()
+    Agent(service, FakeClient(tool("evaluate", file_id="file-a"), final())).chat("Evaluate file-a", state, files)
+    older = state["results"][-1]["result_id"]
+    Agent(service, FakeClient(tool("predict_single", file_id="file-b", row_index=0), final())).chat(
+        "Predict row 0 of file-b", state, files)
+    prediction = state["results"][-1]["result_id"]
+    service.evaluation.update(confusion_matrix=[[4, 1], [1, 4]], accuracy=0.8)
+    Agent(service, FakeClient(tool("evaluate", file_id="file-b"), final())).chat("Evaluate file-b", state, files)
+    latest = state["results"][-1]["result_id"]
+    saved = copy.deepcopy(state["results"])
+    wrong_id = {"invented": "not-a-stored-result", "older": older, "prediction": prediction}[selected]
+    client = FakeClient(final(result_ids=[wrong_id], focus="summary"))
+    output = Agent(service, client).chat("How many false negatives were there in that evaluation?", state, files)
+    assert "False negatives: 1" in output["reply"]
+    assert "unavailable in this session" not in output["reply"]
+    assert output["activity"] == [] and output["results"] == []
+    assert state["results"] == saved and len(service.calls) == 3
+    request = client.requests[0]
+    context = json.loads(request["input"][0]["content"].partition(": ")[2])
+    assert [r["result_id"] for r in context["session_results"]] == [latest]
+    assert request["tools"] == [] and request["tool_choice"] == "none"
+
+
+def test_wrong_provider_reference_still_respects_an_explicit_older_evaluation(files):
+    state, service = {}, FakeService(accuracy=0.8)
+    Agent(service, FakeClient(tool("evaluate", file_id="file-a"), final())).chat("Evaluate file-a", state, files)
+    older = state["results"][-1]["result_id"]
+    service.evaluation["accuracy"] = 0.9
+    Agent(service, FakeClient(tool("evaluate", file_id="file-b"), final())).chat("Evaluate file-b", state, files)
+    newer = state["results"][-1]["result_id"]
+    output = Agent(service, FakeClient(final(result_ids=[newer]))).chat(
+        f"What was the accuracy for result_id {older}?", state, files)
+    assert "Accuracy: 0.800000" in output["reply"] and "0.900000" not in output["reply"]
+    assert not output["activity"] and len(service.calls) == 2
+
+
+@pytest.mark.parametrize("referent,expected_tool,expected_text", [
+    ("evaluation", "evaluate", "Accuracy: 0.900000"),
+    ("prediction", "predict_single", "malware probability 0.870000"),
+])
+def test_latest_result_matches_the_referenced_kind(files, referent, expected_tool, expected_text):
+    state, service = {}, FakeService()
+    Agent(service, FakeClient(tool("evaluate", file_id="file-a"), final())).chat("Evaluate file-a", state, files)
+    Agent(service, FakeClient(tool("predict_single", file_id="file-b", row_index=0), final())).chat(
+        "Predict row 0 of file-b", state, files)
+    client = FakeClient(final(result_ids=["miscopied-id"]))
+    output = Agent(service, client).chat(f"What did that {referent} show?", state, files)
+    assert expected_text in output["reply"] and not output["activity"]
+    context = json.loads(client.requests[0]["input"][0]["content"].partition(": ")[2])
+    assert [r["tool"] for r in context["session_results"]] == [expected_tool]
+    assert len(service.calls) == 2
+
+
+def test_comparison_keeps_both_evaluations_in_scope(files):
+    state, service = {}, FakeService(accuracy=0.8)
+    Agent(service, FakeClient(tool("evaluate", file_id="file-a"), final())).chat("Evaluate file-a", state, files)
+    service.evaluation["accuracy"] = 0.9
+    Agent(service, FakeClient(tool("evaluate", file_id="file-b"), final())).chat("Evaluate file-b", state, files)
+    ids = [r["result_id"] for r in state["results"]]
+    client = FakeClient(final(result_ids=ids, focus="accuracy"))
+    output = Agent(service, client).chat("Compare accuracy of the latest evaluation and previous evaluation.", state, files)
+    assert "Accuracy: 0.800000" in output["reply"] and "Accuracy: 0.900000" in output["reply"]
+    context = json.loads(client.requests[0]["input"][0]["content"].partition(": ")[2])
+    assert [r["result_id"] for r in context["session_results"]] == ids
+    assert not output["activity"] and len(service.calls) == 2
+
+
 @pytest.mark.parametrize("message", [
     "What was the AUC of result_id different-session-result?",
     "What was the accuracy for file-unknown?",

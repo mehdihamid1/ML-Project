@@ -27,6 +27,9 @@ for replies take the rest, so keep talking while the agent works.
 
 Total: about 9½ minutes.
 
+Treat these times as targets. Rehearse with the live replies, uploads,
+downloads and tab changes included, and trim pauses to stay within 8–10 minutes.
+
 ## Introduction · Speaker 1
 
 *On screen: the live app's chat page.*
@@ -213,7 +216,7 @@ question to the invalid-input request from the demo README, and click
 *On screen: a terminal running `docker compose run --rm ml pytest -q`, or the
 test job log of a CI run.*
 
-> "Our suite has 479 automated tests: unit tests for the training pipeline and
+> "Our suite has 487 automated tests: unit tests for the training pipeline and
 > tools, Flask integration tests, and agent tests with a mocked language
 > model, including failures such as malformed CSVs, missing labels, a single
 > class, and tool and provider errors."

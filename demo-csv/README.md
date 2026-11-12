@@ -54,9 +54,10 @@ Upload `01-single-record.csv` (`samples/single.csv`).
 Upload `02-batch-prediction.csv` (`samples/batch.csv`).
 
 - Request: `Classify all rows of file BATCH_ID and provide the downloadable results.`
-- Expected: one `predict_batch` call. 4 rows classified, 2 malware and
+- Expected: `predict_batch` reports 4 rows classified, 2 malware and
   2 goodware, 0 invalid. Click **Download results** to show the per-record file.
-- Follow-ups, each answered by a `predict_single` call on that row of the batch file:
+- Follow-ups: for a row without a stored prediction, expect `predict_single`
+  on that row of the batch file. An already predicted row can use its stored result.
   - `What is the malware probability of row 2?` Malware, 0.969699.
   - `What is the malware probability of row 1?` Goodware, 0.002498.
 
