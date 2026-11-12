@@ -43,7 +43,7 @@ documentation and its Blueprint schema. It rebuilt both Docker images, verified
 authenticated Jupyter access, and added a reproducible production HTTP probe
 using an actual memory-limited Gunicorn container. The probe's provider is a
 local stub, while model predictions, metrics and downloads use production code.
-The latest local full and lean runtime suites pass 473 and 462 tests respectively.
+The latest local full and lean runtime suites pass 474 and 463 tests respectively.
 
 Claude Code (Anthropic) performed that review and checked its findings with
 read-only experiments: phrasing checks against the conditional detector and an
