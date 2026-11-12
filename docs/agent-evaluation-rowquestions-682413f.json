@@ -1,0 +1,287 @@
+{
+ "purpose": "Supplemental live check: row questions after a single prediction on one file and a batch on another; not part of the 15-scenario runner.",
+ "run_at_utc": "2026-11-12T01:54:20+00:00",
+ "base_url": "https://quantic-malware-agent.onrender.com",
+ "health": {
+  "commit": "682413f76bbc2b1b9928fa74b9a31d6e9663ea5d",
+  "model_version": "d13e54cf1970-1791236375742615262",
+  "openai_configured": true,
+  "openai_model": "gpt-4.1-mini",
+  "selected_model": "LightGBM",
+  "status": "ok"
+ },
+ "records": [
+  {
+   "attempt": 1,
+   "single_file": "a4509e4c8998459aa610762d6b45e8db",
+   "batch_file": "83d4dcfc48a34144aa64066f8bee2c5c",
+   "prompt": "Is row 0 malware?",
+   "activity": [
+    {
+     "tool": "predict_single",
+     "arguments": {
+      "file_id": "83d4dcfc48a34144aa64066f8bee2c5c",
+      "row_index": 0
+     },
+     "status": "success"
+    }
+   ],
+   "reply": "That result reference is unavailable in this session.",
+   "passed": true
+  },
+  {
+   "attempt": 1,
+   "single_file": "a4509e4c8998459aa610762d6b45e8db",
+   "batch_file": "83d4dcfc48a34144aa64066f8bee2c5c",
+   "prompt": "Is row 1 malware?",
+   "activity": [
+    {
+     "tool": "predict_single",
+     "arguments": {
+      "file_id": "83d4dcfc48a34144aa64066f8bee2c5c",
+      "row_index": 1
+     },
+     "status": "success"
+    }
+   ],
+   "reply": "That result reference is unavailable in this session.",
+   "passed": true
+  },
+  {
+   "attempt": 1,
+   "single_file": "a4509e4c8998459aa610762d6b45e8db",
+   "batch_file": "83d4dcfc48a34144aa64066f8bee2c5c",
+   "prompt": "Is row 2 malware?",
+   "activity": [
+    {
+     "tool": "predict_single",
+     "arguments": {
+      "file_id": "83d4dcfc48a34144aa64066f8bee2c5c",
+      "row_index": 2
+     },
+     "status": "success"
+    }
+   ],
+   "reply": "That result reference is unavailable in this session.",
+   "passed": true
+  },
+  {
+   "attempt": 2,
+   "single_file": "bdfeb8c0a0da44078c955b9539393242",
+   "batch_file": "64237f5fd3c344caa7e3e83c2a4c234c",
+   "prompt": "Is row 0 malware?",
+   "activity": [
+    {
+     "tool": "predict_single",
+     "arguments": {
+      "file_id": "64237f5fd3c344caa7e3e83c2a4c234c",
+      "row_index": 0
+     },
+     "status": "success"
+    }
+   ],
+   "reply": "That result reference is unavailable in this session.",
+   "passed": true
+  },
+  {
+   "attempt": 2,
+   "single_file": "bdfeb8c0a0da44078c955b9539393242",
+   "batch_file": "64237f5fd3c344caa7e3e83c2a4c234c",
+   "prompt": "Is row 1 malware?",
+   "activity": [
+    {
+     "tool": "predict_single",
+     "arguments": {
+      "file_id": "64237f5fd3c344caa7e3e83c2a4c234c",
+      "row_index": 1
+     },
+     "status": "success"
+    }
+   ],
+   "reply": "That result reference is unavailable in this session.",
+   "passed": true
+  },
+  {
+   "attempt": 2,
+   "single_file": "bdfeb8c0a0da44078c955b9539393242",
+   "batch_file": "64237f5fd3c344caa7e3e83c2a4c234c",
+   "prompt": "Is row 2 malware?",
+   "activity": [
+    {
+     "tool": "predict_single",
+     "arguments": {
+      "file_id": "64237f5fd3c344caa7e3e83c2a4c234c",
+      "row_index": 2
+     },
+     "status": "success"
+    }
+   ],
+   "reply": "That result reference is unavailable in this session.",
+   "passed": true
+  },
+  {
+   "attempt": 3,
+   "single_file": "f6dbd8574833480eb21b482197c63d0a",
+   "batch_file": "03e630b38d75483782dbffe9303337fe",
+   "prompt": "Is row 0 malware?",
+   "activity": [
+    {
+     "tool": "predict_single",
+     "arguments": {
+      "file_id": "03e630b38d75483782dbffe9303337fe",
+      "row_index": 0
+     },
+     "status": "success"
+    }
+   ],
+   "reply": "That result reference is unavailable in this session.",
+   "passed": true
+  },
+  {
+   "attempt": 3,
+   "single_file": "f6dbd8574833480eb21b482197c63d0a",
+   "batch_file": "03e630b38d75483782dbffe9303337fe",
+   "prompt": "Is row 1 malware?",
+   "activity": [
+    {
+     "tool": "predict_single",
+     "arguments": {
+      "file_id": "03e630b38d75483782dbffe9303337fe",
+      "row_index": 1
+     },
+     "status": "success"
+    }
+   ],
+   "reply": "That result reference is unavailable in this session.",
+   "passed": true
+  },
+  {
+   "attempt": 3,
+   "single_file": "f6dbd8574833480eb21b482197c63d0a",
+   "batch_file": "03e630b38d75483782dbffe9303337fe",
+   "prompt": "Is row 2 malware?",
+   "activity": [
+    {
+     "tool": "predict_single",
+     "arguments": {
+      "file_id": "03e630b38d75483782dbffe9303337fe",
+      "row_index": 2
+     },
+     "status": "success"
+    }
+   ],
+   "reply": "That result reference is unavailable in this session.",
+   "passed": true
+  },
+  {
+   "attempt": 4,
+   "single_file": "4260309724924058aff6350d4d549dd4",
+   "batch_file": "376c38fff6634260aaecfe0fae7459bc",
+   "prompt": "Is row 0 malware?",
+   "activity": [
+    {
+     "tool": "predict_single",
+     "arguments": {
+      "file_id": "376c38fff6634260aaecfe0fae7459bc",
+      "row_index": 0
+     },
+     "status": "success"
+    }
+   ],
+   "reply": "That result reference is unavailable in this session.",
+   "passed": true
+  },
+  {
+   "attempt": 4,
+   "single_file": "4260309724924058aff6350d4d549dd4",
+   "batch_file": "376c38fff6634260aaecfe0fae7459bc",
+   "prompt": "Is row 1 malware?",
+   "activity": [
+    {
+     "tool": "predict_single",
+     "arguments": {
+      "file_id": "376c38fff6634260aaecfe0fae7459bc",
+      "row_index": 1
+     },
+     "status": "success"
+    }
+   ],
+   "reply": "That result reference is unavailable in this session.",
+   "passed": true
+  },
+  {
+   "attempt": 4,
+   "single_file": "4260309724924058aff6350d4d549dd4",
+   "batch_file": "376c38fff6634260aaecfe0fae7459bc",
+   "prompt": "Is row 2 malware?",
+   "activity": [
+    {
+     "tool": "predict_single",
+     "arguments": {
+      "file_id": "376c38fff6634260aaecfe0fae7459bc",
+      "row_index": 2
+     },
+     "status": "success"
+    }
+   ],
+   "reply": "That result reference is unavailable in this session.",
+   "passed": true
+  },
+  {
+   "attempt": 5,
+   "single_file": "8f976b52fa7446e681096bcfb73a92e1",
+   "batch_file": "f49042c82d7c4a63a3b46fad2a2c156a",
+   "prompt": "Is row 0 malware?",
+   "activity": [
+    {
+     "tool": "predict_single",
+     "arguments": {
+      "file_id": "f49042c82d7c4a63a3b46fad2a2c156a",
+      "row_index": 0
+     },
+     "status": "success"
+    }
+   ],
+   "reply": "That result reference is unavailable in this session.",
+   "passed": true
+  },
+  {
+   "attempt": 5,
+   "single_file": "8f976b52fa7446e681096bcfb73a92e1",
+   "batch_file": "f49042c82d7c4a63a3b46fad2a2c156a",
+   "prompt": "Is row 1 malware?",
+   "activity": [
+    {
+     "tool": "predict_single",
+     "arguments": {
+      "file_id": "f49042c82d7c4a63a3b46fad2a2c156a",
+      "row_index": 1
+     },
+     "status": "success"
+    }
+   ],
+   "reply": "That result reference is unavailable in this session.",
+   "passed": true
+  },
+  {
+   "attempt": 5,
+   "single_file": "8f976b52fa7446e681096bcfb73a92e1",
+   "batch_file": "f49042c82d7c4a63a3b46fad2a2c156a",
+   "prompt": "Is row 2 malware?",
+   "activity": [
+    {
+     "tool": "predict_single",
+     "arguments": {
+      "file_id": "f49042c82d7c4a63a3b46fad2a2c156a",
+      "row_index": 2
+     },
+     "status": "success"
+    }
+   ],
+   "reply": "That result reference is unavailable in this session.",
+   "passed": true
+  }
+ ],
+ "check_count": 15,
+ "passed_count": 15
+}

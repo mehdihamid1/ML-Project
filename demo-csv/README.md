@@ -31,11 +31,10 @@ has the spoken lines. Sections 1, 2, 7 and 8 use no files.
    **Reset session & remove files** before sections 5 and 6, as noted there.
    Each section's follow-ups use only that section's files.
 
-Expected results come from the live Run 9 report,
-[docs/agent-evaluation-live-9d4dccb.md](../docs/agent-evaluation-live-9d4dccb.md),
-which used the same files under their `samples/` names. On 2026-11-12, every
-request and follow-up below, in this order with these resets, returned these
-tools and results on the live site.
+Expected results come from a live rehearsal on 2026-11-12 at commit
+`671f791`: every request and follow-up below, in this order with these resets
+([raw output](../docs/demo-rehearsal-live-671f791.json)). If the tool trail
+shows an extra call, narrate what is on screen: the model's choices can vary.
 
 ## 3. Single-record prediction
 
@@ -60,10 +59,6 @@ Upload `02-batch-prediction.csv` (`samples/batch.csv`).
 - Follow-ups, each answered by a `predict_single` call on that row of the batch file:
   - `What is the malware probability of row 2?` Malware, 0.969699.
   - `What is the malware probability of row 1?` Goodware, 0.002498.
-
-  Keep this wording. In a live rehearsal on 2026-11-12, `Is row 0 malware?` and
-  `Is row 1 malware?` called no tool here, because the session already held
-  section 3's prediction.
 
 ## 5. Labeled evaluation with conditional prediction
 

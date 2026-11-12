@@ -5,18 +5,16 @@ push and check routing, failures and safety rules deterministically. Separately,
 scenario runs use the real OpenAI model through the deployed app; those are the
 real-LLM evidence below.
 
-**Latest result:** Run 9, on 2026-10-09 against the live site at commit
-`9d4dccb` with `gpt-4.1-mini` and the stronger runner, passed **15 of 15**
-scenarios; all **27 numeric checks** matched. In 22 repeated live conditional
-requests, the AI made the right decision every time: it withheld the
-prediction in 16 of 16 and made it in 6 of 6.
+**Latest result:** Run 10, on 2026-11-12 against the live site at commit
+`671f791` with `gpt-4.1-mini`, passed **15 of 15** scenarios; all **27 numeric
+checks** matched. In Run 9's 22 repeated live conditional requests, the AI
+made the right decision every time: it withheld the prediction in 16 of 16
+and made it in 6 of 6.
 Earlier runs are kept below, including passing runs and failures.
 
-The live site now runs `22e988b`. The three code changes since `9d4dccb`, a
-dashboard theme, the Workflow tab and numbered demo-file buttons, leave the
-instructions and tools sent to OpenAI, and the code that builds its inputs,
-unchanged; the agent now also records each call for the
-Workflow tab. On `cbd90fb`, that record of one live conditional request
+Between Run 9 and Run 10, a dashboard theme, the Workflow tab and numbered
+demo-file buttons left the instructions, tools and input code unchanged; the
+row-question fix described under Run 10 changed the inputs. On `cbd90fb`, that record of one live conditional request
 ([raw trace](docs/workflow-trace-live-cbd90fb.json)) shows two real
 `gpt-4.1-mini` calls. The request evaluated `labeled.csv` and asked for row 0
 of `single.csv` only if accuracy >= 0.95. The first call was offered only
@@ -498,6 +496,49 @@ passed and deployed `9d4dccbed8922d6395987b11b43c3d5dd1f288d7`. The
 scenarios passed** and **27 of 27 numeric checks matched**. Classifications and
 batch downloads matched the frozen LightGBM reference; the reference model's
 SHA-256 was unchanged.
+
+## Run 10: live site at commit `671f791`, 2026-11-12
+
+This run tests a fix to questions about specific rows.
+
+**What was found.** A rehearsal of the [demo script](docs/demo-script.md) on
+the live site at `4c87a78` first made a single prediction on one file, then a
+batch on another. "Is row 0 malware?" then called no tool and was answered
+from the first file's stored prediction. "Is row 1 malware?" called no tool
+and returned the batch counts. An ad-hoc script printed those tries; they were
+not saved as raw output.
+
+**The fix, in three commits.**
+
+- `cb62c08` scopes a row question that names no file to the most recently
+  predicted file, and adds a developer message saying that the named rows need
+  `predict_single` and which file they belong to. The model still makes the
+  call. A saved check
+  ([raw output](docs/agent-evaluation-rowquestions-cb62c08.json)) passed 8 of
+  9: once, the model called no tool and cited the other file's prediction.
+- `682413f` offers such a question only the target file's session results.
+  All 15 saved tries ([raw output](docs/agent-evaluation-rowquestions-682413f.json))
+  called `predict_single` on the right file and row, but all 15 replies said
+  "That result reference is unavailable in this session": the new result was
+  missing from the set the reply is rendered from. That check compared tool
+  calls only, so it reported 15 of 15.
+- `671f791` renders the reply from the scoped results plus the request's new
+  ones. The check now also requires the reply to state the row's prediction:
+  **15 of 15 passed** ([raw output](docs/agent-evaluation-rowquestions-671f791.json)).
+
+**Standard scenarios.** The runner used the deployed app at
+`2026-11-12T02:11:30+00:00`, after
+[CI run 43138602470](https://github.com/mehdihamid1/ML-Project/actions/runs/43138602470)
+passed and deployed `671f7915aad6234d3329d92342b9bbea816160d7`. The
+[generated report](docs/agent-evaluation-live-671f791.md) records **15 of 15
+scenarios passed** and **27 of 27 numeric checks matched**.
+
+**Demo rehearsal.** The demo script's 10 requests were then sent in order,
+with its two session resets ([raw output](docs/demo-rehearsal-live-671f791.json)).
+Every reply matched the script. One request did extra work: asked to classify
+all rows of the batch file, the model called `predict_batch` and then an
+unrequested `predict_single` on row 0. The reply reported only the batch. This
+is one request; it shows that the model's tool choices still vary.
 
 ## Mocked tests in CI
 

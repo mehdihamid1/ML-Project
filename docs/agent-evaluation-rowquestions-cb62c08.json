@@ -1,0 +1,170 @@
+{
+ "purpose": "Supplemental live check: row questions after a single prediction on one file and a batch on another; not part of the 15-scenario runner.",
+ "run_at_utc": "2026-11-12T01:46:45+00:00",
+ "base_url": "https://quantic-malware-agent.onrender.com",
+ "health": {
+  "commit": "cb62c082faa90c44329c61723bf4886f75dea82e",
+  "model_version": "d13e54cf1970-1791236375742615262",
+  "openai_configured": true,
+  "openai_model": "gpt-4.1-mini",
+  "selected_model": "LightGBM",
+  "status": "ok"
+ },
+ "records": [
+  {
+   "attempt": 1,
+   "single_file": "29e77ab9461747c2aafaf43eb8955b5a",
+   "batch_file": "602b129015cb4f73a8043f023ae033aa",
+   "prompt": "Is row 0 malware?",
+   "activity": [
+    {
+     "tool": "predict_single",
+     "arguments": {
+      "file_id": "602b129015cb4f73a8043f023ae033aa",
+      "row_index": 0
+     },
+     "status": "success"
+    }
+   ],
+   "reply": "Row 0: the saved ML model predicts goodware (malware probability 0.001241; threshold 0.500000).",
+   "passed": true
+  },
+  {
+   "attempt": 1,
+   "single_file": "29e77ab9461747c2aafaf43eb8955b5a",
+   "batch_file": "602b129015cb4f73a8043f023ae033aa",
+   "prompt": "Is row 1 malware?",
+   "activity": [
+    {
+     "tool": "predict_single",
+     "arguments": {
+      "file_id": "602b129015cb4f73a8043f023ae033aa",
+      "row_index": 1
+     },
+     "status": "success"
+    }
+   ],
+   "reply": "Row 1: the saved ML model predicts goodware (malware probability 0.002498; threshold 0.500000).",
+   "passed": true
+  },
+  {
+   "attempt": 1,
+   "single_file": "29e77ab9461747c2aafaf43eb8955b5a",
+   "batch_file": "602b129015cb4f73a8043f023ae033aa",
+   "prompt": "Is row 2 malware?",
+   "activity": [
+    {
+     "tool": "predict_single",
+     "arguments": {
+      "file_id": "602b129015cb4f73a8043f023ae033aa",
+      "row_index": 2
+     },
+     "status": "success"
+    }
+   ],
+   "reply": "Row 2: the saved ML model predicts malware (malware probability 0.969699; threshold 0.500000).",
+   "passed": true
+  },
+  {
+   "attempt": 2,
+   "single_file": "aa2bf2f6fdff4a039dbbf1f3abd13568",
+   "batch_file": "f70ddcfc396948e19e31c15ce341fdeb",
+   "prompt": "Is row 0 malware?",
+   "activity": [],
+   "reply": "Row 0: the saved ML model predicts goodware (malware probability 0.001241; threshold 0.500000).",
+   "passed": false
+  },
+  {
+   "attempt": 2,
+   "single_file": "aa2bf2f6fdff4a039dbbf1f3abd13568",
+   "batch_file": "f70ddcfc396948e19e31c15ce341fdeb",
+   "prompt": "Is row 1 malware?",
+   "activity": [
+    {
+     "tool": "predict_single",
+     "arguments": {
+      "file_id": "f70ddcfc396948e19e31c15ce341fdeb",
+      "row_index": 1
+     },
+     "status": "success"
+    }
+   ],
+   "reply": "Row 1: the saved ML model predicts goodware (malware probability 0.002498; threshold 0.500000).",
+   "passed": true
+  },
+  {
+   "attempt": 2,
+   "single_file": "aa2bf2f6fdff4a039dbbf1f3abd13568",
+   "batch_file": "f70ddcfc396948e19e31c15ce341fdeb",
+   "prompt": "Is row 2 malware?",
+   "activity": [
+    {
+     "tool": "predict_single",
+     "arguments": {
+      "file_id": "f70ddcfc396948e19e31c15ce341fdeb",
+      "row_index": 2
+     },
+     "status": "success"
+    }
+   ],
+   "reply": "Row 2: the saved ML model predicts malware (malware probability 0.969699; threshold 0.500000).",
+   "passed": true
+  },
+  {
+   "attempt": 3,
+   "single_file": "f2d813984f344f64a3905cbfc882bf39",
+   "batch_file": "277cfabbce2a4fe493dc09eca5b8ff1b",
+   "prompt": "Is row 0 malware?",
+   "activity": [
+    {
+     "tool": "predict_single",
+     "arguments": {
+      "file_id": "277cfabbce2a4fe493dc09eca5b8ff1b",
+      "row_index": 0
+     },
+     "status": "success"
+    }
+   ],
+   "reply": "Row 0: the saved ML model predicts goodware (malware probability 0.001241; threshold 0.500000).",
+   "passed": true
+  },
+  {
+   "attempt": 3,
+   "single_file": "f2d813984f344f64a3905cbfc882bf39",
+   "batch_file": "277cfabbce2a4fe493dc09eca5b8ff1b",
+   "prompt": "Is row 1 malware?",
+   "activity": [
+    {
+     "tool": "predict_single",
+     "arguments": {
+      "file_id": "277cfabbce2a4fe493dc09eca5b8ff1b",
+      "row_index": 1
+     },
+     "status": "success"
+    }
+   ],
+   "reply": "Row 1: the saved ML model predicts goodware (malware probability 0.002498; threshold 0.500000).",
+   "passed": true
+  },
+  {
+   "attempt": 3,
+   "single_file": "f2d813984f344f64a3905cbfc882bf39",
+   "batch_file": "277cfabbce2a4fe493dc09eca5b8ff1b",
+   "prompt": "Is row 2 malware?",
+   "activity": [
+    {
+     "tool": "predict_single",
+     "arguments": {
+      "file_id": "277cfabbce2a4fe493dc09eca5b8ff1b",
+      "row_index": 2
+     },
+     "status": "success"
+    }
+   ],
+   "reply": "Row 2: the saved ML model predicts malware (malware probability 0.969699; threshold 0.500000).",
+   "passed": true
+  }
+ ],
+ "check_count": 9,
+ "passed_count": 8
+}

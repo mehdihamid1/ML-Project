@@ -133,21 +133,23 @@ Open [agent-evaluation.md](../agent-evaluation.md).
 - A runner sends 15 scenarios to the live site, where the real OpenAI model
   chooses tools, and checks every tool call and number against the saved
   model.
-- Run 9, on 2026-10-09 with `gpt-4.1-mini`: 15 of 15 scenarios passed and
-  27 of 27 numeric checks matched. In 22 repeated conditional requests, the
-  AI withheld the prediction 16 of 16 times and made it 6 of 6 times.
+- Run 10, on 2026-11-12 with `gpt-4.1-mini`: 15 of 15 scenarios passed and
+  27 of 27 numeric checks matched. In Run 9's 22 repeated conditional
+  requests, the AI withheld the prediction 16 of 16 times and made it 6 of 6
+  times.
 - Earlier runs failed up to 2 of 15 scenarios: for example, the AI called
   `evaluate` for a plain prediction, or ran a tool again for a follow-up about
   false negatives. Each failure led to a fix in the instructions or code, and
   the next run passed all 15.
 - Limitations: the AI's choices vary between runs. Before Run 9, it requested
   a withheld prediction in 2 of 13 tries; the server blocked both, which is
-  why that check stays. Provider failures are tested with mocked faults, not
+  why that check stays. It can also make an extra tool call: in the rehearsal,
+  one batch request also ran an unrequested `predict_single`. Provider failures are tested with mocked faults, not
   live.
 
 ## 8. Tests and deployment
 
-- **Tests.** Run `docker compose run --rm ml pytest -q` (474 passed), or open
+- **Tests.** Run `docker compose run --rm ml pytest -q` (479 passed), or open
   the test jobs of a CI run. They include unit, integration and agent tests
   with a mocked LLM, plus failure cases.
 - **Failing tests block deployment.** In

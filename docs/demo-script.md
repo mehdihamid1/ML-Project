@@ -199,7 +199,7 @@ question to the invalid-input request from the demo README, and click
 
 > "We also tested the agent with the real model. A runner sends 15 scenarios
 > to the live site, covering every task, follow-ups and error cases, and
-> checks each tool call and number against our saved model. Our latest run, Run 9 with gpt-4.1-mini, passed 15 of 15, and
+> checks each tool call and number against our saved model. Our latest run, Run 10 with gpt-4.1-mini, passed 15 of 15, and
 > all 27 numeric checks matched. In 22 repeated conditional requests, the AI
 > decided correctly every time.
 >
@@ -213,7 +213,7 @@ question to the invalid-input request from the demo README, and click
 *On screen: a terminal running `docker compose run --rm ml pytest -q`, or the
 test job log of a CI run.*
 
-> "Our suite has 474 automated tests: unit tests for the training pipeline and
+> "Our suite has 479 automated tests: unit tests for the training pipeline and
 > tools, Flask integration tests, and agent tests with a mocked language
 > model, including failures such as malformed CSVs, missing labels, a single
 > class, and tool and provider errors."

@@ -15,11 +15,11 @@ under `docs/`, so a clean checkout can run the app without retraining.
 ## Current status
 
 The tools, OpenAI agent, Flask app, sample CSVs and deployment workflow are
-implemented. Plain `pytest` passes all 474 tests locally; the lean runtime
-suite passes 463 tests.
+implemented. Plain `pytest` passes all 479 tests locally; the lean runtime
+suite passes 468 tests.
 
-The last code change, [`22e988b`](https://github.com/mehdihamid1/ML-Project/commit/22e988b),
-added numbered buttons that load the demo files. [GitHub Actions run 43129843769](https://github.com/mehdihamid1/ML-Project/actions/runs/43129843769)
+The last code change, [`671f791`](https://github.com/mehdihamid1/ML-Project/commit/671f791),
+completed a fix to how questions about specific rows are answered. [GitHub Actions run 43138602470](https://github.com/mehdihamid1/ML-Project/actions/runs/43138602470)
 deployed it: the full, runtime and container tests passed, then the deploy job
 ran and its live health check passed. On 2026-11-12 (UTC),
 [live health](https://quantic-malware-agent.onrender.com/health) reported that
@@ -27,11 +27,9 @@ commit, `status: ok`, LightGBM, `openai_configured: true` and the model
 `gpt-4.1-mini`. Later commits change only documentation; CI tests and deploys
 them the same way.
 
-Run 9, against commit `9d4dccb`, passed all 15 real-LLM scenarios and all 27
-numeric checks, and in 22 repeated conditional requests the AI decided
-correctly every time. The code changes since then, a dashboard theme, the
-Workflow tab and numbered demo-file buttons, leave the instructions and tools
-sent to OpenAI, and the code that builds its inputs, unchanged. Questions about stored results run no new tool, while a question
+Run 10, against that commit, passed all 15 real-LLM scenarios and all 27
+numeric checks. In Run 9's 22 repeated conditional requests the AI decided
+correctly every time. Questions about stored results run no new tool, while a question
 about specific rows, such as "Is row 2 malware?" after a batch, still
 classifies them. See [deployed.md](deployed.md) and
 [agent-evaluation.md](agent-evaluation.md).

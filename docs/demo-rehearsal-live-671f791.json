@@ -1,0 +1,148 @@
+{
+ "purpose": "Live rehearsal of the demo script requests, in order, with session resets before the conditional and invalid-input sections.",
+ "run_at_utc": "2026-11-12T02:13:04+00:00",
+ "base_url": "https://quantic-malware-agent.onrender.com",
+ "health": {
+  "commit": "671f7915aad6234d3329d92342b9bbea816160d7",
+  "model_version": "d13e54cf1970-1791236375742615262",
+  "openai_configured": true,
+  "openai_model": "gpt-4.1-mini",
+  "selected_model": "LightGBM",
+  "status": "ok"
+ },
+ "records": [
+  {
+   "prompt": "Classify row 0 of file 2a6bba227d9e43ffa22dbea0df02dfd5.",
+   "activity": [
+    {
+     "tool": "predict_single",
+     "arguments": {
+      "file_id": "2a6bba227d9e43ffa22dbea0df02dfd5",
+      "row_index": 0
+     },
+     "status": "success"
+    }
+   ],
+   "reply": "Row 0: the saved ML model predicts goodware (malware probability 0.001241; threshold 0.500000)."
+  },
+  {
+   "prompt": "What was the malware probability of that prediction?",
+   "activity": [],
+   "reply": "Row 0: the saved ML model predicts goodware (malware probability 0.001241; threshold 0.500000)."
+  },
+  {
+   "prompt": "Explain which individual features caused the prediction.",
+   "activity": [],
+   "reply": "Feature-level explanations are unavailable: this app has no explanation tool. Only the saved ML model produces classifications.\n\nRow 0: the saved ML model predicts goodware (malware probability 0.001241; threshold 0.500000)."
+  },
+  {
+   "prompt": "Classify all rows of file 897a1ac222674819b72f9cb0c77e80bb and provide the downloadable results.",
+   "activity": [
+    {
+     "tool": "predict_batch",
+     "arguments": {
+      "file_id": "897a1ac222674819b72f9cb0c77e80bb"
+     },
+     "status": "success"
+    },
+    {
+     "tool": "predict_single",
+     "arguments": {
+      "file_id": "897a1ac222674819b72f9cb0c77e80bb",
+      "row_index": 0
+     },
+     "status": "success"
+    }
+   ],
+   "reply": "Batch: 4 total rows; 4 classified (2 malware, 2 goodware); 0 invalid rows. Download results: /api/download/b819fc54da024ffca3af5e6c7ba0e9cb"
+  },
+  {
+   "prompt": "What is the malware probability of row 2?",
+   "activity": [
+    {
+     "tool": "predict_single",
+     "arguments": {
+      "file_id": "897a1ac222674819b72f9cb0c77e80bb",
+      "row_index": 2
+     },
+     "status": "success"
+    }
+   ],
+   "reply": "Row 2: the saved ML model predicts malware (malware probability 0.969699; threshold 0.500000)."
+  },
+  {
+   "prompt": "What is the malware probability of row 1?",
+   "activity": [
+    {
+     "tool": "predict_single",
+     "arguments": {
+      "file_id": "897a1ac222674819b72f9cb0c77e80bb",
+      "row_index": 1
+     },
+     "status": "success"
+    }
+   ],
+   "reply": "Row 1: the saved ML model predicts goodware (malware probability 0.002498; threshold 0.500000)."
+  },
+  {
+   "prompt": "Evaluate file 1992eeabba37448e828a567225750cc0; only if accuracy >= 0.75, predict row 0 of file 0e700cc1a33e42518e63988ce1d6f18a.",
+   "activity": [
+    {
+     "tool": "evaluate",
+     "arguments": {
+      "file_id": "1992eeabba37448e828a567225750cc0"
+     },
+     "status": "success"
+    },
+    {
+     "tool": "predict_single",
+     "arguments": {
+      "file_id": "0e700cc1a33e42518e63988ce1d6f18a",
+      "row_index": 0
+     },
+     "status": "success"
+    }
+   ],
+   "reply": "Condition met: accuracy 1.000000 meets the required 0.750000 with complete labeled coverage, so the agent called predict_single.\n\nAccuracy: 1.000000. AUC: 1.000000. Confusion matrix (true rows / predicted columns, goodware then malware): [[2, 0], [0, 2]]. True negatives: 2 goodware files predicted as goodware; false positives: 0 goodware files predicted as malware; false negatives: 0 malware files predicted as goodware; true positives: 2 malware files predicted as malware. Evaluated 4 of 4 rows; 0 excluded (missing labels 0, invalid labels 0). Labeled class counts: goodware 2, malware 2.\n\nRow 0: the saved ML model predicts goodware (malware probability 0.001241; threshold 0.500000)."
+  },
+  {
+   "prompt": "Evaluate file 66b259d98ed14a5fb3541fd95b3b0b45; only if accuracy >= 0.9, predict row 0 of file d08813443f1c487c8eaffa77bbb93a94.",
+   "activity": [
+    {
+     "tool": "evaluate",
+     "arguments": {
+      "file_id": "66b259d98ed14a5fb3541fd95b3b0b45"
+     },
+     "status": "success"
+    },
+    {
+     "tool": "predict_single",
+     "arguments": {
+      "file_id": "d08813443f1c487c8eaffa77bbb93a94",
+      "row_index": 0
+     },
+     "status": "skipped"
+    }
+   ],
+   "reply": "Prediction withheld: accuracy 0.000000 is below the required 0.900000, so the agent did not call predict_single.\n\nAccuracy: 0.000000. AUC: unavailable (evaluation requires both classes for AUC). Confusion matrix (true rows / predicted columns, goodware then malware): [[0, 0], [1, 0]]. True negatives: 0 goodware files predicted as goodware; false positives: 0 goodware files predicted as malware; false negatives: 1 malware files predicted as goodware; true positives: 0 malware files predicted as malware. Evaluated 1 of 1 rows; 0 excluded (missing labels 0, invalid labels 0). Labeled class counts: goodware 0, malware 1."
+  },
+  {
+   "prompt": "How many false negatives were there in that evaluation?",
+   "activity": [],
+   "reply": "Accuracy: 0.000000. AUC: unavailable (evaluation requires both classes for AUC). False negatives: 1 malware files predicted as goodware. The false negative rate is 1.000000 (1 / 1 evaluated malware files). Evaluated 1 of 1 rows; 0 excluded (missing labels 0, invalid labels 0)."
+  },
+  {
+   "prompt": "Classify all rows of file 66933624421b4fbf8f402d897e696cbf. Report invalid rows and provide the downloadable results.",
+   "activity": [
+    {
+     "tool": "predict_batch",
+     "arguments": {
+      "file_id": "66933624421b4fbf8f402d897e696cbf"
+     },
+     "status": "success"
+    }
+   ],
+   "reply": "Batch: 4 total rows; 3 classified (1 malware, 2 goodware); 1 invalid rows. Download results: /api/download/230d2aad08ae4a57b08babcbea45e261"
+  }
+ ]
+}

@@ -6,11 +6,11 @@ The app is live at <https://quantic-malware-agent.onrender.com/>. On
 2026-11-12 (UTC), its [/health](https://quantic-malware-agent.onrender.com/health)
 reported `status: ok`, `selected_model: LightGBM`, `openai_configured: true`,
 `openai_model: gpt-4.1-mini`, model version `d13e54cf1970-1791236375742615262`
-and commit [`22e988b`](https://github.com/mehdihamid1/ML-Project/commit/22e988b),
-the last code change, which added numbered buttons that load the demo files. Later commits change only
+and commit [`671f791`](https://github.com/mehdihamid1/ML-Project/commit/671f791),
+the last code change, which completed a fix to how questions about specific rows are answered. Later commits change only
 documentation; CI tests and deploys them the same way.
 
-Observed [GitHub Actions run 43129843769](https://github.com/mehdihamid1/ML-Project/actions/runs/43129843769)
+Observed [GitHub Actions run 43138602470](https://github.com/mehdihamid1/ML-Project/actions/runs/43138602470)
 for that commit:
 
 | Check | Observed result |
@@ -22,12 +22,9 @@ for that commit:
 | Live `/health` smoke test | Passed. |
 | Overall workflow | Passed. |
 
-The latest full real-LLM run (Run 9, against commit `9d4dccb`) passed all 15
-scenarios, with all 27 numeric checks matching. In 22 repeated live
-conditional requests, the AI made the right decision every time. The code
-changes since then, a dashboard theme, the Workflow tab and numbered demo-file
-buttons, leave the instructions and tools sent to OpenAI, and the code that
-builds its inputs, unchanged. On `cbd90fb`, the
+The latest full real-LLM run (Run 10, against commit `671f791`) passed all 15
+scenarios, with all 27 numeric checks matching. In Run 9's 22 repeated live
+conditional requests, the AI made the right decision every time. On `cbd90fb`, the
 Workflow tab's trace of a live conditional request showed the AI reading the
 returned accuracy before calling `predict_single`; see
 [agent-evaluation.md](agent-evaluation.md).
@@ -137,7 +134,7 @@ separately against the live site; see [agent-evaluation.md](agent-evaluation.md)
 The current Blueprint passes the JSON schema served by
 [Render](https://render.com/schema/render.yaml.json). Docker Compose configuration
 validates, and both the training and production images build successfully.
-The training image passes 474 tests; the lean runtime passes 463 tests.
+The training image passes 479 tests; the lean runtime passes 468 tests.
 Authenticated Jupyter HTTP access works with the host owner's UID/GID.
 
 The production image works at its local default port and honors a custom
