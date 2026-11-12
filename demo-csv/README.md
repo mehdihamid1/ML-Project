@@ -11,14 +11,19 @@ not from these files.
 
 ## Before you start
 
-1. Get the files. Clone the repository, or open each file on GitHub and choose
-   **Download raw file**.
-2. Open the live app (URL in [deployed.md](../deployed.md)) and load `/health`
+1. Open the live app (URL in [deployed.md](../deployed.md)) and load `/health`
    first. The free Render instance can take a minute to wake up.
-3. Each upload shows the file's ID and prepares an editable question. Change
+2. Load each file with its number button under **Demo files, in presentation
+   order**: **01** loads `01-single-record.csv`, **04a** loads
+   `04a-condition-met-evaluation.csv`, and so on. A button loads the same file
+   from the server, under the same name, with the same checks as an upload.
+   Upload at least one file with the file picker on camera, so the video shows
+   a real CSV upload. To get the files, clone the repository, or open each file
+   on GitHub and choose **Download raw file**.
+3. Each loaded file shows its ID and prepares an editable question. Change
    it to the request below, replace the placeholder (such as `SINGLE_ID`) with
    that ID, then click **Send** yourself. Nothing is sent automatically.
-4. A session holds at most 5 uploaded files, and the demo uploads 7. Click
+4. A session holds at most 5 files, button loads included, and the demo loads 7. Click
    **Reset session & remove files** before sections 3 and 4, as noted there.
    Each section's follow-ups use only that section's files.
 

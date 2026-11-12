@@ -347,6 +347,8 @@ def run_probe(image, cpus=None):
             report["streamed_chat_checks"] = ["single_prediction", "conditional_pass", "conditional_skip"]
             sample = json.loads(other.request("POST", "/api/samples/single", expected=201, label="load_sample_single"))
             require((sample["file"]["name"], sample["file"]["rows"]) == ("single.csv", 1), "Bundled sample did not load from the image")
+            demo = json.loads(other.request("POST", "/api/samples/07-invalid-input", expected=201, label="load_demo_07"))
+            require((demo["file"]["name"], demo["file"]["rows"]) == ("07-invalid-input.csv", 4), "Numbered demo file did not load from the image")
             large_browser = Browser(base, statuses)
             large_browser.session("session_large")
             large_file = large_browser.upload(large, "upload_large_batch")

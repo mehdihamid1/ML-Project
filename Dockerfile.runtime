@@ -11,6 +11,7 @@ COPY models ./models
 COPY templates ./templates
 COPY static ./static
 COPY samples ./samples
+COPY demo-csv/*.csv ./demo-csv/
 COPY app.py .
 COPY scripts/verify_model.py ./scripts/verify_model.py
 RUN python scripts/verify_model.py

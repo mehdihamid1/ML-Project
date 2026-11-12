@@ -355,8 +355,10 @@ def create_app(config=None, *, service=None, agent=None):
             raise RequestError("Only CSV files are accepted.")
         return register_csv(incoming.stream.read, incoming.filename)
 
-    # The repository's sample CSVs give graders ready-made records to try.
+    # The repository's sample CSVs give graders ready-made records to try. The
+    # numbered demo copies load under their own names, as the demo run sheet lists them.
     samples = {path.stem: path for path in sorted((project / "samples").glob("*.csv"))}
+    samples.update({path.stem: path for path in sorted((project / "demo-csv").glob("*.csv"))})
 
     @app.post("/api/samples/<name>")
     def load_sample(name):

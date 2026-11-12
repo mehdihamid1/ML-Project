@@ -86,8 +86,18 @@ def test_chat_page_and_health_do_not_call_llm(app, client):
 
 def test_every_sample_button_names_a_bundled_sample(client):
     names = re.findall(r'data-sample="([^"]+)"', client.get("/").text)
-    samples = Path(__file__).resolve().parents[1] / "samples"
-    assert sorted(names) == sorted(path.stem for path in samples.glob("*.csv"))
+    root = Path(__file__).resolve().parents[1]
+    bundled = [path.stem for folder in ("samples", "demo-csv") for path in (root / folder).glob("*.csv")]
+    assert sorted(names) == sorted(bundled)
+
+
+def test_numbered_demo_files_are_unchanged_sample_copies():
+    # The demo run sheet quotes results recorded for the samples, so the copies must match them.
+    root = Path(__file__).resolve().parents[1]
+    samples = {path.read_bytes() for path in (root / "samples").glob("*.csv")}
+    demos = sorted((root / "demo-csv").glob("*.csv"))
+    assert [path.stem[:3].rstrip("-") for path in demos] == ["01", "02", "04a", "04b", "05a", "05b", "07"]
+    assert all(path.read_bytes() in samples for path in demos)
 
 
 def test_chat_page_groups_side_panels_beside_one_chat(client):

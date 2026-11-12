@@ -107,8 +107,14 @@ def test_bundled_samples_load_into_the_session_like_uploads(setup):
     file = loaded.json['file']
     assert (file['name'], file['rows']) == ('labeled.csv', 4) and 'Label' in file['columns']
     assert [item['id'] for item in client.get('/api/session').json['files']] == [file['id']]
-    for name in ('unknown', 'labeled.csv', 'README'):
+    for name in ('unknown', 'labeled.csv', 'README', '04a', '04a-condition-met-evaluation.csv'):
         assert client.post(f'/api/samples/{name}', headers=headers).status_code == 404
+    # A numbered demo button loads its file under the name the demo run sheet uses.
+    demo = client.post('/api/samples/04a-condition-met-evaluation', headers=headers)
+    assert demo.status_code == 201
+    assert (demo.json['file']['name'], demo.json['file']['rows']) == ('04a-condition-met-evaluation.csv', 4)
+    assert 'Label' in demo.json['file']['columns']
+    assert [item['id'] for item in client.get('/api/session').json['files']] == [file['id'], demo.json['file']['id']]
     assert client.post('/api/samples/single').status_code == 403  # The CSRF token is still required.
     # Loading never asks the model; the sample is an ordinary session file once the user sends a request.
     assert provider.calls == []

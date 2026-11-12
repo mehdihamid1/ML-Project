@@ -85,6 +85,9 @@ Without a file of your own, the sample buttons under the upload area (**One
 row**, **Batch of 4**, **Labeled**, **Low accuracy**, **Invalid row**, **Missing
 label**, **One class**) load the matching CSV from `samples/` on the server,
 with the same checks, and prepare an evaluation question for labeled samples.
+A second row of numbered buttons (**01**, **02**, **04a**, **04b**, **05a**,
+**05b**, **07**) loads the [demo files](demo-csv/README.md) the same way, under
+their own names.
 Review or edit the question, then click **Send**. Every file card offers
 **Predict row 0**, **Classify all** and, for files with a `Label` column,
 **Evaluate**; each button writes the request for that file into the chat box.
