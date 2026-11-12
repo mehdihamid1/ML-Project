@@ -10,7 +10,8 @@ hold-out results in [evaluation-and-design.md](../evaluation-and-design.md),
 not from these files.
 
 Section numbers below match the video sections in the
-[demo guide](../docs/demo-guide.md). Sections 1, 2, 7 and 8 use no files.
+[demo guide](../docs/demo-guide.md), and the [demo script](../docs/demo-script.md)
+has the spoken lines. Sections 1, 2, 7 and 8 use no files.
 
 ## Before you start
 

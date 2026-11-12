@@ -11,18 +11,9 @@ section numbers.
 
 ## Before recording
 
-- Give each member at least one section. A plan that fits the time limit:
-
-  | Section | Target |
-  | --- | --- |
-  | 1. Model training and results | 2:00 |
-  | 2. System architecture | 1:00 |
-  | 3. Single-record prediction | 1:00 |
-  | 4. Batch prediction | 1:00 |
-  | 5. Labeled evaluation with conditional prediction | 2:00 |
-  | 6. Invalid input | 0:30 |
-  | 7. Agent evaluation | 1:00 |
-  | 8. Tests and deployment | 1:00 |
+- The [demo script](demo-script.md) has each speaker's lines. It splits the
+  sections between three speakers, so every member speaks, and runs about
+  9½ minutes.
 
 - Open the live app (URL in [deployed.md](../deployed.md)) and its `/health`
   a few minutes early: the free Render instance can take a minute to wake up.
