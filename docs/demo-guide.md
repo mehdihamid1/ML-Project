@@ -1,82 +1,178 @@
 # Demo recording guide
 
-The supplied review requests an 8–10 minute video. Recording and publishing
-that video remain pending. This guide describes what to demonstrate.
+The assignment asks for an 8–10 minute narrated screen-share of the deployed
+system at its public URL. In a group, every member must speak and appear on
+camera. Recording and publishing that video remain pending.
+
+This guide follows the required sections in order. Sections 3–6 use the
+numbered files in [demo-csv](../demo-csv/README.md); its README gives each
+request, the follow-up questions and the expected results, under the same
+section numbers.
 
 ## Before recording
 
-The files uploaded in the video, with their requests, follow-ups and expected
-results, are in [demo-csv](../demo-csv/README.md).
+- Give each member at least one section. A plan that fits the time limit:
 
-Configure OpenAI and Render using [deployment instructions](../deployed.md).
-Run the real-provider scenario runner against the live site, as described in
-[agent evaluation](../agent-evaluation.md), and keep its original report.
-Use the successful CI run and its verified live health response as evidence.
-Keep credentials and deploy-hook URLs out of the recording.
+  | Section | Target |
+  | --- | --- |
+  | 1. Model training and results | 2:00 |
+  | 2. System architecture | 1:00 |
+  | 3. Single-record prediction | 1:00 |
+  | 4. Batch prediction | 1:00 |
+  | 5. Labeled evaluation with conditional prediction | 2:00 |
+  | 6. Invalid input | 0:30 |
+  | 7. Agent evaluation | 1:00 |
+  | 8. Tests and deployment | 1:00 |
 
-## Walkthrough
+- Open the live app (URL in [deployed.md](../deployed.md)) and its `/health`
+  a few minutes early: the free Render instance can take a minute to wake up.
+  Keep tabs open for the app, **Model dashboard**, **Workflow**, the
+  repository's GitHub Actions page and [agent-evaluation.md](../agent-evaluation.md).
+- Keep credentials, the Render dashboard and deploy-hook URLs out of frame.
+- A session holds at most 5 files, button loads included. Click **Reset
+  session & remove files** before sections 5 and 6.
+- For every live task, say which tool the agent called, its arguments, and
+  what the result means. The tool trail under each answer and the activity
+  record show all three.
 
-1. State the task: classify Windows PE feature records using the saved ML model.
-   Explain that OpenAI selects tools and stored results, while Python produces
-   classifications and metrics. No feature-level explanation tool exists.
-   Open **Workflow** to show each step of an upload and of a chat request and
-   where it runs: the browser, the server, OpenAI or the LightGBM model.
-2. Show the dataset provenance, deduplication and leakage controls, the
-   app's **Model dashboard** (`/analytics`) and its four experiment sections.
-   Start with the duplicate removal and the train/test split. Advance the
-   cross-validation walkthrough from Round 1 to Round 2: fold 1 returns to
-   training, fold 2 becomes validation, and the strip highlights round 2's
-   AUC among all ten. Explain that every round starts with a fresh pipeline,
-   and the reserved test remains separate. Choose another algorithm to inspect
-   its saved scores, then show the seven-model comparison. Use the metric
-   controls to compare performance, fold variation and recorded fit times.
-   In the selection panel, state the selection rule and show how often
-   LightGBM led the runner-up on the shared folds. Finish with the final-test
-   panel: the hold-out results beside the cross-validation range, and the
-   held-out errors.
-   Relate these results to [evaluation and design](../evaluation-and-design.md). Explain the fixed
-   decision threshold and limitations. Do not run tuning on the hold-out.
-3. Open the live app and `/health`. Show the tested commit and model version;
-   relate them to the successful CI run and frozen-model checksum.
-4. Upload [single.csv](../samples/single.csv), or click the **One row** sample
-   button, which loads the same file on the server. Show the automatically
-   prepared question and its new file ID, review it, then click **Send**. Show
-   live `predict_single()` progress, the verdict, probability and completed tool
-   trail, then the activity record. File-card actions also prepare questions.
-5. Upload [invalid-rows.csv](../samples/invalid-rows.csv), review the prepared
-   batch question and click **Send**. Download the results and show the explicit invalid-row status. Demonstrate
-   that the rejected row retains its source position.
-6. Evaluate [labeled.csv](../samples/labeled.csv) with **Evaluate** on its
-   card, then click **Send**. Show AUC, accuracy, labeled confusion counts and coverage. Ask about
-   false negatives, then accuracy; each follow-up answer states that no tool
-   was called.
-7. Use the conditional form with [labeled.csv](../samples/labeled.csv) and
-   [single.csv](../samples/single.csv) to demonstrate a passing threshold.
-   Click **Prepare question**, review it, then **Send**. Narrate the two steps:
-   the agent must call `evaluate` first; the AI model then reads the returned
-   accuracy and calls `predict_single` itself, and the server checks that
-   decision against your threshold. The reply begins "Condition met".
-   Open **Workflow** in a new browser tab: under **Your last request**, the
-   second OpenAI call received the returned accuracy and chose
-   `predict_single`. Do this before the next request, which replaces the trace.
-   Then use [conditional-fail.csv](../samples/conditional-fail.csv) (the **Low
-   accuracy** sample) with a demanding threshold: the reply begins "Prediction
-   withheld" and the trail shows `predict_single()` skipped. Ask "How many false
-   negatives were there?" to show the follow-up. Explain that the fail sample
-   has a synthetic label and is a control-flow fixture.
-8. Demonstrate unavailable AUC with **Evaluate** on
-   [single-class.csv](../samples/single-class.csv), a missing-label error by
-   typing an evaluation request for [batch.csv](../samples/batch.csv) (its card
-   offers no **Evaluate** button because it has no labels), and an
-   informative out-of-range row request. Explain partial evaluation coverage.
-9. Show the successful CI run (full, runtime and container tests, then the
-   deploy), the real-provider scenario report and the live health check.
-   Explain runtime dependencies, upload limits, session isolation and the
-   remaining limitations.
+## 1. Model training and results
+
+Open **Model dashboard** (`/analytics`) and narrate from it. Figures come from
+[evaluation-and-design.md](../evaluation-and-design.md) and
+[model-results.md](model-results.md).
+
+- **Data and leakage controls.** The Brazilian malware dataset holds 50,181
+  rows. Training drops the 18 SHA1 hashes with conflicting labels and keeps one
+  row per hash: 43,393 records. A stratified 20% hold-out is reserved before
+  any preprocessing: 34,714 development rows and 8,679 hold-out rows. SHA1,
+  `FirstSeenDate` (it reveals collection time) and three constant columns are
+  excluded from the inputs.
+- **Preprocessing inside the folds.** Median imputation, a signed log
+  transform, scaling, TF-IDF vocabularies for imported DLLs and symbols, and
+  `Identify` category encoding are fitted inside each training fold.
+- **Cross-validation.** All models use the same stratified 10-fold splits
+  (seed 42). Each model has two candidate settings; models are ranked by mean
+  CV AUC, computed from malware probabilities.
+- **Seven models.** Logistic Regression, Decision Tree, Random Forest, PyTorch
+  MLP, XGBoost, LightGBM and CatBoost.
+- **Top three and bottom two by CV AUC** (mean ± standard deviation, rounded):
+
+  | Rank | Model | CV AUC | CV accuracy |
+  | --- | --- | --- | --- |
+  | 1 | LightGBM | 0.9982 ± 0.0006 | 0.9857 ± 0.0022 |
+  | 2 | XGBoost | 0.9979 ± 0.0006 | 0.9839 ± 0.0022 |
+  | 3 | Random Forest | 0.9975 ± 0.0007 | 0.9824 ± 0.0028 |
+  | 6 | Logistic Regression | 0.9886 ± 0.0014 | 0.9577 ± 0.0043 |
+  | 7 | Decision Tree | 0.9802 ± 0.0031 | 0.9757 ± 0.0033 |
+
+  Say that the ranking uses AUC: by accuracy, the Decision Tree would beat the
+  PyTorch MLP (0.9725).
+- **Production model.** LightGBM, frozen with threshold 0.5 before the
+  hold-out was scored. Hold-out AUC 0.9979, accuracy 0.9843 on 8,679 records.
+
+On the dashboard, step the cross-validation walkthrough from Round 1 to
+Round 2 (fold 1 returns to training, fold 2 becomes validation), show the
+seven-model comparison, the selection panel, and the final-test panel with
+the hold-out results beside the CV range. Do not run any tuning on the
+hold-out.
+
+## 2. System architecture
+
+Open **Workflow** and walk through an upload and a chat request.
+
+- The browser uploads a CSV; the Flask server validates its type, size and
+  columns and stores it in a private session. Raw rows are never sent to
+  OpenAI.
+- OpenAI (`gpt-4.1-mini`) only chooses a tool and its arguments:
+  `predict_single`, `predict_batch` or `evaluate`. Python validates the
+  arguments, runs the saved LightGBM pipeline and computes every metric. The
+  reply is rendered from the tool results, so the AI never produces a
+  classification. No explanation tool exists.
+- For a conditional request, the server makes `evaluate` run first. The AI
+  then reads the returned accuracy and decides whether to call
+  `predict_single`; the server checks that decision against the threshold.
+- Limits: 5 MiB and 10,000 rows per file, 5 files per session; sessions are
+  isolated from each other.
+
+## 3. Single-record prediction
+
+Upload `01-single-record.csv` with the file picker, so the video shows a real
+CSV upload. Show the prepared question, edit it, and click **Send**.
+
+Narrate the `predict_single` call, its `file_id` and `row_index` arguments,
+the verdict and malware probability, then open the activity record. Ask both
+follow-ups from the demo README.
+
+## 4. Batch prediction
+
+Click **02**. Narrate the `predict_batch` call and its `file_id`, the malware
+and goodware counts, then click **Download results** and open the file to show
+one row per record. Ask both follow-ups.
+
+## 5. Labeled evaluation with conditional prediction
+
+Click **Reset session & remove files**, then load **04a** and **04b**. Fill
+the conditional form with a threshold and click **Prepare question**, or type
+the request from the demo README, then click **Send**.
+
+- Show `evaluate` first, with its AUC, accuracy and confusion matrix. The AI
+  then reads the accuracy and calls `predict_single`; the reply begins
+  "Condition met".
+- Open **Workflow** in a new browser tab. Under **Your last request**, the
+  second OpenAI call received the returned accuracy and chose
+  `predict_single`. Do this before the next request, which replaces the trace.
+- Load **05a** and **05b** and send the withheld request: `evaluate` runs,
+  `predict_single` is skipped, and the reply begins "Prediction withheld". Say
+  that 05a's label was deliberately changed: it demonstrates control flow,
+  not model quality.
+- Ask "How many false negatives were there in that evaluation?" The answer
+  comes from the stored evaluation, with no new tool call.
+
+## 6. Invalid input
+
+Click **Reset session & remove files**, then load **07**. Narrate the
+`predict_batch` call: three rows classified and one invalid row, reported
+with its reason. Download the results to show that the invalid row keeps its
+position.
+
+## 7. Agent evaluation
+
+Open [agent-evaluation.md](../agent-evaluation.md).
+
+- A runner sends 15 scenarios to the live site, where the real OpenAI model
+  chooses tools, and checks every tool call and number against the saved
+  model.
+- Run 9, on 2026-10-09 with `gpt-4.1-mini`: 15 of 15 scenarios passed and
+  27 of 27 numeric checks matched. In 22 repeated conditional requests, the
+  AI withheld the prediction 16 of 16 times and made it 6 of 6 times.
+- Earlier runs failed up to 2 of 15 scenarios: for example, the AI called
+  `evaluate` for a plain prediction, or ran a tool again for a follow-up about
+  false negatives. Each failure led to a fix in the instructions or code, and
+  the next run passed all 15.
+- Limitations: the AI's choices vary between runs. Before Run 9, it requested
+  a withheld prediction in 2 of 13 tries; the server blocked both, which is
+  why that check stays. Provider failures are tested with mocked faults, not
+  live.
+
+## 8. Tests and deployment
+
+- **Tests.** Run `docker compose run --rm ml pytest -q` (474 passed), or open
+  the test jobs of a CI run. They include unit, integration and agent tests
+  with a mocked LLM, plus failure cases.
+- **Failing tests block deployment.** In
+  [run 37962332078](https://github.com/mehdihamid1/ML-Project/actions/runs/37962332078),
+  a deliberately failing test made the test and runtime-test jobs fail, and
+  the deploy job was skipped.
+  [Run 37962725985](https://github.com/mehdihamid1/ML-Project/actions/runs/37962725985)
+  restored the suite and deployed. [deployed.md](../deployed.md#observed-blocked-deployment)
+  records both.
+- **Successful deployment.** Open the latest run on the Actions page: the
+  test, runtime-test and container-test jobs pass, then the deploy job
+  triggers Render and polls `/health` until the tested commit is live. Open
+  live `/health` and show that its `commit` matches the run.
 
 ## Submission
 
-Record the walkthrough with your own explanation, save its shareable link, and
-confirm the grader can access the repository and video. A public repository
-does not establish that the requested collaborator invitation has been sent or
-accepted. The repository owner sends that invitation from GitHub's settings.
+Upload the video to Google Drive and submit its link with the repository
+link. The repository owner sends the `quantic-grader` collaborator invitation
+from GitHub's settings; a public repository does not replace it.

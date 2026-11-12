@@ -9,6 +9,9 @@ These small files show how the app behaves. Quote model quality from the
 hold-out results in [evaluation-and-design.md](../evaluation-and-design.md),
 not from these files.
 
+Section numbers below match the video sections in the
+[demo guide](../docs/demo-guide.md). Sections 1, 2, 7 and 8 use no files.
+
 ## Before you start
 
 1. Open the live app (URL in [deployed.md](../deployed.md)) and load `/health`
@@ -24,14 +27,14 @@ not from these files.
    it to the request below, replace the placeholder (such as `SINGLE_ID`) with
    that ID, then click **Send** yourself. Nothing is sent automatically.
 4. A session holds at most 5 files, button loads included, and the demo loads 7. Click
-   **Reset session & remove files** before sections 3 and 4, as noted there.
+   **Reset session & remove files** before sections 5 and 6, as noted there.
    Each section's follow-ups use only that section's files.
 
 Expected results come from the live Run 9 report,
 [docs/agent-evaluation-live-9d4dccb.md](../docs/agent-evaluation-live-9d4dccb.md),
 which used the same files under their `samples/` names.
 
-## 1. Single-record prediction
+## 3. Single-record prediction
 
 Upload `01-single-record.csv` (`samples/single.csv`).
 
@@ -44,7 +47,7 @@ Upload `01-single-record.csv` (`samples/single.csv`).
   - `Explain which individual features caused the prediction.` The agent
     replies that no explanation tool exists and calls no tool.
 
-## 2. Batch prediction
+## 4. Batch prediction
 
 Upload `02-batch-prediction.csv` (`samples/batch.csv`).
 
@@ -55,7 +58,7 @@ Upload `02-batch-prediction.csv` (`samples/batch.csv`).
   - `What is the malware probability of row 2?` Malware, 0.969699.
   - `Is row 0 malware?` Goodware, 0.001241.
 
-## 3. Labeled evaluation with conditional prediction
+## 5. Labeled evaluation with conditional prediction
 
 First click **Reset session & remove files**: this section uploads 4 files.
 Then run both cases in the same session, in this order. The first case shows
@@ -88,7 +91,7 @@ the AUC, accuracy and confusion matrix; the second has no AUC.
 from the latest evaluation without calling a tool: 1 false negative after the
 withheld case. Asked straight after the first case, the answer is 0.
 
-## 4. Invalid input
+## 6. Invalid input
 
 Click **Reset session & remove files** first, then upload
 `07-invalid-input.csv` (`samples/invalid-rows.csv`). Row 3 (zero-based,
