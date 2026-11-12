@@ -135,10 +135,11 @@ demo README, and click **Send**.*
 > the prediction and the malware probability."
 
 *On screen: send `What is the malware probability of row 2?`, then
-`Is row 0 malware?`*
+`What is the malware probability of row 1?`*
 
-> "For row 2, the agent called predict_single on row 2 of the same file:
-> malware, with probability 0.97. Row 0 is goodware."
+> "For each question, the agent called predict_single on that row of the same
+> file. Row 2 is malware, with probability 0.97. Row 1 is goodware, with
+> probability 0.0025."
 
 ## 5. Labeled evaluation with conditional prediction · Speaker 2
 
