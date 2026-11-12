@@ -855,6 +855,44 @@ def test_row_question_about_an_unpredicted_row_can_classify_it(files):
     assert output["activity"][0]["status"] == "success"
 
 
+@pytest.mark.parametrize("row", [0, 1])
+def test_row_question_after_a_batch_ignores_another_files_prediction(files, row):
+    # Live finding (2026-11-12): after a single prediction on one file and a
+    # batch on another, "Is row 0 malware?" was answered from the first file's
+    # stored prediction, and "Is row 1 malware?" got the batch counts.
+    state, service = {}, FakeService()
+    Agent(service, FakeClient(tool("predict_single", file_id="file-a", row_index=0), final())).chat(
+        "Classify row 0 of file-a", state, files)
+    Agent(service, FakeClient(tool("predict_batch", file_id="file-b"), final())).chat(
+        "Classify all rows in file-b", state, files)
+    client = FakeClient(tool("predict_single", file_id="file-b", row_index=row), final())
+    output = Agent(service, client).chat(f"Is row {row} malware?", state, files)
+    assert service.calls[-1] == ("predict_single", files["file-b"]["path"], row)
+    assert [(a["tool"], a["status"]) for a in output["activity"]] == [("predict_single", "success")]
+    assert client.requests[0]["tools"] and client.requests[0]["tool_choice"] == "auto"
+    brief = [item["content"] for item in client.requests[0]["input"] if item.get("role") == "developer"][-1]
+    assert "call predict_single for each named row" in brief and brief.endswith("file-b.")
+
+
+def test_row_question_is_still_answered_from_the_same_files_stored_prediction(files):
+    state, service = {}, FakeService()
+    Agent(service, FakeClient(tool("predict_batch", file_id="file-b"), final())).chat(
+        "Classify all rows in file-b", state, files)
+    Agent(service, FakeClient(tool("predict_single", file_id="file-b", row_index=2), final())).chat(
+        "What is the malware probability of row 2?", state, files)
+    client = FakeClient(final(result_ids=[state["results"][-1]["result_id"]]))
+    output = Agent(service, client).chat("Is row 2 malware?", state, files)
+    assert len(service.calls) == 2 and not output["activity"]
+    assert client.requests[0]["tools"] == [] and client.requests[0]["tool_choice"] == "none"
+
+
+def test_first_request_gets_no_row_brief(files):
+    client = FakeClient(tool("predict_single", file_id="file-a", row_index=0), final())
+    Agent(FakeService(), client).chat("Classify row 0 of file-a", {}, files)
+    assert not any("no stored prediction answers" in str(item.get("content", ""))
+                   for item in client.requests[0]["input"] if isinstance(item, dict))
+
+
 def test_refused_summary_followup_still_shows_the_stored_result(files):
     # Live finding: "Explain what the evaluation found." got only the refusal.
     state, service = {}, FakeService(accuracy=0, confusion_matrix=[[0, 0], [1, 0]])

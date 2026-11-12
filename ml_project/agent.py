@@ -436,13 +436,43 @@ def _stored_followup(message, stored, files):
     # they cannot run a prediction that a condition withheld.
     rows = _named_rows(affirmative)
     if rows and not unknown_file and not result_refs and set(focuses) <= {"prediction"}:
-        in_scope = [r for r in stored if not file_refs or r.get("file_id") in file_refs]
+        # Without a named file, the rows belong to the file predicted most
+        # recently: a stored prediction of another file's row never answers.
+        scope = file_refs or _latest_prediction_file(stored)
+        in_scope = [r for r in stored if not scope or r.get("file_id") in scope]
         answered = [r for r in in_scope if r.get("tool") == "predict_single" and r.get("row_index") in rows]
         if {r["row_index"] for r in answered} >= rows:
             return {"results": answered, "focus": "prediction"}
         if not prior or any(r.get("tool") == "predict_batch" for r in in_scope):
             return None
     return {"results": candidates, "focus": focuses[0] if len(focuses) == 1 else "summary"}
+
+
+def _latest_prediction_file(stored):
+    """The file of the session's most recent prediction, as a list for scoping."""
+    for result in reversed(stored):
+        if result.get("tool") in ("predict_single", "predict_batch") and result.get("file_id"):
+            return [result["file_id"]]
+    return []
+
+
+def _row_brief(message, stored, files):
+    """Guide a question about rows that no stored prediction answers.
+
+    Live finding: asked "Is row 1 malware?" after a single prediction and a
+    batch, the model returned the batch counts and called no tool. The model
+    still chooses the call; this only states what the question needs.
+    """
+    rows = _named_rows(message)
+    if not rows or not stored:
+        return None
+    brief = ("The user asks about specific rows that no stored prediction answers. A batch summary "
+             "does not answer it: call predict_single for each named row.")
+    named = [file_id for file_id in files if re.search(r"(?<![\w-])" + re.escape(file_id) + r"(?![\w-])", message)]
+    latest = _latest_prediction_file(stored)
+    if not named and latest and latest[0] in files:
+        brief += f" The user names no file, so the rows belong to the most recently predicted file, {latest[0]}."
+    return brief
 
 
 def _named_rows(text):
@@ -884,6 +914,8 @@ class Agent:
             inputs.append({"role": "developer", "content": _conditional_brief(requested_threshold, targets)})
         elif followup is not None:
             inputs.append({"role": "developer", "content": "This is a question about stored results. No new tools may run. Select only a result_id from the supplied session_results."})
+        elif (brief := _row_brief(message, state["results"], files)):
+            inputs.append({"role": "developer", "content": brief})
         inputs.append({"role": "user", "content": message})
         # A conditional request must evaluate first. The AI model then reads the
         # returned accuracy and decides whether to call predict_single;
