@@ -62,9 +62,13 @@ lists setting names only; copying it does not configure working secrets.
 `OPENAI_MODEL` optionally selects the OpenAI model; the code defaults to
 `gpt-4.1-mini`. Raw CSV rows remain local and are not sent to OpenAI.
 
-Alternatively, with the same exported environment variables:
+Alternatively, run it in Docker. Compose passes `FLASK_SECRET_KEY` and
+`OPENAI_API_KEY` from your shell, and the app does not start without
+`FLASK_SECRET_KEY`:
 
 ```bash
+export FLASK_SECRET_KEY="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+# Export OPENAI_API_KEY in this shell using your secret manager.
 docker compose up --build web
 ```
 

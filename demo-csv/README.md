@@ -18,6 +18,9 @@ not from these files.
 3. Each upload shows the file's ID and prepares an editable question. Change
    it to the request below, replace the placeholder (such as `SINGLE_ID`) with
    that ID, then click **Send** yourself. Nothing is sent automatically.
+4. A session holds at most 5 uploaded files, and the demo uploads 7. Click
+   **Reset session & remove files** before sections 3 and 4, as noted there.
+   Each section's follow-ups use only that section's files.
 
 Expected results come from the live Run 9 report,
 [docs/agent-evaluation-live-9d4dccb.md](../docs/agent-evaluation-live-9d4dccb.md),
@@ -49,7 +52,8 @@ Upload `02-batch-prediction.csv` (`samples/batch.csv`).
 
 ## 3. Labeled evaluation with conditional prediction
 
-Run both cases in the same chat session, in this order. The first case shows
+First click **Reset session & remove files**: this section uploads 4 files.
+Then run both cases in the same session, in this order. The first case shows
 the AUC, accuracy and confusion matrix; the second has no AUC.
 
 **Prediction made.** Upload `04a-condition-met-evaluation.csv`
@@ -81,7 +85,8 @@ withheld case. Asked straight after the first case, the answer is 0.
 
 ## 4. Invalid input
 
-Upload `07-invalid-input.csv` (`samples/invalid-rows.csv`). Row 3 (zero-based,
+Click **Reset session & remove files** first, then upload
+`07-invalid-input.csv` (`samples/invalid-rows.csv`). Row 3 (zero-based,
 the last row) has the text `invalid` in its numeric `Size` column.
 
 - Request: `Classify all rows of file INVALID_ID. Report invalid rows and provide the downloadable results.`
