@@ -5,6 +5,9 @@ that video remain pending. This guide describes what to demonstrate.
 
 ## Before recording
 
+The files uploaded in the video, with their requests, follow-ups and expected
+results, are in [demo-csv](../demo-csv/README.md).
+
 Configure OpenAI and Render using [deployment instructions](../deployed.md).
 Run the real-provider scenario runner against the live site, as described in
 [agent evaluation](../agent-evaluation.md), and keep its original report.
