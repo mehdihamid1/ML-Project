@@ -31,9 +31,9 @@ has the spoken lines. Sections 1, 2, 7 and 8 use no files.
    **Reset session & remove files** before sections 5 and 6, as noted there.
    Each section's follow-ups use only that section's files.
 
-Expected results come from a live rehearsal on 2026-11-12 at commit
-`671f791`: every request and follow-up below, in this order with these resets
-([raw output](../docs/demo-rehearsal-live-671f791.json)). If the tool trail
+Expected results come from a live rehearsal on 2026-11-12 (UTC) at commit
+`a896ee3`: every request and follow-up below passed, in this order with these resets
+([raw output](../docs/demo-rehearsal-live-a896ee3.json)). If the tool trail
 shows an extra call, narrate what is on screen: the model's choices can vary.
 
 ## 3. Single-record prediction

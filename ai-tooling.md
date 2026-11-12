@@ -49,7 +49,9 @@ After Claude's row-question fix, Codex's live demo rehearsal found an unavailabl
 result reference in the false-negative follow-up. Codex narrowed deictic
 references to the latest matching evaluation, repaired provider IDs only for
 an unambiguous verified result, and added regression coverage. The raw failure
-and deployment status are recorded in [agent-evaluation.md](agent-evaluation.md#local-follow-up-correction-pending-deployment).
+and deployment status are recorded in [agent-evaluation.md](agent-evaluation.md#follow-up-correction-and-run-11).
+After the gated deployment, Run 11 passed all 15 real-LLM scenarios and all 27
+numeric checks; the exact demo sequence also passed all 10 checks.
 
 Claude Code (Anthropic) performed that review and checked its findings with
 read-only experiments: phrasing checks against the conditional detector and an

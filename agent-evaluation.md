@@ -5,18 +5,19 @@ push and check routing, failures and safety rules deterministically. Separately,
 scenario runs use the real OpenAI model through the deployed app; those are the
 real-LLM evidence below.
 
-**Latest result:** Run 10, on 2026-11-12 against the live site at commit
-`671f791` with `gpt-4.1-mini`, passed **15 of 15** scenarios; all **27 numeric
+**Latest result:** Run 11, on 2026-11-12 (UTC) against the live site at commit
+`a896ee3` with `gpt-4.1-mini`, passed **15 of 15** scenarios; all **27 numeric
 checks** matched. In Run 9's 22 repeated live conditional requests, the AI
 made the right decision every time: it withheld the prediction in 16 of 16
 and made it in 6 of 6.
 Earlier runs are kept below, including passing runs and failures.
 
-**Subsequent finding, correction pending deployment:** a later demo rehearsal
+**Rehearsal finding, now corrected:** a later demo rehearsal
 on `5407537` failed the false-negative follow-up after both conditional cases.
 The stored evaluation was present, but the selected result reference was not
-available. See the [local follow-up correction](#local-follow-up-correction-pending-deployment)
-and its recorded failure below.
+available. The deployed correction passed all 10 demo checks. See
+[the follow-up correction and Run 11](#follow-up-correction-and-run-11),
+including the original failure and fresh evidence.
 
 Between Run 9 and Run 10, a dashboard theme, the Workflow tab and numbered
 demo-file buttons left the instructions, tools and input code unchanged; the
@@ -548,7 +549,7 @@ all rows of the batch file, the model called `predict_batch` and then an
 unrequested `predict_single` on row 0. The reply reported only the batch. This
 is one request; it shows that the model's tool choices still vary.
 
-## Local follow-up correction (pending deployment)
+## Follow-up correction and Run 11
 
 A subsequent rehearsal on `5407537` passed its first eight checks, including
 both conditional outcomes. The ninth request, "How many false negatives were
@@ -557,7 +558,7 @@ is unavailable in this session." The invalid-input step was not reached.
 The [raw review report](docs/demo-rehearsal-review-5407537.json) preserves this
 failure separately from Run 10's passing standard scenarios.
 
-The local correction scopes "that evaluation" to the latest matching stored
+The correction scopes "that evaluation" to the latest matching stored
 evaluation. When the user's request identifies one verified result, the answer
 uses that result even if the provider miscopies its ID. Explicit references to
 older results remain respected; unknown user references remain unavailable.
@@ -572,8 +573,22 @@ and still rejects a missing follow-up answer.
 The full local suite passes 487 tests; the lean runtime passes 476. These are
 mocked-provider checks. The [production-container probe](docs/container-compatibility.json)
 also passes with a stubbed provider and the frozen model under the configured
-free-tier resource limits. This correction must be deployed through the test gate,
-then checked with the real provider before recording the final video.
+free-tier resource limits.
+
+**Deployed verification.** [CI run 43144712363](https://github.com/mehdihamid1/ML-Project/actions/runs/43144712363)
+passed all test jobs, deployed `a896ee3e5e6b9459a65d537de11e5a7895262f24`,
+and passed the live health smoke test. The exact demo's 10 requests then all
+passed, including the false-negative follow-up after the permitted and withheld
+cases ([raw rehearsal with tool traces](docs/demo-rehearsal-live-a896ee3.json)).
+It answered 1 false negative from the latest evaluation, with no tool call.
+
+The standard scenario runner used the live app at `2026-11-12T03:02:03+00:00`
+with `gpt-4.1-mini`. Run 11 passed **15 of 15** scenarios, and all **27 numeric
+checks** matched. The [generated report](docs/agent-evaluation-live-a896ee3.md)
+and [raw results](docs/agent-evaluation-live-a896ee3.json) preserve the requests,
+expected and observed calls, reply text, numeric checks, and frozen-model
+reference checksums. These results describe these runs; they do not guarantee
+identical tool choices for every wording or later run.
 
 ## Mocked tests in CI
 

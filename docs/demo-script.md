@@ -202,8 +202,8 @@ question to the invalid-input request from the demo README, and click
 
 > "We also tested the agent with the real model. A runner sends 15 scenarios
 > to the live site, covering every task, follow-ups and error cases, and
-> checks each tool call and number against our saved model. Our latest run, Run 10 with gpt-4.1-mini, passed 15 of 15, and
-> all 27 numeric checks matched. In 22 repeated conditional requests, the AI
+> checks each tool call and number against our saved model. Our latest run, Run 11 with gpt-4.1-mini, passed 15 of 15, and
+> all 27 numeric checks matched. In an earlier set of 22 repeated conditional requests, the AI
 > decided correctly every time.
 >
 > Earlier runs failed up to 2 of 15 scenarios, for example by running a tool

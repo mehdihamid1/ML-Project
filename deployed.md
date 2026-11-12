@@ -2,19 +2,18 @@
 
 ## Status
 
-A local follow-up correction is awaiting deployment and real-provider
-verification; see [the recorded finding](agent-evaluation.md#local-follow-up-correction-pending-deployment).
-The deployed commit and historical CI results below describe the live version.
+The follow-up correction is deployed and verified with the real provider;
+see [the finding and Run 11](agent-evaluation.md#follow-up-correction-and-run-11).
 
 The app is live at <https://quantic-malware-agent.onrender.com/>. On
 2026-11-12 (UTC), its [/health](https://quantic-malware-agent.onrender.com/health)
 reported `status: ok`, `selected_model: LightGBM`, `openai_configured: true`,
 `openai_model: gpt-4.1-mini`, model version `d13e54cf1970-1791236375742615262`
-and commit [`671f791`](https://github.com/mehdihamid1/ML-Project/commit/671f791),
-the last code change, which completed a fix to how questions about specific rows are answered. Later commits change only
+and commit [`a896ee3`](https://github.com/mehdihamid1/ML-Project/commit/a896ee3),
+the last code change, which keeps follow-ups tied to the requested verified results. Later commits change only
 documentation; CI tests and deploys them the same way.
 
-Observed [GitHub Actions run 43138602470](https://github.com/mehdihamid1/ML-Project/actions/runs/43138602470)
+Observed [GitHub Actions run 43144712363](https://github.com/mehdihamid1/ML-Project/actions/runs/43144712363)
 for that commit:
 
 | Check | Observed result |
@@ -26,8 +25,10 @@ for that commit:
 | Live `/health` smoke test | Passed. |
 | Overall workflow | Passed. |
 
-The latest full real-LLM run (Run 10, against commit `671f791`) passed all 15
-scenarios, with all 27 numeric checks matching. In Run 9's 22 repeated live
+The latest full real-LLM run (Run 11, against commit `a896ee3`) passed all 15
+scenarios, with all 27 numeric checks matching. The exact demo sequence also
+passed all 10 checks ([raw rehearsal](docs/demo-rehearsal-live-a896ee3.json)).
+In Run 9's 22 repeated live
 conditional requests, the AI made the right decision every time. On `cbd90fb`, the
 Workflow tab's trace of a live conditional request showed the AI reading the
 returned accuracy before calling `predict_single`; see

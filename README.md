@@ -16,11 +16,11 @@ under `docs/`, so a clean checkout can run the app without retraining.
 
 The tools, OpenAI agent, Flask app, sample CSVs and deployment workflow are
 implemented. Plain `pytest` passes all 487 tests locally; the lean runtime
-suite passes 476 tests. A follow-up correction is local and awaiting deployment;
-see [the recorded finding and verification](agent-evaluation.md#local-follow-up-correction-pending-deployment).
+suite passes 476 tests. The follow-up correction is deployed and verified;
+see [the recorded finding and verification](agent-evaluation.md#follow-up-correction-and-run-11).
 
-The last code change, [`671f791`](https://github.com/mehdihamid1/ML-Project/commit/671f791),
-completed a fix to how questions about specific rows are answered. [GitHub Actions run 43138602470](https://github.com/mehdihamid1/ML-Project/actions/runs/43138602470)
+The last code change, [`a896ee3`](https://github.com/mehdihamid1/ML-Project/commit/a896ee3),
+keeps follow-ups tied to the requested verified results. [GitHub Actions run 43144712363](https://github.com/mehdihamid1/ML-Project/actions/runs/43144712363)
 deployed it: the full, runtime and container tests passed, then the deploy job
 ran and its live health check passed. On 2026-11-12 (UTC),
 [live health](https://quantic-malware-agent.onrender.com/health) reported that
@@ -28,8 +28,9 @@ commit, `status: ok`, LightGBM, `openai_configured: true` and the model
 `gpt-4.1-mini`. Later commits change only documentation; CI tests and deploys
 them the same way.
 
-Run 10, against that commit, passed all 15 real-LLM scenarios and all 27
-numeric checks. In Run 9's 22 repeated conditional requests the AI decided
+Run 11, against that commit, passed all 15 real-LLM scenarios and all 27
+numeric checks. The exact demo sequence also passed all 10 checks, including
+the false-negative follow-up after both conditional outcomes. In Run 9's 22 repeated conditional requests the AI decided
 correctly every time. Questions about stored results run no new tool, while a question
 about specific rows, such as "Is row 2 malware?" after a batch, still
 classifies them. See [deployed.md](deployed.md) and

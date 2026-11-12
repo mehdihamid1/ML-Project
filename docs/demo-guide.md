@@ -11,9 +11,9 @@ section numbers.
 
 ## Before recording
 
-- Deploy and verify the [pending follow-up correction](../agent-evaluation.md#local-follow-up-correction-pending-deployment)
-  before the final recording; a later rehearsal found an unavailable result
-  reference in the false-negative follow-up on the current live version.
+- The [follow-up correction and Run 11](../agent-evaluation.md#follow-up-correction-and-run-11)
+  are deployed and verified. The exact demo sequence passed all 10 checks;
+  keep its [recorded rehearsal](demo-rehearsal-live-a896ee3.json) available.
 - The [demo script](demo-script.md) has each speaker's lines. It splits the
   sections between three speakers, so every member speaks, and runs about
   9½ minutes.
@@ -136,7 +136,7 @@ Open [agent-evaluation.md](../agent-evaluation.md).
 - A runner sends 15 scenarios to the live site, where the real OpenAI model
   chooses tools, and checks every tool call and number against the saved
   model.
-- Run 10, on 2026-11-12 with `gpt-4.1-mini`: 15 of 15 scenarios passed and
+- Run 11, on 2026-11-12 (UTC) with `gpt-4.1-mini`: 15 of 15 scenarios passed and
   27 of 27 numeric checks matched. In Run 9's 22 repeated conditional
   requests, the AI withheld the prediction 16 of 16 times and made it 6 of 6
   times.

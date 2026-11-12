@@ -1,0 +1,1168 @@
+{
+  "provider": "OpenAI",
+  "model": "gpt-4.1-mini",
+  "model_version": "d13e54cf1970-1791236375742615262",
+  "mode": "live",
+  "base_url": "https://quantic-malware-agent.onrender.com",
+  "commit": "a896ee3e5e6b9459a65d537de11e5a7895262f24",
+  "reference_model_sha256": "e98b09552e0d77dd5abc070189e452e1084594a379e6849faba7b3385b94c677",
+  "sample_sha256": {
+    "single.csv": "7283a3d30164b401046fc826b099734a397b57438ae633d24931dd9b58600eb1",
+    "batch.csv": "6c2c0f49c4a2966cbbcd490af3e799a443542daf5b84e1887e6a0223a021179f",
+    "labeled.csv": "bad30c17bb0fb880054d0b8bb3477ec973f537f8055fee513b2d48b5d578edaa",
+    "invalid-rows.csv": "1a996d0c7455684d6f8cc644b96e9e0b71572607c74ede00dcac85a2adc91fb1",
+    "missing-labels.csv": "1c0f63f294aabe2f71bfe51c8fb969dd730b38521d3359a4287cee81b89fccfb",
+    "single-class.csv": "4ad8fb51e04d461b0383791e088990816ed71db2d9ec49d82f4c3df841a6f537",
+    "conditional-fail.csv": "fb6d8af224d7bcd3c97c99afd9f6b79e4815b354a380f9c4ac3e1ffc8a557a14"
+  },
+  "run_at_utc": "2026-11-12T03:02:03+00:00",
+  "scenario_count": 15,
+  "passed_count": 15,
+  "records": [
+    {
+      "scenario": "Single prediction",
+      "requirement": "Single prediction",
+      "prompt": "Classify row 0 of file 31a4f2ed272a4951a80847c98ebcb5dc.",
+      "expected_behavior": "predict_single returns class 0 or 1 with its probability.",
+      "expected_tools": [
+        [
+          "predict_single",
+          "success"
+        ]
+      ],
+      "passed": true,
+      "failure": null,
+      "files": {
+        "single.csv": "31a4f2ed272a4951a80847c98ebcb5dc"
+      },
+      "expected_calls": [
+        {
+          "tool": "predict_single",
+          "status": "success",
+          "arguments": {
+            "file_id": "31a4f2ed272a4951a80847c98ebcb5dc",
+            "row_index": 0
+          }
+        }
+      ],
+      "observed": {
+        "activity": [
+          {
+            "arguments": {
+              "file_id": "31a4f2ed272a4951a80847c98ebcb5dc",
+              "row_index": 0
+            },
+            "result_id": "71392ddd77b547939c4509db4a24af12",
+            "status": "success",
+            "tool": "predict_single"
+          }
+        ],
+        "reply": "Row 0: the saved ML model predicts goodware (malware probability 0.001241; threshold 0.500000).",
+        "results": [
+          {
+            "file_id": "31a4f2ed272a4951a80847c98ebcb5dc",
+            "label": "goodware",
+            "malware_probability": 0.0012408511473398537,
+            "model_version": "d13e54cf1970-1791236375742615262",
+            "prediction": 0,
+            "result_id": "71392ddd77b547939c4509db4a24af12",
+            "row_id": "7c5720b944b1f0a0dfecc0e405fa757da75c2f95",
+            "row_id_truncated": false,
+            "row_index": 0,
+            "source_row": 2,
+            "threshold": 0.5,
+            "tool": "predict_single"
+          }
+        ]
+      },
+      "observed_tools": [
+        [
+          "predict_single",
+          "success"
+        ]
+      ],
+      "numbers": {
+        "checked": 2,
+        "unmatched": []
+      }
+    },
+    {
+      "scenario": "Batch prediction",
+      "requirement": "Batch prediction",
+      "prompt": "Classify every row of file 6dfc5856043e471090fd9f3b4863c5ca and give me the download link.",
+      "expected_behavior": "predict_batch classifies all 4 rows; the download lists each row.",
+      "expected_tools": [
+        [
+          "predict_batch",
+          "success"
+        ]
+      ],
+      "passed": true,
+      "failure": null,
+      "files": {
+        "batch.csv": "6dfc5856043e471090fd9f3b4863c5ca"
+      },
+      "expected_calls": [
+        {
+          "tool": "predict_batch",
+          "status": "success",
+          "arguments": {
+            "file_id": "6dfc5856043e471090fd9f3b4863c5ca"
+          }
+        }
+      ],
+      "observed": {
+        "activity": [
+          {
+            "arguments": {
+              "file_id": "6dfc5856043e471090fd9f3b4863c5ca"
+            },
+            "result_id": "2fe93b9e36a94890923bd3d87ae0780b",
+            "status": "success",
+            "tool": "predict_batch"
+          }
+        ],
+        "reply": "Batch: 4 total rows; 4 classified (2 malware, 2 goodware); 0 invalid rows. Download results: /api/download/1bb060a2a14f4bba8a379a2cc37fbb89",
+        "results": [
+          {
+            "download_id": "1bb060a2a14f4bba8a379a2cc37fbb89",
+            "download_url": "/api/download/1bb060a2a14f4bba8a379a2cc37fbb89",
+            "file_id": "6dfc5856043e471090fd9f3b4863c5ca",
+            "goodware_count": 2,
+            "invalid_count": 0,
+            "invalid_rows": [],
+            "invalid_rows_truncated": false,
+            "malware_count": 2,
+            "model_version": "d13e54cf1970-1791236375742615262",
+            "result_id": "2fe93b9e36a94890923bd3d87ae0780b",
+            "threshold": 0.5,
+            "tool": "predict_batch",
+            "total_count": 4,
+            "valid_count": 4
+          }
+        ]
+      },
+      "observed_tools": [
+        [
+          "predict_batch",
+          "success"
+        ]
+      ],
+      "numbers": {
+        "checked": 0,
+        "unmatched": []
+      }
+    },
+    {
+      "scenario": "Labeled evaluation",
+      "requirement": "Labeled evaluation",
+      "prompt": "Evaluate file bcc050a7089143ad984729a1a9a7c75d and report the AUC, accuracy and confusion matrix.",
+      "expected_behavior": "evaluate returns AUC, accuracy and a confusion matrix over 4 rows.",
+      "expected_tools": [
+        [
+          "evaluate",
+          "success"
+        ]
+      ],
+      "passed": true,
+      "failure": null,
+      "files": {
+        "labeled.csv": "bcc050a7089143ad984729a1a9a7c75d"
+      },
+      "expected_calls": [
+        {
+          "tool": "evaluate",
+          "status": "success",
+          "arguments": {
+            "file_id": "bcc050a7089143ad984729a1a9a7c75d"
+          }
+        }
+      ],
+      "observed": {
+        "activity": [
+          {
+            "arguments": {
+              "file_id": "bcc050a7089143ad984729a1a9a7c75d"
+            },
+            "result_id": "ae520c1f822d407e8a350c1086fabf88",
+            "status": "success",
+            "tool": "evaluate"
+          }
+        ],
+        "reply": "Accuracy: 1.000000. AUC: 1.000000. Confusion matrix (true rows / predicted columns, goodware then malware): [[2, 0], [0, 2]]. True negatives: 2 goodware files predicted as goodware; false positives: 0 goodware files predicted as malware; false negatives: 0 malware files predicted as goodware; true positives: 2 malware files predicted as malware. Evaluated 4 of 4 rows; 0 excluded (missing labels 0, invalid labels 0). Labeled class counts: goodware 2, malware 2.",
+        "results": [
+          {
+            "accuracy": 1.0,
+            "auc": 1.0,
+            "auc_reason": null,
+            "class_counts": {
+              "0": 2,
+              "1": 2
+            },
+            "confusion_matrix": [
+              [
+                2,
+                0
+              ],
+              [
+                0,
+                2
+              ]
+            ],
+            "confusion_matrix_order": [
+              0,
+              1
+            ],
+            "evaluated_count": 4,
+            "evaluation_coverage": 1.0,
+            "feature_valid_count": 4,
+            "file_id": "bcc050a7089143ad984729a1a9a7c75d",
+            "invalid_count": 0,
+            "invalid_label_count": 0,
+            "invalid_rows": [],
+            "invalid_rows_truncated": false,
+            "missing_label_count": 0,
+            "model_version": "d13e54cf1970-1791236375742615262",
+            "result_id": "ae520c1f822d407e8a350c1086fabf88",
+            "threshold": 0.5,
+            "tool": "evaluate",
+            "total_count": 4,
+            "valid_count": 4
+          }
+        ]
+      },
+      "observed_tools": [
+        [
+          "evaluate",
+          "success"
+        ]
+      ],
+      "numbers": {
+        "checked": 2,
+        "unmatched": []
+      }
+    },
+    {
+      "scenario": "Conditional: prediction permitted",
+      "requirement": "Conditional task, prediction permitted",
+      "prompt": "Evaluate file 6939966bbf3848b594f0a81f08487ae0; only if accuracy is at least 0.75, predict row 0 of file 55fc494a559a495eb3c11f4ec0666cff.",
+      "expected_behavior": "evaluate first; accuracy meets 0.75, so the model calls predict_single.",
+      "expected_tools": [
+        [
+          "evaluate",
+          "success"
+        ],
+        [
+          "predict_single",
+          "success"
+        ]
+      ],
+      "passed": true,
+      "failure": null,
+      "files": {
+        "labeled.csv": "6939966bbf3848b594f0a81f08487ae0",
+        "single.csv": "55fc494a559a495eb3c11f4ec0666cff"
+      },
+      "expected_calls": [
+        {
+          "tool": "evaluate",
+          "status": "success",
+          "arguments": {
+            "file_id": "6939966bbf3848b594f0a81f08487ae0"
+          }
+        },
+        {
+          "tool": "predict_single",
+          "status": "success",
+          "arguments": {
+            "file_id": "55fc494a559a495eb3c11f4ec0666cff",
+            "row_index": 0
+          }
+        }
+      ],
+      "observed": {
+        "activity": [
+          {
+            "arguments": {
+              "file_id": "6939966bbf3848b594f0a81f08487ae0"
+            },
+            "result_id": "416ac42f87c34e09af17ae59b415b5de",
+            "status": "success",
+            "tool": "evaluate"
+          },
+          {
+            "arguments": {
+              "file_id": "55fc494a559a495eb3c11f4ec0666cff",
+              "row_index": 0
+            },
+            "result_id": "d0e7a6d3c3b34799b2e692fb393d452e",
+            "status": "success",
+            "tool": "predict_single"
+          }
+        ],
+        "reply": "Condition met: accuracy 1.000000 meets the required 0.750000 with complete labeled coverage, so the agent called predict_single.\n\nAccuracy: 1.000000. AUC: 1.000000. Confusion matrix (true rows / predicted columns, goodware then malware): [[2, 0], [0, 2]]. True negatives: 2 goodware files predicted as goodware; false positives: 0 goodware files predicted as malware; false negatives: 0 malware files predicted as goodware; true positives: 2 malware files predicted as malware. Evaluated 4 of 4 rows; 0 excluded (missing labels 0, invalid labels 0). Labeled class counts: goodware 2, malware 2.\n\nRow 0: the saved ML model predicts goodware (malware probability 0.001241; threshold 0.500000).",
+        "results": [
+          {
+            "accuracy": 1.0,
+            "auc": 1.0,
+            "auc_reason": null,
+            "class_counts": {
+              "0": 2,
+              "1": 2
+            },
+            "confusion_matrix": [
+              [
+                2,
+                0
+              ],
+              [
+                0,
+                2
+              ]
+            ],
+            "confusion_matrix_order": [
+              0,
+              1
+            ],
+            "evaluated_count": 4,
+            "evaluation_coverage": 1.0,
+            "feature_valid_count": 4,
+            "file_id": "6939966bbf3848b594f0a81f08487ae0",
+            "invalid_count": 0,
+            "invalid_label_count": 0,
+            "invalid_rows": [],
+            "invalid_rows_truncated": false,
+            "missing_label_count": 0,
+            "model_version": "d13e54cf1970-1791236375742615262",
+            "result_id": "416ac42f87c34e09af17ae59b415b5de",
+            "threshold": 0.5,
+            "tool": "evaluate",
+            "total_count": 4,
+            "valid_count": 4
+          },
+          {
+            "file_id": "55fc494a559a495eb3c11f4ec0666cff",
+            "label": "goodware",
+            "malware_probability": 0.0012408511473398537,
+            "model_version": "d13e54cf1970-1791236375742615262",
+            "prediction": 0,
+            "result_id": "d0e7a6d3c3b34799b2e692fb393d452e",
+            "row_id": "7c5720b944b1f0a0dfecc0e405fa757da75c2f95",
+            "row_id_truncated": false,
+            "row_index": 0,
+            "source_row": 2,
+            "threshold": 0.5,
+            "tool": "predict_single"
+          }
+        ]
+      },
+      "observed_tools": [
+        [
+          "evaluate",
+          "success"
+        ],
+        [
+          "predict_single",
+          "success"
+        ]
+      ],
+      "numbers": {
+        "checked": 6,
+        "unmatched": []
+      }
+    },
+    {
+      "scenario": "Conditional: prediction withheld",
+      "requirement": "Conditional task, prediction withheld",
+      "prompt": "Evaluate file c605bc8e842746fd8b0cb9a8afff4000; only if accuracy is at least 0.9, predict row 0 of file 5a3f063b1a2340cd8a97bb6513f031f8.",
+      "expected_behavior": "evaluate first; accuracy is below 0.9, so predict_single is not called.",
+      "expected_tools": [
+        [
+          "evaluate",
+          "success"
+        ],
+        [
+          "predict_single",
+          "skipped"
+        ]
+      ],
+      "passed": true,
+      "failure": null,
+      "files": {
+        "conditional-fail.csv": "c605bc8e842746fd8b0cb9a8afff4000",
+        "single.csv": "5a3f063b1a2340cd8a97bb6513f031f8"
+      },
+      "expected_calls": [
+        {
+          "tool": "evaluate",
+          "status": "success",
+          "arguments": {
+            "file_id": "c605bc8e842746fd8b0cb9a8afff4000"
+          }
+        },
+        {
+          "tool": "predict_single",
+          "status": "skipped",
+          "arguments": {
+            "file_id": "5a3f063b1a2340cd8a97bb6513f031f8",
+            "row_index": 0
+          }
+        }
+      ],
+      "observed": {
+        "activity": [
+          {
+            "arguments": {
+              "file_id": "c605bc8e842746fd8b0cb9a8afff4000"
+            },
+            "result_id": "dd848e8c945c4ee6a3db2c56964a61fb",
+            "status": "success",
+            "tool": "evaluate"
+          },
+          {
+            "arguments": {
+              "file_id": "5a3f063b1a2340cd8a97bb6513f031f8",
+              "row_index": 0
+            },
+            "reason": "Prediction withheld: accuracy 0.000000 is below the required 0.900000.",
+            "status": "skipped",
+            "tool": "predict_single"
+          }
+        ],
+        "reply": "Prediction withheld: accuracy 0.000000 is below the required 0.900000, so the agent did not call predict_single.\n\nAccuracy: 0.000000. AUC: unavailable (evaluation requires both classes for AUC). Confusion matrix (true rows / predicted columns, goodware then malware): [[0, 0], [1, 0]]. True negatives: 0 goodware files predicted as goodware; false positives: 0 goodware files predicted as malware; false negatives: 1 malware files predicted as goodware; true positives: 0 malware files predicted as malware. Evaluated 1 of 1 rows; 0 excluded (missing labels 0, invalid labels 0). Labeled class counts: goodware 0, malware 1.",
+        "results": [
+          {
+            "accuracy": 0.0,
+            "auc": null,
+            "auc_reason": "AUC requires both classes among the evaluated labels",
+            "class_counts": {
+              "0": 0,
+              "1": 1
+            },
+            "confusion_matrix": [
+              [
+                0,
+                0
+              ],
+              [
+                1,
+                0
+              ]
+            ],
+            "confusion_matrix_order": [
+              0,
+              1
+            ],
+            "evaluated_count": 1,
+            "evaluation_coverage": 1.0,
+            "feature_valid_count": 1,
+            "file_id": "c605bc8e842746fd8b0cb9a8afff4000",
+            "invalid_count": 0,
+            "invalid_label_count": 0,
+            "invalid_rows": [],
+            "invalid_rows_truncated": false,
+            "missing_label_count": 0,
+            "model_version": "d13e54cf1970-1791236375742615262",
+            "result_id": "dd848e8c945c4ee6a3db2c56964a61fb",
+            "threshold": 0.5,
+            "tool": "evaluate",
+            "total_count": 1,
+            "valid_count": 1
+          }
+        ]
+      },
+      "observed_tools": [
+        [
+          "evaluate",
+          "success"
+        ],
+        [
+          "predict_single",
+          "skipped"
+        ]
+      ],
+      "numbers": {
+        "checked": 3,
+        "unmatched": []
+      }
+    },
+    {
+      "scenario": "False-negative follow-up",
+      "requirement": "False-negative follow-up",
+      "prompt": "How many false negatives were there in that evaluation?",
+      "expected_behavior": "Answered from the stored evaluation, with no new tool call.",
+      "expected_tools": [],
+      "passed": true,
+      "failure": null,
+      "files": {
+        "conditional-fail.csv": "c605bc8e842746fd8b0cb9a8afff4000",
+        "single.csv": "5a3f063b1a2340cd8a97bb6513f031f8"
+      },
+      "expected_calls": [],
+      "observed": {
+        "activity": [],
+        "reply": "Accuracy: 0.000000. AUC: unavailable (evaluation requires both classes for AUC). False negatives: 1 malware files predicted as goodware. The false negative rate is 1.000000 (1 / 1 evaluated malware files). Evaluated 1 of 1 rows; 0 excluded (missing labels 0, invalid labels 0).",
+        "results": []
+      },
+      "observed_tools": [],
+      "numbers": {
+        "checked": 2,
+        "unmatched": []
+      }
+    },
+    {
+      "scenario": "Condition without \"if\"",
+      "requirement": "Conditional task, other wording",
+      "prompt": "Predict row 0 of file 4202918603ca43cb90620dca9f55a59e when the accuracy of file a2da661e521a4f2a9d05e922c066d196 is 0.75 or higher.",
+      "expected_behavior": "Recognized as conditional: evaluate first, then predict_single because accuracy meets 0.75.",
+      "expected_tools": [
+        [
+          "evaluate",
+          "success"
+        ],
+        [
+          "predict_single",
+          "success"
+        ]
+      ],
+      "passed": true,
+      "failure": null,
+      "files": {
+        "labeled.csv": "a2da661e521a4f2a9d05e922c066d196",
+        "single.csv": "4202918603ca43cb90620dca9f55a59e"
+      },
+      "expected_calls": [
+        {
+          "tool": "evaluate",
+          "status": "success",
+          "arguments": {
+            "file_id": "a2da661e521a4f2a9d05e922c066d196"
+          }
+        },
+        {
+          "tool": "predict_single",
+          "status": "success",
+          "arguments": {
+            "file_id": "4202918603ca43cb90620dca9f55a59e",
+            "row_index": 0
+          }
+        }
+      ],
+      "observed": {
+        "activity": [
+          {
+            "arguments": {
+              "file_id": "a2da661e521a4f2a9d05e922c066d196"
+            },
+            "result_id": "5b11479bcbf54a3b984d75fc4a553bcb",
+            "status": "success",
+            "tool": "evaluate"
+          },
+          {
+            "arguments": {
+              "file_id": "4202918603ca43cb90620dca9f55a59e",
+              "row_index": 0
+            },
+            "result_id": "db6c35fdfe5a4c79b7d06f04950fceb3",
+            "status": "success",
+            "tool": "predict_single"
+          }
+        ],
+        "reply": "Condition met: accuracy 1.000000 meets the required 0.750000 with complete labeled coverage, so the agent called predict_single.\n\nAccuracy: 1.000000. AUC: 1.000000. Confusion matrix (true rows / predicted columns, goodware then malware): [[2, 0], [0, 2]]. True negatives: 2 goodware files predicted as goodware; false positives: 0 goodware files predicted as malware; false negatives: 0 malware files predicted as goodware; true positives: 2 malware files predicted as malware. Evaluated 4 of 4 rows; 0 excluded (missing labels 0, invalid labels 0). Labeled class counts: goodware 2, malware 2.\n\nRow 0: the saved ML model predicts goodware (malware probability 0.001241; threshold 0.500000).",
+        "results": [
+          {
+            "accuracy": 1.0,
+            "auc": 1.0,
+            "auc_reason": null,
+            "class_counts": {
+              "0": 2,
+              "1": 2
+            },
+            "confusion_matrix": [
+              [
+                2,
+                0
+              ],
+              [
+                0,
+                2
+              ]
+            ],
+            "confusion_matrix_order": [
+              0,
+              1
+            ],
+            "evaluated_count": 4,
+            "evaluation_coverage": 1.0,
+            "feature_valid_count": 4,
+            "file_id": "a2da661e521a4f2a9d05e922c066d196",
+            "invalid_count": 0,
+            "invalid_label_count": 0,
+            "invalid_rows": [],
+            "invalid_rows_truncated": false,
+            "missing_label_count": 0,
+            "model_version": "d13e54cf1970-1791236375742615262",
+            "result_id": "5b11479bcbf54a3b984d75fc4a553bcb",
+            "threshold": 0.5,
+            "tool": "evaluate",
+            "total_count": 4,
+            "valid_count": 4
+          },
+          {
+            "file_id": "4202918603ca43cb90620dca9f55a59e",
+            "label": "goodware",
+            "malware_probability": 0.0012408511473398537,
+            "model_version": "d13e54cf1970-1791236375742615262",
+            "prediction": 0,
+            "result_id": "db6c35fdfe5a4c79b7d06f04950fceb3",
+            "row_id": "7c5720b944b1f0a0dfecc0e405fa757da75c2f95",
+            "row_id_truncated": false,
+            "row_index": 0,
+            "source_row": 2,
+            "threshold": 0.5,
+            "tool": "predict_single"
+          }
+        ]
+      },
+      "observed_tools": [
+        [
+          "evaluate",
+          "success"
+        ],
+        [
+          "predict_single",
+          "success"
+        ]
+      ],
+      "numbers": {
+        "checked": 6,
+        "unmatched": []
+      }
+    },
+    {
+      "scenario": "Earlier accuracy figure ignored",
+      "requirement": "Conditional task, threshold binding",
+      "prompt": "The previous accuracy of 0.0 was too low. Evaluate file 1cb6ad47e3c844c1bb5ce8f1f910da70; only if accuracy is at least 0.9, predict row 0 of file 70a29dfe8bb443b4801c196149c3ad9d.",
+      "expected_behavior": "The threshold is 0.9 from the condition, not the earlier 0.0, so predict_single is not called.",
+      "expected_tools": [
+        [
+          "evaluate",
+          "success"
+        ],
+        [
+          "predict_single",
+          "skipped"
+        ]
+      ],
+      "passed": true,
+      "failure": null,
+      "files": {
+        "conditional-fail.csv": "1cb6ad47e3c844c1bb5ce8f1f910da70",
+        "single.csv": "70a29dfe8bb443b4801c196149c3ad9d"
+      },
+      "expected_calls": [
+        {
+          "tool": "evaluate",
+          "status": "success",
+          "arguments": {
+            "file_id": "1cb6ad47e3c844c1bb5ce8f1f910da70"
+          }
+        },
+        {
+          "tool": "predict_single",
+          "status": "skipped",
+          "arguments": {
+            "file_id": "70a29dfe8bb443b4801c196149c3ad9d",
+            "row_index": 0
+          }
+        }
+      ],
+      "observed": {
+        "activity": [
+          {
+            "arguments": {
+              "file_id": "1cb6ad47e3c844c1bb5ce8f1f910da70"
+            },
+            "result_id": "381179eb1e81463c90775e83aec9f11e",
+            "status": "success",
+            "tool": "evaluate"
+          },
+          {
+            "arguments": {
+              "file_id": "70a29dfe8bb443b4801c196149c3ad9d",
+              "row_index": 0
+            },
+            "reason": "Prediction withheld: accuracy 0.000000 is below the required 0.900000.",
+            "status": "skipped",
+            "tool": "predict_single"
+          }
+        ],
+        "reply": "Prediction withheld: accuracy 0.000000 is below the required 0.900000, so the agent did not call predict_single.\n\nAccuracy: 0.000000. AUC: unavailable (evaluation requires both classes for AUC). Confusion matrix (true rows / predicted columns, goodware then malware): [[0, 0], [1, 0]]. True negatives: 0 goodware files predicted as goodware; false positives: 0 goodware files predicted as malware; false negatives: 1 malware files predicted as goodware; true positives: 0 malware files predicted as malware. Evaluated 1 of 1 rows; 0 excluded (missing labels 0, invalid labels 0). Labeled class counts: goodware 0, malware 1.",
+        "results": [
+          {
+            "accuracy": 0.0,
+            "auc": null,
+            "auc_reason": "AUC requires both classes among the evaluated labels",
+            "class_counts": {
+              "0": 0,
+              "1": 1
+            },
+            "confusion_matrix": [
+              [
+                0,
+                0
+              ],
+              [
+                1,
+                0
+              ]
+            ],
+            "confusion_matrix_order": [
+              0,
+              1
+            ],
+            "evaluated_count": 1,
+            "evaluation_coverage": 1.0,
+            "feature_valid_count": 1,
+            "file_id": "1cb6ad47e3c844c1bb5ce8f1f910da70",
+            "invalid_count": 0,
+            "invalid_label_count": 0,
+            "invalid_rows": [],
+            "invalid_rows_truncated": false,
+            "missing_label_count": 0,
+            "model_version": "d13e54cf1970-1791236375742615262",
+            "result_id": "381179eb1e81463c90775e83aec9f11e",
+            "threshold": 0.5,
+            "tool": "evaluate",
+            "total_count": 1,
+            "valid_count": 1
+          }
+        ]
+      },
+      "observed_tools": [
+        [
+          "evaluate",
+          "success"
+        ],
+        [
+          "predict_single",
+          "skipped"
+        ]
+      ],
+      "numbers": {
+        "checked": 3,
+        "unmatched": []
+      }
+    },
+    {
+      "scenario": "Invalid input row",
+      "requirement": "Invalid input",
+      "prompt": "Classify every row of file b13749e6650540bd923f14a0561f10bd.",
+      "expected_behavior": "The invalid row is reported with its reason and kept in the download.",
+      "expected_tools": [
+        [
+          "predict_batch",
+          "success"
+        ]
+      ],
+      "passed": true,
+      "failure": null,
+      "files": {
+        "invalid-rows.csv": "b13749e6650540bd923f14a0561f10bd"
+      },
+      "expected_calls": [
+        {
+          "tool": "predict_batch",
+          "status": "success",
+          "arguments": {
+            "file_id": "b13749e6650540bd923f14a0561f10bd"
+          }
+        }
+      ],
+      "observed": {
+        "activity": [
+          {
+            "arguments": {
+              "file_id": "b13749e6650540bd923f14a0561f10bd"
+            },
+            "result_id": "c6ebcadfe08a4cce9d89d7642d6d8883",
+            "status": "success",
+            "tool": "predict_batch"
+          }
+        ],
+        "reply": "Batch: 4 total rows; 3 classified (1 malware, 2 goodware); 1 invalid rows. Download results: /api/download/91858064c3424743aa4d509deaae3b93",
+        "results": [
+          {
+            "download_id": "91858064c3424743aa4d509deaae3b93",
+            "download_url": "/api/download/91858064c3424743aa4d509deaae3b93",
+            "file_id": "b13749e6650540bd923f14a0561f10bd",
+            "goodware_count": 2,
+            "invalid_count": 1,
+            "invalid_rows": [
+              {
+                "errors": [
+                  "Invalid numeric feature: Size"
+                ],
+                "row_index": 3,
+                "source_row": 5
+              }
+            ],
+            "invalid_rows_truncated": false,
+            "malware_count": 1,
+            "model_version": "d13e54cf1970-1791236375742615262",
+            "result_id": "c6ebcadfe08a4cce9d89d7642d6d8883",
+            "threshold": 0.5,
+            "tool": "predict_batch",
+            "total_count": 4,
+            "valid_count": 3
+          }
+        ]
+      },
+      "observed_tools": [
+        [
+          "predict_batch",
+          "success"
+        ]
+      ],
+      "numbers": {
+        "checked": 0,
+        "unmatched": []
+      }
+    },
+    {
+      "scenario": "Missing labels",
+      "requirement": "Missing labels",
+      "prompt": "Evaluate file 630abf782b574cb0ad5c2d79ae0861bf.",
+      "expected_behavior": "The unlabeled row is reported; metrics use the 3 labeled rows.",
+      "expected_tools": [
+        [
+          "evaluate",
+          "success"
+        ]
+      ],
+      "passed": true,
+      "failure": null,
+      "files": {
+        "missing-labels.csv": "630abf782b574cb0ad5c2d79ae0861bf"
+      },
+      "expected_calls": [
+        {
+          "tool": "evaluate",
+          "status": "success",
+          "arguments": {
+            "file_id": "630abf782b574cb0ad5c2d79ae0861bf"
+          }
+        }
+      ],
+      "observed": {
+        "activity": [
+          {
+            "arguments": {
+              "file_id": "630abf782b574cb0ad5c2d79ae0861bf"
+            },
+            "result_id": "85ed70b590804424a70036203ae6c743",
+            "status": "success",
+            "tool": "evaluate"
+          }
+        ],
+        "reply": "Accuracy: 1.000000. AUC: 1.000000. Confusion matrix (true rows / predicted columns, goodware then malware): [[2, 0], [0, 1]]. True negatives: 2 goodware files predicted as goodware; false positives: 0 goodware files predicted as malware; false negatives: 0 malware files predicted as goodware; true positives: 1 malware files predicted as malware. Evaluated 3 of 4 rows; 1 excluded (missing labels 1, invalid labels 0). Labeled class counts: goodware 2, malware 1.",
+        "results": [
+          {
+            "accuracy": 1.0,
+            "auc": 1.0,
+            "auc_reason": null,
+            "class_counts": {
+              "0": 2,
+              "1": 1
+            },
+            "confusion_matrix": [
+              [
+                2,
+                0
+              ],
+              [
+                0,
+                1
+              ]
+            ],
+            "confusion_matrix_order": [
+              0,
+              1
+            ],
+            "evaluated_count": 3,
+            "evaluation_coverage": 0.75,
+            "feature_valid_count": 4,
+            "file_id": "630abf782b574cb0ad5c2d79ae0861bf",
+            "invalid_count": 1,
+            "invalid_label_count": 0,
+            "invalid_rows": [
+              {
+                "errors": [
+                  "Missing Label"
+                ],
+                "row_index": 3,
+                "source_row": 5
+              }
+            ],
+            "invalid_rows_truncated": false,
+            "missing_label_count": 1,
+            "model_version": "d13e54cf1970-1791236375742615262",
+            "result_id": "85ed70b590804424a70036203ae6c743",
+            "threshold": 0.5,
+            "tool": "evaluate",
+            "total_count": 4,
+            "valid_count": 3
+          }
+        ]
+      },
+      "observed_tools": [
+        [
+          "evaluate",
+          "success"
+        ]
+      ],
+      "numbers": {
+        "checked": 2,
+        "unmatched": []
+      }
+    },
+    {
+      "scenario": "No Label column",
+      "requirement": "Missing labels (whole column)",
+      "prompt": "Evaluate file 9386eeb974b2444c8c91880a94bc19e1.",
+      "expected_behavior": "evaluate fails visibly and asks for a Label column.",
+      "expected_tools": [
+        [
+          "evaluate",
+          "error"
+        ]
+      ],
+      "passed": true,
+      "failure": null,
+      "files": {
+        "batch.csv": "9386eeb974b2444c8c91880a94bc19e1"
+      },
+      "expected_calls": [
+        {
+          "tool": "evaluate",
+          "status": "error",
+          "arguments": {
+            "file_id": "9386eeb974b2444c8c91880a94bc19e1"
+          }
+        }
+      ],
+      "observed": {
+        "activity": [
+          {
+            "arguments": {
+              "file_id": "9386eeb974b2444c8c91880a94bc19e1"
+            },
+            "error": "Evaluation requires a Label column containing 0 or 1",
+            "status": "error",
+            "tool": "evaluate"
+          }
+        ],
+        "error": "tool",
+        "reply": "Evaluation requires a Label column containing 0 or 1",
+        "results": []
+      },
+      "observed_tools": [
+        [
+          "evaluate",
+          "error"
+        ]
+      ],
+      "numbers": {
+        "checked": 0,
+        "unmatched": []
+      }
+    },
+    {
+      "scenario": "Single-class evaluation",
+      "requirement": "Single-class evaluation",
+      "prompt": "Evaluate file aad52430bd504a5c9e8491c2e41289e3.",
+      "expected_behavior": "AUC is reported as unavailable; accuracy is still given.",
+      "expected_tools": [
+        [
+          "evaluate",
+          "success"
+        ]
+      ],
+      "passed": true,
+      "failure": null,
+      "files": {
+        "single-class.csv": "aad52430bd504a5c9e8491c2e41289e3"
+      },
+      "expected_calls": [
+        {
+          "tool": "evaluate",
+          "status": "success",
+          "arguments": {
+            "file_id": "aad52430bd504a5c9e8491c2e41289e3"
+          }
+        }
+      ],
+      "observed": {
+        "activity": [
+          {
+            "arguments": {
+              "file_id": "aad52430bd504a5c9e8491c2e41289e3"
+            },
+            "result_id": "d785177ed57a496b9587340ced992fb2",
+            "status": "success",
+            "tool": "evaluate"
+          }
+        ],
+        "reply": "Accuracy: 1.000000. AUC: unavailable (evaluation requires both classes for AUC). Confusion matrix (true rows / predicted columns, goodware then malware): [[0, 0], [0, 2]]. True negatives: 0 goodware files predicted as goodware; false positives: 0 goodware files predicted as malware; false negatives: 0 malware files predicted as goodware; true positives: 2 malware files predicted as malware. Evaluated 2 of 2 rows; 0 excluded (missing labels 0, invalid labels 0). Labeled class counts: goodware 0, malware 2.",
+        "results": [
+          {
+            "accuracy": 1.0,
+            "auc": null,
+            "auc_reason": "AUC requires both classes among the evaluated labels",
+            "class_counts": {
+              "0": 0,
+              "1": 2
+            },
+            "confusion_matrix": [
+              [
+                0,
+                0
+              ],
+              [
+                0,
+                2
+              ]
+            ],
+            "confusion_matrix_order": [
+              0,
+              1
+            ],
+            "evaluated_count": 2,
+            "evaluation_coverage": 1.0,
+            "feature_valid_count": 2,
+            "file_id": "aad52430bd504a5c9e8491c2e41289e3",
+            "invalid_count": 0,
+            "invalid_label_count": 0,
+            "invalid_rows": [],
+            "invalid_rows_truncated": false,
+            "missing_label_count": 0,
+            "model_version": "d13e54cf1970-1791236375742615262",
+            "result_id": "d785177ed57a496b9587340ced992fb2",
+            "threshold": 0.5,
+            "tool": "evaluate",
+            "total_count": 2,
+            "valid_count": 2
+          }
+        ]
+      },
+      "observed_tools": [
+        [
+          "evaluate",
+          "success"
+        ]
+      ],
+      "numbers": {
+        "checked": 1,
+        "unmatched": []
+      }
+    },
+    {
+      "scenario": "Tool failure",
+      "requirement": "Tool failure (controlled fault)",
+      "prompt": "Classify row 7 of file 96e9f6a7d4df4c78a82c009cc2a92ec6.",
+      "expected_behavior": "The one-row file has no row 7: the tool fails and no result is claimed.",
+      "expected_tools": [
+        [
+          "predict_single",
+          "error"
+        ]
+      ],
+      "passed": true,
+      "failure": null,
+      "files": {
+        "single.csv": "96e9f6a7d4df4c78a82c009cc2a92ec6"
+      },
+      "expected_calls": [
+        {
+          "tool": "predict_single",
+          "status": "error",
+          "arguments": {
+            "file_id": "96e9f6a7d4df4c78a82c009cc2a92ec6",
+            "row_index": 7
+          }
+        }
+      ],
+      "observed": {
+        "activity": [
+          {
+            "arguments": {
+              "file_id": "96e9f6a7d4df4c78a82c009cc2a92ec6",
+              "row_index": 7
+            },
+            "error": "row_index must identify an existing row (starting at zero)",
+            "status": "error",
+            "tool": "predict_single"
+          }
+        ],
+        "error": "tool",
+        "reply": "row_index must identify an existing row (starting at zero)",
+        "results": []
+      },
+      "observed_tools": [
+        [
+          "predict_single",
+          "error"
+        ]
+      ],
+      "numbers": {
+        "checked": 0,
+        "unmatched": []
+      }
+    },
+    {
+      "scenario": "Feature explanation refused",
+      "requirement": "No feature explanations",
+      "prompt": "Explain which individual features caused the prediction. Do not run a classifier.",
+      "expected_behavior": "The agent says no explanation tool exists and runs no tool.",
+      "expected_tools": [],
+      "passed": true,
+      "failure": null,
+      "files": {},
+      "expected_calls": [],
+      "observed": {
+        "activity": [],
+        "reply": "Feature-level explanations are unavailable: this app has no explanation tool. Only the saved ML model produces classifications.",
+        "results": []
+      },
+      "observed_tools": [],
+      "numbers": {
+        "checked": 0,
+        "unmatched": []
+      }
+    },
+    {
+      "scenario": "Ambiguous condition",
+      "requirement": "Clarification when ambiguous",
+      "prompt": "Predict row 0 of file d9a1e59852084abca56e9f8c2e7e1dcc only if the accuracy is good enough.",
+      "expected_behavior": "The server asks for a numeric threshold before any AI call.",
+      "expected_tools": [],
+      "passed": true,
+      "failure": null,
+      "files": {
+        "single.csv": "d9a1e59852084abca56e9f8c2e7e1dcc"
+      },
+      "expected_calls": [],
+      "observed": {
+        "activity": [],
+        "error": "input",
+        "reply": "For a conditional prediction, state a numeric accuracy threshold between 0 and 1 (or a percentage), plus the evaluation and prediction files.",
+        "results": []
+      },
+      "observed_tools": [],
+      "numbers": {
+        "checked": 0,
+        "unmatched": []
+      }
+    }
+  ]
+}

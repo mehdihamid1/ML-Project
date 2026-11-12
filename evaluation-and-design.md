@@ -209,10 +209,9 @@ training outputs are excluded from Git. A byte-for-byte copy of the small
 trusted production model is
 bundled under `models/` for the app. The tools, OpenAI agent and Flask application
 are implemented and deployed. In
-[CI run 43138602470](https://github.com/mehdihamid1/ML-Project/actions/runs/43138602470),
+[CI run 43144712363](https://github.com/mehdihamid1/ML-Project/actions/runs/43144712363),
 the test, runtime-test and container-test jobs passed, then the
-[deploy job](https://github.com/mehdihamid1/ML-Project/actions/runs/43138602470/job/130920446277)
-deployed commit `671f791`, the last code change, and its live `/health` check
+deploy job deployed commit `a896ee3`, the last code change, and its live `/health` check
 passed. Real-provider evidence is in [agent-evaluation.md](agent-evaluation.md).
 
 ## Agent and runtime design
@@ -475,7 +474,11 @@ turn's tool description, it decided correctly in all 22 repeated live
 conditional requests, and Run 9 passed all 15 scenarios. A question about
 specific rows that names no file is scoped to the most recently predicted
 file, so another file's stored prediction never answers it; Run 10 passed all
-15 scenarios with that change. Whatever the
+15 scenarios with that change. A later rehearsal found that the false-negative
+follow-up could cite an unavailable result ID after both conditional cases.
+The correction scopes singular references to the latest matching result and
+repairs provider ID mistakes only for an unambiguous verified target. Run 11
+passed all 15 scenarios, and the exact demo passed all 10 checks. Whatever the
 model, the server checks its conditional decision and blocks a disallowed
 prediction. The agent also accepts reasoning models through `OPENAI_MODEL`,
 replaying their encrypted reasoning between tool calls, but only
