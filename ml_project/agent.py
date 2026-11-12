@@ -990,7 +990,12 @@ class Agent:
                     yield self._activity_event(activity)
                     reply = f"Prediction withheld: {reason}, so the agent did not call predict_single."
                     return self._finish(reply + "\n\n" + self._render(evaluation), state, message, activity, results)
-                render_state = {**state, "results": evidence} if followup is not None or row_file else state
+                render_state = state
+                if followup is not None:
+                    render_state = {**state, "results": evidence}
+                elif row_file:
+                    # The scoped stored results, plus this request's new ones.
+                    render_state = {**state, "results": evidence + [r for r in results if r not in evidence]}
                 response_text = _get(response, "output_text", "")
                 shown = []
                 if followup is not None:

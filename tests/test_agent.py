@@ -865,10 +865,15 @@ def test_row_question_after_a_batch_ignores_another_files_prediction(files, row)
         "Classify row 0 of file-a", state, files)
     Agent(service, FakeClient(tool("predict_batch", file_id="file-b"), final())).chat(
         "Classify all rows in file-b", state, files)
-    client = FakeClient(tool("predict_single", file_id="file-b", row_index=row), final())
+    def cite_new_result(request):
+        # Like the live model, cite the result the tool just returned.
+        return final(result_ids=[json.loads(request["input"][-1]["output"])["result_id"]])
+    client = FakeClient(tool("predict_single", file_id="file-b", row_index=row), cite_new_result)
     output = Agent(service, client).chat(f"Is row {row} malware?", state, files)
     assert service.calls[-1] == ("predict_single", files["file-b"]["path"], row)
     assert [(a["tool"], a["status"]) for a in output["activity"]] == [("predict_single", "success")]
+    # Regression on 682413f: the tool ran, but the reply said the result reference was unavailable.
+    assert output["reply"].startswith(f"Row {row}: the saved ML model predicts")
     assert client.requests[0]["tools"] and client.requests[0]["tool_choice"] == "auto"
     brief = [item["content"] for item in client.requests[0]["input"] if item.get("role") == "developer"][-1]
     assert "call predict_single for each named row" in brief and brief.endswith("file-b.")
