@@ -27,6 +27,10 @@ has the spoken lines. Sections 1, 2, 7 and 8 use no files.
 3. Each loaded file shows its ID and prepares an editable question. Change
    it to the request below, replace the placeholder (such as `SINGLE_ID`) with
    that ID, then click **Send** yourself. Nothing is sent automatically.
+   Labeled files prepare evaluation questions. Loading **04b** after **04a**
+   or **05b** after **05a** prepares a conditional prediction question with
+   both file IDs. The minimum evaluation accuracy field uses percent and
+   defaults to 90%; change it and click **Prepare question** when needed.
 4. A session holds at most 5 files, button loads included, and the demo loads 7. Click
    **Reset session & remove files** before sections 5 and 6, as noted there.
    Each section's follow-ups use only that section's files.

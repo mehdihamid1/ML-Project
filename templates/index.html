@@ -48,7 +48,8 @@
             <form id="conditional-form">
               <label for="evaluation-file">Labeled evaluation file</label><select id="evaluation-file" required><option value="">Upload a CSV first</option></select>
               <label for="prediction-file">Prediction file</label><select id="prediction-file" required><option value="">Upload a CSV first</option></select>
-              <div class="field-pair"><div><label for="threshold">Minimum accuracy</label><input type="number" id="threshold" min="0" max="1" step="0.01" value="0.95" required></div><div><label for="row-index">Row number</label><input type="number" id="row-index" min="0" step="1" value="0" required></div></div>
+              <div class="field-pair"><div><label for="threshold">Minimum evaluation accuracy (%)</label><input type="number" id="threshold" min="0" max="100" step="0.1" value="90" required></div><div><label for="row-index">Row number</label><input type="number" id="row-index" min="0" step="1" value="0" required></div></div>
+              <p class="helper">For 04b or 05b, load its matching 04a or 05a first. Loading the prediction file prepares both steps with this minimum accuracy. After changing the fields, click Prepare question.</p>
               <button type="submit" class="secondary-button" id="conditional-button">Prepare question</button>
             </form>
           </section>
@@ -57,7 +58,7 @@
         <section class="conversation panel" aria-labelledby="chat-heading">
           <div class="chat-header"><div><h2 id="chat-heading">Analysis assistant</h2><p>OpenAI plans the tools · LightGBM classifies</p></div><span class="privacy-label">Private session</span></div>
           <div class="messages" id="messages" role="log" aria-live="polite" aria-relevant="additions">
-            <div class="welcome-card"><span class="welcome-symbol">✳</span><h3>Start with a feature file</h3><p>Upload a CSV or load a sample, then choose what you want to know. You can also ask about earlier results in this session.</p><div class="example-prompts"><button type="button" data-prompt="Classify all rows in file {file_id}.">Classify a CSV</button><button type="button" data-prompt="Evaluate file {file_id} using its labels.">Evaluate accuracy</button><button type="button" data-prompt="Predict row 0 of file {file_id}.">Predict one row</button></div></div>
+            <div class="welcome-card"><span class="welcome-symbol">✳</span><h3>Start with a feature file</h3><p>Upload a CSV or load a sample, then choose what you want to know. You can also ask about earlier results in this session.</p><div class="example-prompts"><button type="button" data-prompt="batch">Classify a CSV</button><button type="button" data-prompt="evaluate">Evaluate accuracy</button><button type="button" data-prompt="single">Predict one row</button></div></div>
           </div>
           <div class="chat-footer">
             <div class="notice" id="notice" role="status" aria-live="polite"></div>

@@ -80,22 +80,34 @@ sets Gunicorn options explicitly and keeps one worker for session isolation.
 Choose or drop one or more CSVs from [samples/](samples/README.md) on the
 upload area; each is checked for CSV format, size and required columns as soon
 as it is added. A successful upload fills an editable question using the new
-file ID: predict row 0 for a one-row CSV, or classify all rows otherwise.
+file ID: evaluate a CSV with a `Label` column, predict row 0 of an unlabeled
+one-row CSV, or classify all rows otherwise.
 Without a file of your own, the sample buttons under the upload area (**One
 row**, **Batch of 4**, **Labeled**, **Low accuracy**, **Invalid row**, **Missing
 label**, **One class**) load the matching CSV from `samples/` on the server,
-with the same checks, and prepare an evaluation question for labeled samples.
+with the same checks, and prepare the same questions.
 A second row of numbered buttons (**01**, **02**, **04a**, **04b**, **05a**,
 **05b**, **07**) loads the [demo files](demo-csv/README.md) the same way, under
 their own names.
 Review or edit the question, then click **Send**. Every file card offers
 **Predict row 0**, **Classify all** and, for files with a `Label` column,
 **Evaluate**; each button writes the request for that file into the chat box.
+On the **04b** and **05b** demo files, **Prepare conditional prediction**
+replaces **Predict row 0**.
 The **Copy** button copies the opaque file ID for requests you type yourself.
 Batch results include source row IDs, probabilities, invalid row status and
 errors, and a download link. The conditional form lets you choose an
-evaluation file, a prediction file, a row and an accuracy threshold. Its
-**Prepare question** button fills the chat box and waits for your Send action.
+evaluation file, a prediction file, a row and a minimum evaluation accuracy
+in percent (default 90%). Its **Prepare question** button fills the chat box
+and waits for your Send action; click it again after changing a field.
+Loading or uploading **04b** after **04a**, or **05b** after **05a**, prepares
+the same evaluate-then-predict question with both file IDs and the percentage
+currently in the form. If the matching evaluation file is not loaded yet, no
+question is prepared and a notice names the file to load first.
+All uploads, sample buttons, file-card actions and welcome suggestions share
+the same wording: single predictions request the class and malware probability;
+batches request counts, row errors and downloadable per-row results; evaluations
+request accuracy, AUC, the confusion matrix and evaluated/excluded row counts.
 During the request, live progress shows the current stage and actual function
 names with running, finished, failed, skipped or blocked states, plus elapsed time. Each
 answer lists the tools that produced it, or says that none was called, and the

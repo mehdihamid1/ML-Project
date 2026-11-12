@@ -152,7 +152,7 @@ demo README, and click **Send**.*
 > file; 04b is one record to predict."
 
 *On screen: in the conditional form, choose 04a for evaluation, 04b for
-prediction, row 0 and threshold 0.75. Click **Prepare question**, then
+prediction, row 0 and minimum evaluation accuracy 75%. Click **Prepare question**, then
 **Send**.*
 
 > "The server makes evaluate run first: AUC 1.0, accuracy 1.0, and the
@@ -168,7 +168,7 @@ prediction, row 0 and threshold 0.75. Click **Prepare question**, then
 > prediction the threshold does not allow is blocked."
 
 *On screen: back in the chat, click **05a** and **05b**. Prepare the same
-question with 05a, 05b and threshold 0.9, then click **Send**.*
+question with 05a, 05b and minimum evaluation accuracy 90%, then click **Send**.*
 
 > "Now the other outcome. 05a holds one record whose label we deliberately
 > flipped, so the model gets it wrong. It is a control-flow test, not a

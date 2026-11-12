@@ -11,6 +11,11 @@ const TOOL_NAMES = { predict_single: "Single prediction", predict_batch: "Batch 
 const STATUS_WORDS = { started: "running", success: "finished", error: "failed", skipped: "skipped", blocked: "blocked", recorded: "recorded" };
 const STATUS_MARKS = { started: "…", success: "✓", error: "✕", skipped: "–", blocked: "⊘", recorded: "•" };
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+const PROMPTS = {
+  single: "Predict row 0 of file {file_id}. Report whether it is malware or goodware and its malware probability.",
+  batch: "Classify all rows in file {file_id}. Report malware and goodware counts, identify any invalid rows with their errors, and provide downloadable per-row predictions and malware probabilities. Keep invalid rows in the results.",
+  evaluate: "Evaluate file {file_id} using its labels. Compare the model predictions with the supplied labels and report accuracy, AUC, the confusion matrix, and evaluated and excluded row counts. Report missing or invalid labels and invalid features. Explain unavailable AUC for single-class evaluations.",
+};
 let csrfToken = "";
 let files = [];
 let busy = false;
@@ -240,11 +245,11 @@ function usePrompt(text) {
   ui.input.setSelectionRange(text.length, text.length);
 }
 
-function fileAction(label, file, prompt) {
+function fileAction(label, file, task) {
   const button = element("button", "file-action", label);
   button.type = "button";
   button.setAttribute("aria-label", `${label}: ${file.name}`);
-  button.addEventListener("click", () => usePrompt(prompt.replace("{file_id}", file.id)));
+  button.addEventListener("click", () => usePrompt(PROMPTS[task].replace("{file_id}", file.id)));
   return button;
 }
 
@@ -286,9 +291,19 @@ function renderFiles(items) {
     item.append(idRow);
     // Each card asks about its own file, so a request never targets the wrong upload.
     const actions = element("div", "file-actions");
-    actions.append(fileAction("Predict row 0", file, "Predict row 0 of file {file_id}."));
-    actions.append(fileAction("Classify all", file, "Classify all rows in file {file_id}."));
-    if (file.columns.includes("Label")) actions.append(fileAction("Evaluate", file, "Evaluate file {file_id} using its labels."));
+    if (DEMO_EVALUATIONS[file.name]) {
+      const conditional = element("button", "file-action", "Prepare conditional prediction");
+      conditional.type = "button";
+      conditional.addEventListener("click", () => {
+        const problem = prepareFileQuestion(file);
+        notice(problem || "Conditional question prepared. Review or edit it, then click Send.", !problem);
+      });
+      actions.append(conditional);
+    } else {
+      actions.append(fileAction("Predict row 0", file, "single"));
+    }
+    actions.append(fileAction("Classify all", file, "batch"));
+    if (file.columns.includes("Label")) actions.append(fileAction("Evaluate", file, "evaluate"));
     item.append(actions);
     ui.files.append(item);
   }
@@ -480,8 +495,10 @@ async function uploadFiles(list) {
     ui.uploadZone.classList.remove("busy");
     setUploadText("Choose or drop CSV files", "Up to 5 MiB · 10,000 rows each");
   }
-  if (prepared) usePrompt(prepared.rows === 1 ? `Predict row 0 of file ${prepared.id}.` : `Classify all rows in file ${prepared.id}.`);
-  const ready = prepared ? `${prepared.name} uploaded. Review or edit the question, then click Send.` : "";
+  // Only point at a draft when one was prepared.
+  const unprepared = prepared ? prepareFileQuestion(prepared) : "";
+  if (unprepared) problem = unprepared;
+  const ready = !prepared ? "" : unprepared ? `${prepared.name} uploaded.` : `${prepared.name} uploaded. Review or edit the question, then click Send.`;
   if (problem) notice(`${ready} ${problem}`.trim());
   else notice(ready, true);
 }
@@ -509,10 +526,46 @@ for (const type of ["dragover", "drop"]) {
   });
 }
 
-// A labeled sample prepares an evaluation; the others a prediction. Nothing is sent.
+function conditionalQuestion(evaluationId, predictionId, threshold, index) {
+  return `Evaluate file ${evaluationId} using its labels. Only if its returned accuracy is at least ${threshold}%, predict row ${index} of file ${predictionId}. Otherwise, withhold the prediction.`;
+}
+
+const DEMO_EVALUATIONS = {
+  "04b-condition-met-record.csv": "04a-condition-met-evaluation.csv",
+  "05b-condition-not-met-record.csv": "05a-condition-not-met-evaluation.csv",
+};
+
+function accuracyMinimum() {
+  const field = byId("threshold");
+  if (!field.value.trim() || !field.checkValidity()) throw new Error("Use a minimum evaluation accuracy between 0% and 100%, with at most one decimal place.");
+  return Number(field.value);
+}
+
+// Use the same prompts for uploads and server samples. Nothing is sent.
 function questionFor(file) {
-  if (file.columns.includes("Label")) return `Evaluate file ${file.id} using its labels.`;
-  return file.rows === 1 ? `Predict row 0 of file ${file.id}.` : `Classify all rows in file ${file.id}.`;
+  const evaluationName = DEMO_EVALUATIONS[file.name];
+  if (evaluationName) {
+    const evaluation = [...files].reverse().find((item) => item.name === evaluationName);
+    if (!evaluation) throw new Error(`No question was prepared. Load ${evaluationName} first, then click "Prepare conditional prediction" on ${file.name}.`);
+    const threshold = accuracyMinimum();
+    ui.evaluation.value = evaluation.id;
+    ui.prediction.value = file.id;
+    byId("row-index").value = "0";
+    return conditionalQuestion(evaluation.id, file.id, threshold, 0);
+  }
+  const task = file.columns.includes("Label") ? "evaluate" : file.rows === 1 ? "single" : "batch";
+  return PROMPTS[task].replace("{file_id}", file.id);
+}
+
+function prepareFileQuestion(file) {
+  try {
+    usePrompt(questionFor(file));
+    return "";
+  } catch (error) {
+    // Clear the previous draft so Send cannot accidentally target another file.
+    ui.input.value = "";
+    return error.message;
+  }
 }
 
 // Samples are the repository's CSVs, loaded server side, so graders need no download.
@@ -531,8 +584,10 @@ async function loadSample(name) {
     uploading = false;
     setBusy(busy);
   }
-  if (prepared) usePrompt(questionFor(prepared));
-  const ready = prepared ? `${prepared.name} loaded. Review or edit the question, then click Send.` : "";
+  // Only point at a draft when one was prepared.
+  const unprepared = prepared ? prepareFileQuestion(prepared) : "";
+  if (unprepared) problem = unprepared;
+  const ready = !prepared ? "" : unprepared ? `${prepared.name} loaded.` : `${prepared.name} loaded. Review or edit the question, then click Send.`;
   if (problem) notice(`${ready} ${problem}`.trim());
   else notice(ready, true);
 }
@@ -543,21 +598,22 @@ document.querySelectorAll("[data-sample]").forEach((button) => {
 
 byId("conditional-form").addEventListener("submit", (event) => {
   event.preventDefault();
-  const threshold = Number(byId("threshold").value);
+  let threshold;
+  try { threshold = accuracyMinimum(); } catch (error) { return notice(error.message); }
   const index = Number(byId("row-index").value);
   if (!ui.evaluation.value || !ui.prediction.value) return notice("Choose evaluation and prediction files.");
-  if (!Number.isFinite(threshold) || threshold < 0 || threshold > 1 || !Number.isInteger(index) || index < 0) return notice("Use an accuracy between 0 and 1 and a whole row number starting at 0.");
-  usePrompt(`Evaluate file ${ui.evaluation.value}; only if accuracy >= ${threshold}, predict row ${index} of file ${ui.prediction.value}.`);
+  if (!byId("row-index").value.trim() || !Number.isInteger(index) || index < 0) return notice("Use a whole row number starting at 0.");
+  usePrompt(conditionalQuestion(ui.evaluation.value, ui.prediction.value, threshold, index));
   notice("Conditional question prepared. Review or edit it, then click Send.", true);
 });
 
 // The welcome suggestions use the most recent upload; evaluation needs one with labels.
 document.querySelectorAll("[data-prompt]").forEach((button) => {
   button.addEventListener("click", () => {
-    const needsLabels = button.dataset.prompt.startsWith("Evaluate");
+    const needsLabels = button.dataset.prompt === "evaluate";
     const file = [...files].reverse().find((item) => !needsLabels || item.columns.includes("Label"));
     if (!file) return notice(needsLabels ? "Upload a CSV with a Label column first." : "Upload a feature CSV first.");
-    usePrompt(button.dataset.prompt.replace("{file_id}", file.id));
+    usePrompt(PROMPTS[button.dataset.prompt].replace("{file_id}", file.id));
   });
 });
 
