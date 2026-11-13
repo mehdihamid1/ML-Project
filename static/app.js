@@ -239,8 +239,18 @@ function resultCard(result) {
   return card;
 }
 
+// Grow the chat box to show the whole question; the stylesheet caps the height.
+function fitInput() {
+  // Measure without a scrollbar, which would narrow the text and add a line.
+  ui.input.style.overflowY = "hidden";
+  ui.input.style.height = "auto";
+  ui.input.style.height = `${ui.input.scrollHeight}px`;
+  if (ui.input.scrollHeight > ui.input.clientHeight) ui.input.style.overflowY = "auto";
+}
+
 function usePrompt(text) {
   ui.input.value = text;
+  fitInput();
   ui.input.focus();
   ui.input.setSelectionRange(text.length, text.length);
 }
@@ -402,6 +412,7 @@ async function sendChat(text) {
   setBusy(true);
   const question = message("user", text);
   ui.input.value = "";
+  fitInput();
   const pending = message("assistant", "Sending your request…", true);
   const phase = pending.querySelector(".message-text");
   phase.setAttribute("role", "status");
@@ -449,6 +460,7 @@ byId("chat-form").addEventListener("submit", (event) => {
   if (text) sendChat(text);
 });
 
+ui.input.addEventListener("input", fitInput);
 ui.input.addEventListener("keydown", (event) => {
   if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
     event.preventDefault();
@@ -564,6 +576,7 @@ function prepareFileQuestion(file) {
   } catch (error) {
     // Clear the previous draft so Send cannot accidentally target another file.
     ui.input.value = "";
+    fitInput();
     return error.message;
   }
 }
@@ -623,6 +636,9 @@ byId("reset-button").addEventListener("click", async () => {
   try {
     await api("/api/reset", { method: "POST" });
     await refreshSession();
+    // A draft would name a file that no longer exists.
+    ui.input.value = "";
+    fitInput();
     ui.messages.replaceChildren();
     message("assistant", "Session reset. Your files and results were removed. Upload a new CSV to begin.");
     notice("Session reset.", true);

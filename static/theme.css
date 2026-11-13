@@ -52,8 +52,8 @@ h1 span { color: var(--secondary); }
 .fold-controls select, .walkthrough-controls select {
   background: #141c26; color: var(--text); border-color: var(--control-border);
 }
-.reset-button { color: var(--muted); }
-.reset-button:hover { color: var(--danger); }
+.reset-button { background: #3b252c; border-color: #945e68; color: var(--danger); }
+.reset-button:hover { background: #4a2d35; color: var(--danger); }
 .privacy-label, .welcome-symbol { background: #203a35; color: var(--green); }
 .message-text, .message.pending .message-text, .result-kind,
 .stat-value, .tool-step, .activity-tool { color: var(--text); }
